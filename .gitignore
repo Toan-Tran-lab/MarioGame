@@ -1,0 +1,25 @@
+# Build and output directories
+build/
+bin/
+obj/
+out/
+
+# Dependencies and libraries
+lib/
+node_modules/
+vendor/
+
+# IDE and Editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS generated files
+.DS_Store
+Thumbs.db
+
+# Environment files
+.env
+.env.local
+.env.*.local
