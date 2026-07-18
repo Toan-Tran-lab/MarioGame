@@ -1,5 +1,6 @@
 #pragma once
-#include "Mapping.h"
+#include "raylib.h"
+#include "Vector2Ops.h"
 
 enum class FacingDirection {
     Left,

@@ -1,4 +1,5 @@
-#include "../../../Core Header Files/Characters.h"
+#pragma once
+#include "Game Objects/Core Header Files/Characters.h"
 
 class Coin : public GameObject {
 public:

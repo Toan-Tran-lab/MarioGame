@@ -19,7 +19,7 @@ public:
     void SetFacing(FacingDirection dir) { facing_ = dir; }
 
     // Step 1: entry point, called with concrete-typed 'other'
-    virtual void InteractWith(Character& other);
+    virtual void InteractWith(Character& other) = 0;
 
     // Step 2: overloads - default to no-op, only override the pairs that matter
     virtual void HandleInteraction(Goomba& g) {}

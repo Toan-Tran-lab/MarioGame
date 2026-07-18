@@ -1,5 +1,5 @@
 #pragma once
-#include "../../../Core Header Files/Characters.h"
+#include "Game Objects/Core Header Files/Characters.h"
 #include "PlayerState.h"
 
 class Player : public Character {
