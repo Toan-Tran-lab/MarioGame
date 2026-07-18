@@ -1,5 +1,6 @@
 #pragma once
-#include "Player.h"
+
+class Player;
 
 enum class PowerupType {
     Mushroom,

@@ -32,6 +32,6 @@ protected:
     FacingDirection facing_ = FacingDirection::Right;
 
     // A helper ALL characters can reuse: standard physics integration.
-    // Should need to override. Subclasses call this from their own Update().
+    // Shouldn't need to override. Subclasses call this from their own Update().
     void ApplyMotion(float dt);
 };
