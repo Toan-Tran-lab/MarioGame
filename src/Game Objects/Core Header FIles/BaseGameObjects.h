@@ -6,6 +6,11 @@ enum class FacingDirection {
     Right
 };
 
+struct CollisionInfo {
+    Vector2 normal;       // e.g. (0, -1) = other object hit this one from below
+    Vector2 penetration;
+};
+
 class GameObject {
 public:
     // Virtual destructor as needed for a pure abstract base class
@@ -22,6 +27,8 @@ public:
 
     bool IsActive() const { return isActive_; }
     void SetActive(bool active) { isActive_ = active; }
+
+    virtual void OnCollision(GameObject& other, const CollisionInfo& info) {}
 
 protected:
     // Determine the position of the object in the world

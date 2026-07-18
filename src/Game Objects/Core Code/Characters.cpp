@@ -1,4 +1,4 @@
-#include "../Header Files/Characters.h"
+#include "../Core Header Files/Characters.h"
 
 void Character::ApplyMotion(float dt) {
     position_ = position_ + velocity_ * dt;
