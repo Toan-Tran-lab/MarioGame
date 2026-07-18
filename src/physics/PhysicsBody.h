@@ -1,0 +1,19 @@
+#pragma once
+#include <raylib.h>
+
+namespace physics {
+
+    // A minimal, decoupled structure for physics entities
+    struct PhysicsBody {
+        Vector2 position = {0.0f, 0.0f};
+        Vector2 velocity = {0.0f, 0.0f};
+        Vector2 size = {32.0f, 32.0f};
+        bool isGrounded = false;
+        
+        // Helper to get the bounding box for this body
+        Rectangle GetRect() const {
+            return { position.x, position.y, size.x, size.y };
+        }
+    };
+
+} // namespace physics
