@@ -2,6 +2,7 @@
 
 #include <memory>
 #include <stack>
+#include "World/TileMap.h"
 
 class IGameState {
 public:
@@ -26,6 +27,11 @@ public:
 };
 
 class GameplayState : public IGameState {
+private:
+    TileMap tileMap;
+    float cameraX;
+    float cameraY;
+
 public:
     void Initialize() override;
     void Update(float deltaTime) override;

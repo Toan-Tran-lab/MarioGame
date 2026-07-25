@@ -1,5 +1,6 @@
 #include "Global.h"
 #include "MainMenu/MainMenuState/MainMenuState.h"
+#include "TextureManager/TextureManager.h"
 
 namespace Global {
     std::unique_ptr<GameStateManager> gameStateManager;
@@ -12,5 +13,6 @@ namespace Global {
 
     void Cleanup() {
         gameStateManager.reset();
+        TextureManager::UnloadAll();
     }
 }
