@@ -35,28 +35,9 @@ void GameplayState::Initialize() {
     // Khởi tạo bảng source rect cho các loại tile
     TileMap::InitTileInfoTable();
 
-    // Test map: 25 cột x 14 hàng
-    // '.' = EMPTY, 'G' = GROUND, 'B' = BRICK
-    std::vector<std::string> testMap = {
-        ".........................",
-        ".........................",
-        ".........................",
-        ".........................",
-        "......BBB................",
-        ".........................",
-        ".........................",
-        "...............BBB.......",
-        ".........................",
-        ".........................",
-        "....BBBB.................",
-        ".........................",
-        "GGGGGGGGGGGGGGGGGGGGGGGGG",
-        "GGGGGGGGGGGGGGGGGGGGGGGGG",
-    };
-
-    tileMap.SetTextureKey("tiles");
-    tileMap.SetTileSize(48);  // Mỗi tile vẽ 48x48 pixel trên màn hình
-    tileMap.LoadFromStrings(testMap);
+    // Load map từ file JSON
+    tileMap.SetTextureKey("tiles");  // fallback nếu JSON không có textureKey
+    tileMap.LoadFromJsonFile("assets/maps/level1.json");
 
     cameraX = 0.0f;
     cameraY = 0.0f;
@@ -65,10 +46,10 @@ void GameplayState::Initialize() {
 void GameplayState::Update(float deltaTime) {
     // Di chuyển camera bằng phím mũi tên để test
     float speed = 200.0f;
-    if (IsKeyDown(KEY_RIGHT)) cameraX += speed * deltaTime;
-    if (IsKeyDown(KEY_LEFT))  cameraX -= speed * deltaTime;
-    if (IsKeyDown(KEY_DOWN))  cameraY += speed * deltaTime;
-    if (IsKeyDown(KEY_UP))    cameraY -= speed * deltaTime;
+    if (IsKeyDown(KEY_RIGHT)) cameraX += 5*speed * deltaTime;
+    if (IsKeyDown(KEY_LEFT))  cameraX -= 5*speed * deltaTime;
+    if (IsKeyDown(KEY_DOWN))  cameraY += 5*speed * deltaTime;
+    if (IsKeyDown(KEY_UP))    cameraY -= 5*speed * deltaTime;
 
     // Giới hạn camera
     if (cameraX < 0) cameraX = 0;

@@ -2,12 +2,17 @@
 #include "raylib.h"
 #include <vector>
 #include <string>
+#include <fstream>
 
 // Các loại tile
 enum class TileType : int {
-    EMPTY = 0,     // Trống (bầu trời)
-    GROUND,        // Đất
-    BRICK,         // Gạch
+    EMPTY = 0,     //Sky
+    GrassBlock,    
+    Dirt,
+    Brick,         
+    LuckyBlock,
+    PipeBody,
+    PipeMouth,         
     COUNT
 };
 
@@ -40,6 +45,11 @@ public:
     // Tạo map từ mảng string
     // Ký tự: '.' = EMPTY, 'G' = GROUND, 'B' = BRICK
     void LoadFromStrings(const std::vector<std::string>& mapData);
+
+    // Load map từ file JSON
+    // File JSON cần có trường "map" chứa mảng các string
+    // Tùy chọn: "tileSize", "textureKey", "name"
+    bool LoadFromJsonFile(const std::string& filePath);
 
     // Thiết lập
     void SetTextureKey(const std::string& key);

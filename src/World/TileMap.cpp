@@ -1,5 +1,6 @@
 #include "TileMap.h"
 #include "TextureManager/TextureManager.h"
+#include <nlohmann/json.hpp>
 
 // ========== Khởi tạo static ==========
 TileInfo TileMap::tileInfoTable[(int)TileType::COUNT] = {};
@@ -12,7 +13,7 @@ void TileMap::InitTileInfoTable() {
     // x, y: pixel top-left trong spritesheet
     // w, h: kích thước cắt (thường 16x16)
     // ===================================================================
-
+    
     // EMPTY: không vẽ, không va chạm
     tileInfoTable[(int)TileType::EMPTY] = {
         {0, 0, 16, 16},  // không dùng, nhưng khai báo cho đủ
@@ -20,14 +21,33 @@ void TileMap::InitTileInfoTable() {
     };
 
     // GROUND: đất — chỉnh x, y cho đúng vị trí trong spritesheet
-    tileInfoTable[(int)TileType::GROUND] = {
-        {2*16, 6*16, 16, 16},
+    tileInfoTable[(int)TileType::GrassBlock] = {
+        {2*(16+1), 6*(16+1), 16, 16},
         true
     };
 
+    tileInfoTable[(int)TileType::Dirt] = {
+        {2*(16+1), 7*(16+1), 16, 16},
+        true
+    };
+
+    tileInfoTable[(int)TileType::LuckyBlock] = {
+        {17, 17, 16, 16}
+    };
+
     // BRICK: gạch
-    tileInfoTable[(int)TileType::BRICK] = {
-        {32, 0, 16, 16},
+    tileInfoTable[(int)TileType::Brick] = {
+        {304, 0, 16, 16},
+        true
+    };
+
+    tileInfoTable[(int)TileType::PipeBody] = {
+        {68, 68, 16, 16},
+        true
+    };
+
+    tileInfoTable[(int)TileType::PipeMouth] = {
+        {68, 51, 16, 16},
         true
     };
 
@@ -36,7 +56,7 @@ void TileMap::InitTileInfoTable() {
 
 // ========== Constructor ==========
 TileMap::TileMap()
-    : mapWidth(0), mapHeight(0), tileSize(32) {}
+    : mapWidth(0), mapHeight(0), tileSize(GetScreenHeight() / 16) {}
 
 // ========== Load map từ mảng string ==========
 void TileMap::LoadFromStrings(const std::vector<std::string>& mapData) {
@@ -50,11 +70,61 @@ void TileMap::LoadFromStrings(const std::vector<std::string>& mapData) {
         grid[row].resize(mapWidth, TileType::EMPTY);
         for (int col = 0; col < (int)mapData[row].size() && col < mapWidth; col++) {
             switch (mapData[row][col]) {
-                case 'G': grid[row][col] = TileType::GROUND; break;
-                case 'B': grid[row][col] = TileType::BRICK;  break;
+                case 'B': grid[row][col] = TileType::Brick;  break;
+                case 'D': grid[row][col] = TileType::Dirt; break;
+                case 'G': grid[row][col] = TileType::GrassBlock; break;
+                case 'L': grid[row][col] = TileType::LuckyBlock; break;
+                case 'P': grid[row][col] = TileType::PipeBody; break;
+                case 'M': grid[row][col] = TileType::PipeMouth; break;
                 default:  grid[row][col] = TileType::EMPTY;   break;
             }
         }
+    }
+}
+
+// ========== Load map từ file JSON ==========
+bool TileMap::LoadFromJsonFile(const std::string& filePath) {
+    std::ifstream file(filePath);
+    if (!file.is_open()) {
+        TraceLog(LOG_ERROR, "TILEMAP: Cannot open JSON file: %s", filePath.c_str());
+        return false;
+    }
+
+    try {
+        nlohmann::json j;
+        file >> j;
+
+        // Đọc tileSize nếu có
+        if (j.contains("tileSize") && j["tileSize"].is_number_integer()) {
+            tileSize = j["tileSize"].get<int>();
+        }
+
+        // Đọc textureKey nếu có
+        if (j.contains("textureKey") && j["textureKey"].is_string()) {
+            textureKey = j["textureKey"].get<std::string>();
+        }
+
+        // Đọc mảng map (bắt buộc)
+        if (!j.contains("map") || !j["map"].is_array()) {
+            TraceLog(LOG_ERROR, "TILEMAP: JSON file missing 'map' array: %s", filePath.c_str());
+            return false;
+        }
+
+        std::vector<std::string> mapData;
+        for (const auto& row : j["map"]) {
+            if (row.is_string()) {
+                mapData.push_back(row.get<std::string>());
+            }
+        }
+
+        LoadFromStrings(mapData);
+
+        TraceLog(LOG_INFO, "TILEMAP: Loaded map from %s (%dx%d)", filePath.c_str(), mapWidth, mapHeight);
+        return true;
+
+    } catch (const nlohmann::json::exception& e) {
+        TraceLog(LOG_ERROR, "TILEMAP: JSON parse error in %s: %s", filePath.c_str(), e.what());
+        return false;
     }
 }
 
