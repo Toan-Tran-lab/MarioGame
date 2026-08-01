@@ -1,5 +1,5 @@
 #pragma once
-#include "Game Objects/Core Header Files/Characters.h"
+#include "Game Objects/Core Header Files/BaseGameObjects.h"
 
 class Coin : public GameObject {
 public:

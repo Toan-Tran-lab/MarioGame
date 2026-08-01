@@ -4,6 +4,8 @@
 
 class Player : public Character {
 public:
+    void AcceptInteract(CharacterVisitor& other) override;
+
     void Update(float dt) override {
         // game/input-specific logic here (jumping, gravity, input polling)...
         ApplyMotion(dt); // reuse shared physics logic from Character
