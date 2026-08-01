@@ -4,7 +4,8 @@ class Player;
 
 enum class PowerupType {
     Mushroom,
-    FireFlower
+    FireFlower,
+    Star
 };
 
 class PlayerState {
@@ -32,6 +33,13 @@ public:
 
 class FireState : public PlayerState {
 public:
+    void OnHit(Player& player) override;      // classic Mario rule: Fire -> Small directly, skips Super
+    void OnPowerup(Player& player, PowerupType type) override {} // already max state
+};
+
+class StarState : public PlayerState {
+public:
+    void Enter(Player& player) override;
     void OnHit(Player& player) override;      // classic Mario rule: Fire -> Small directly, skips Super
     void OnPowerup(Player& player, PowerupType type) override {} // already max state
 };
