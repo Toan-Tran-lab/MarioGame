@@ -9,6 +9,7 @@ namespace physics {
         Vector2 velocity = {0.0f, 0.0f};
         Vector2 size = {32.0f, 32.0f};
         bool isGrounded = false;
+        float jumpBufferTimer = 0.0f; // Remembers jump inputs for a few frames
         
         // Helper to get the bounding box for this body
         Rectangle GetRect() const {

@@ -7,7 +7,8 @@ namespace physics {
     struct InputState {
         bool moveLeft = false;
         bool moveRight = false;
-        bool jump = false;
+        bool jumpPressed = false;
+        bool jumpHeld = false;
     };
 
     class InputManager {

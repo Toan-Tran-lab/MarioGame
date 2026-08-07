@@ -8,7 +8,9 @@ namespace physics {
         state.moveRight = IsKeyDown(KEY_RIGHT) || IsKeyDown(KEY_D);
         
         // Map Space or W to jump. We check for a pressed event for initial jumping
-        state.jump = IsKeyPressed(KEY_SPACE) || IsKeyPressed(KEY_W);
+        state.jumpPressed = IsKeyPressed(KEY_SPACE) || IsKeyPressed(KEY_W);
+        // We check for a down event for variable jump height (hover mechanics)
+        state.jumpHeld = IsKeyDown(KEY_SPACE) || IsKeyDown(KEY_W);
     }
 
 } // namespace physics
