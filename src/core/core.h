@@ -26,11 +26,19 @@ public:
     void Draw();
 };
 
+#include "Camera/GameCamera.h"
+
 class GameplayState : public IGameState {
 private:
     TileMap tileMap;
-    float cameraX;
-    float cameraY;
+    GameCamera camera;
+
+    // Player state (tạm thời — sẽ refactor thành class Player riêng)
+    float playerX;
+    float playerY;
+    float playerWidth;
+    float playerHeight;
+    float playerSpeed;
 
 public:
     void Initialize() override;

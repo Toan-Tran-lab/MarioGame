@@ -1,92 +1,17 @@
 #include "TileMap.h"
 #include "TextureManager/TextureManager.h"
 #include <nlohmann/json.hpp>
-
-// ========== Khởi tạo static ==========
-TileInfo TileMap::tileInfoTable[(int)TileType::COUNT] = {};
-bool TileMap::tableInitialized = false;
-
-void TileMap::InitTileInfoTable() {
-    // ===================================================================
-    // CẤU HÌNH SOURCE RECT CHO MỖI LOẠI TILE
-    // Chỉnh sửa tọa độ (x, y, w, h) để khớp với spritesheet của bạn
-    // x, y: pixel top-left trong spritesheet
-    // w, h: kích thước cắt (thường 16x16)
-    // ===================================================================
-    
-    // EMPTY: không vẽ, không va chạm
-    tileInfoTable[(int)TileType::EMPTY] = {
-        {0, 0, 16, 16},  // không dùng, nhưng khai báo cho đủ
-        false
-    };
-
-    // GROUND: đất — chỉnh x, y cho đúng vị trí trong spritesheet
-    tileInfoTable[(int)TileType::GrassBlock] = {
-        {2*(16+1), 6*(16+1), 16, 16},
-        true
-    };
-
-    tileInfoTable[(int)TileType::Dirt] = {
-        {2*(16+1), 7*(16+1), 16, 16},
-        true
-    };
-
-    tileInfoTable[(int)TileType::LuckyBlock] = {
-        {17, 17, 16, 16}
-    };
-
-    // BRICK: gạch
-    tileInfoTable[(int)TileType::Brick] = {
-        {304, 0, 16, 16},
-        true
-    };
-
-    tileInfoTable[(int)TileType::PipeBody] = {
-        {68, 68, 16, 16},
-        true
-    };
-
-    tileInfoTable[(int)TileType::PipeMouth] = {
-        {68, 51, 16, 16},
-        true
-    };
-
-    tableInitialized = true;
-}
+#include <algorithm>
 
 // ========== Constructor ==========
 TileMap::TileMap()
-    : mapWidth(0), mapHeight(0), tileSize(GetScreenHeight() / 16) {}
+    : mapWidth(0), mapHeight(0), gridSize(16), tileSize(48) {}
 
-// ========== Load map từ mảng string ==========
-void TileMap::LoadFromStrings(const std::vector<std::string>& mapData) {
-    if (mapData.empty()) return;
-
-    mapHeight = (int)mapData.size();
-    mapWidth = (int)mapData[0].size();
-
-    grid.resize(mapHeight);
-    for (int row = 0; row < mapHeight; row++) {
-        grid[row].resize(mapWidth, TileType::EMPTY);
-        for (int col = 0; col < (int)mapData[row].size() && col < mapWidth; col++) {
-            switch (mapData[row][col]) {
-                case 'B': grid[row][col] = TileType::Brick;  break;
-                case 'D': grid[row][col] = TileType::Dirt; break;
-                case 'G': grid[row][col] = TileType::GrassBlock; break;
-                case 'L': grid[row][col] = TileType::LuckyBlock; break;
-                case 'P': grid[row][col] = TileType::PipeBody; break;
-                case 'M': grid[row][col] = TileType::PipeMouth; break;
-                default:  grid[row][col] = TileType::EMPTY;   break;
-            }
-        }
-    }
-}
-
-// ========== Load map từ file JSON ==========
-bool TileMap::LoadFromJsonFile(const std::string& filePath) {
+// ========== Load from LDtk ==========
+bool TileMap::LoadFromLdtk(const std::string& filePath, const std::string& levelId) {
     std::ifstream file(filePath);
     if (!file.is_open()) {
-        TraceLog(LOG_ERROR, "TILEMAP: Cannot open JSON file: %s", filePath.c_str());
+        TraceLog(LOG_ERROR, "TILEMAP: Cannot open LDtk file: %s", filePath.c_str());
         return false;
     }
 
@@ -94,32 +19,193 @@ bool TileMap::LoadFromJsonFile(const std::string& filePath) {
         nlohmann::json j;
         file >> j;
 
-        // Đọc tileSize nếu có
-        if (j.contains("tileSize") && j["tileSize"].is_number_integer()) {
-            tileSize = j["tileSize"].get<int>();
+        // --- Find the requested level ---
+        const nlohmann::json* levelPtr = nullptr;
+        if (j.contains("levels") && j["levels"].is_array()) {
+            for (const auto& lvl : j["levels"]) {
+                if (lvl.value("identifier", "") == levelId) {
+                    levelPtr = &lvl;
+                    break;
+                }
+            }
         }
-
-        // Đọc textureKey nếu có
-        if (j.contains("textureKey") && j["textureKey"].is_string()) {
-            textureKey = j["textureKey"].get<std::string>();
-        }
-
-        // Đọc mảng map (bắt buộc)
-        if (!j.contains("map") || !j["map"].is_array()) {
-            TraceLog(LOG_ERROR, "TILEMAP: JSON file missing 'map' array: %s", filePath.c_str());
+        if (!levelPtr) {
+            TraceLog(LOG_ERROR, "TILEMAP: Level '%s' not found in %s", levelId.c_str(), filePath.c_str());
             return false;
         }
+        const auto& level = *levelPtr;
 
-        std::vector<std::string> mapData;
-        for (const auto& row : j["map"]) {
-            if (row.is_string()) {
-                mapData.push_back(row.get<std::string>());
+        // --- Read level dimensions ---
+        int pxWid = level.value("pxWid", 0);
+        int pxHei = level.value("pxHei", 0);
+
+        // --- Build a tileset uid -> info lookup from the defs ---
+        struct TilesetInfo {
+            std::string relPath;
+            int tileGridSize;
+            int spacing;
+        };
+        std::unordered_map<int, TilesetInfo> tilesetLookup;
+
+        if (j.contains("defs") && j["defs"].contains("tilesets") && j["defs"]["tilesets"].is_array()) {
+            for (const auto& ts : j["defs"]["tilesets"]) {
+                int uid = ts.value("uid", -1);
+                TilesetInfo info;
+                info.relPath = ts.value("relPath", "");
+                info.tileGridSize = ts.value("tileGridSize", 16);
+                info.spacing = ts.value("spacing", 0);
+                tilesetLookup[uid] = info;
             }
         }
 
-        LoadFromStrings(mapData);
+        // --- Determine native grid size from the first tileset or default ---
+        gridSize = 16;
+        if (!tilesetLookup.empty()) {
+            gridSize = tilesetLookup.begin()->second.tileGridSize;
+        }
 
-        TraceLog(LOG_INFO, "TILEMAP: Loaded map from %s (%dx%d)", filePath.c_str(), mapWidth, mapHeight);
+        // Calculate map dimensions in tiles
+        mapWidth  = pxWid / gridSize;
+        mapHeight = pxHei / gridSize;
+
+        if (mapWidth <= 0 || mapHeight <= 0) {
+            TraceLog(LOG_ERROR, "TILEMAP: Invalid level dimensions %dx%d", pxWid, pxHei);
+            return false;
+        }
+
+        // --- Parse layer instances ---
+        layers.clear();
+        collisionGrid.clear();
+
+        if (!level.contains("layerInstances") || !level["layerInstances"].is_array()) {
+            TraceLog(LOG_ERROR, "TILEMAP: No layerInstances in level '%s'", levelId.c_str());
+            return false;
+        }
+
+        // LDtk stores layers top-to-bottom (front-to-back in the editor),
+        // so we reverse to get back-to-front render order
+        std::vector<nlohmann::json> layerList;
+        for (const auto& li : level["layerInstances"]) {
+            layerList.push_back(li);
+        }
+        std::reverse(layerList.begin(), layerList.end());
+
+        for (const auto& li : layerList) {
+            std::string type = li.value("__type", "");
+            std::string identifier = li.value("__identifier", "");
+
+            if (type == "Tiles") {
+                // --- Tile layer ---
+                TileLayer tl;
+                tl.identifier = identifier;
+                tl.gridSize = li.value("__gridSize", gridSize);
+
+                // Get tileset info
+                int tilesetUid = li.value("__tilesetDefUid", -1);
+                std::string tilesetRelPath = li.value("__tilesetRelPath", "");
+                tl.tilesetRelPath = tilesetRelPath;
+
+                // Derive texture key from identifier
+                tl.textureKey = "ldtk_" + identifier;
+
+                // Resolve the tileset path relative to the LDtk file
+                // LDtk paths are relative to the .ldtk file location
+                // e.g. "../textures/Tileset/tileset.png" -> "assets/textures/Tileset/tileset.png"
+                std::string resolvedPath;
+                {
+                    // Get the directory of the LDtk file
+                    std::string ldtkDir = filePath;
+                    size_t lastSlash = ldtkDir.find_last_of("/\\");
+                    if (lastSlash != std::string::npos) {
+                        ldtkDir = ldtkDir.substr(0, lastSlash + 1);
+                    } else {
+                        ldtkDir = "";
+                    }
+                    resolvedPath = ldtkDir + tilesetRelPath;
+
+                    // Normalize: replace backslashes with forward slashes
+                    for (char& c : resolvedPath) {
+                        if (c == '\\') c = '/';
+                    }
+
+                    // Resolve ".." components simply
+                    // e.g. "assets/maps/../textures/..." -> "assets/textures/..."
+                    std::string result;
+                    std::vector<std::string> parts;
+                    size_t start = 0;
+                    for (size_t i = 0; i <= resolvedPath.size(); i++) {
+                        if (i == resolvedPath.size() || resolvedPath[i] == '/') {
+                            std::string part = resolvedPath.substr(start, i - start);
+                            if (part == ".." && !parts.empty()) {
+                                parts.pop_back();
+                            } else if (part != "." && !part.empty()) {
+                                parts.push_back(part);
+                            }
+                            start = i + 1;
+                        }
+                    }
+                    for (size_t i = 0; i < parts.size(); i++) {
+                        if (i > 0) result += "/";
+                        result += parts[i];
+                    }
+                    resolvedPath = result;
+                }
+
+                // Load the texture
+                if (!TextureManager::Has(tl.textureKey)) {
+                    TextureManager::Load(tl.textureKey, resolvedPath);
+                }
+
+                // Parse grid tiles
+                if (li.contains("gridTiles") && li["gridTiles"].is_array()) {
+                    for (const auto& gt : li["gridTiles"]) {
+                        LdtkTile tile;
+                        tile.px[0]  = gt["px"][0].get<int>();
+                        tile.px[1]  = gt["px"][1].get<int>();
+                        tile.src[0] = gt["src"][0].get<int>();
+                        tile.src[1] = gt["src"][1].get<int>();
+                        tile.f      = gt.value("f", 0);
+                        tl.tiles.push_back(tile);
+                    }
+                }
+
+                // Only add layer if it has tiles and is visible
+                bool visible = li.value("visible", true);
+                if (!tl.tiles.empty() && visible) {
+                    int tileCount = (int)tl.tiles.size();
+                    layers.push_back(std::move(tl));
+                    TraceLog(LOG_INFO, "TILEMAP: Loaded tile layer '%s' (%d tiles, tileset: %s)",
+                             identifier.c_str(), tileCount, resolvedPath.c_str());
+                } else {
+                    TraceLog(LOG_INFO, "TILEMAP: Skipped tile layer '%s' (%d tiles, visible=%s)",
+                             identifier.c_str(), (int)tl.tiles.size(), visible ? "true" : "false");
+                }
+            }
+            else if (type == "IntGrid" && identifier == "Collisions") {
+                // --- Collision IntGrid layer ---
+                int cWid = li.value("__cWid", mapWidth);
+                int cHei = li.value("__cHei", mapHeight);
+
+                collisionGrid.resize(cHei);
+                for (int row = 0; row < cHei; row++) {
+                    collisionGrid[row].resize(cWid, 0);
+                }
+
+                if (li.contains("intGridCsv") && li["intGridCsv"].is_array()) {
+                    const auto& csv = li["intGridCsv"];
+                    for (int i = 0; i < (int)csv.size() && i < cWid * cHei; i++) {
+                        int row = i / cWid;
+                        int col = i % cWid;
+                        collisionGrid[row][col] = csv[i].get<int>();
+                    }
+                }
+
+                TraceLog(LOG_INFO, "TILEMAP: Loaded collision grid (%dx%d)", cWid, cHei);
+            }
+        }
+
+        TraceLog(LOG_INFO, "TILEMAP: Loaded LDtk level '%s' from %s (%dx%d tiles, %d layers, gridSize=%d, displaySize=%d)",
+                 levelId.c_str(), filePath.c_str(), mapWidth, mapHeight, (int)layers.size(), gridSize, tileSize);
         return true;
 
     } catch (const nlohmann::json::exception& e) {
@@ -129,24 +215,17 @@ bool TileMap::LoadFromJsonFile(const std::string& filePath) {
 }
 
 // ========== Setters ==========
-void TileMap::SetTextureKey(const std::string& key) {
-    textureKey = key;
-}
-
 void TileMap::SetTileSize(int size) {
     tileSize = size;
 }
 
-// ========== Truy vấn ==========
-TileType TileMap::GetTile(int col, int row) const {
-    if (!IsInBounds(col, row)) return TileType::EMPTY;
-    return grid[row][col];
-}
-
+// ========== Queries ==========
 bool TileMap::IsSolidAt(int col, int row) const {
     if (!IsInBounds(col, row)) return false;
-    int type = (int)grid[row][col];
-    return tileInfoTable[type].solid;
+    if (collisionGrid.empty()) return false;
+    if (row < 0 || row >= (int)collisionGrid.size()) return false;
+    if (col < 0 || col >= (int)collisionGrid[row].size()) return false;
+    return collisionGrid[row][col] != 0;
 }
 
 bool TileMap::IsInBounds(int col, int row) const {
@@ -159,7 +238,7 @@ int TileMap::GetTileSize() const { return tileSize; }
 int TileMap::GetPixelWidth() const { return mapWidth * tileSize; }
 int TileMap::GetPixelHeight() const { return mapHeight * tileSize; }
 
-// ========== Chuyển đổi tọa độ ==========
+// ========== Coordinate conversion ==========
 Vector2 TileMap::WorldToTile(float worldX, float worldY) const {
     return { worldX / tileSize, worldY / tileSize };
 }
@@ -168,41 +247,51 @@ Vector2 TileMap::TileToWorld(int col, int row) const {
     return { (float)(col * tileSize), (float)(row * tileSize) };
 }
 
-// ========== Vẽ ==========
+// ========== Draw ==========
 void TileMap::Draw(float cameraX, float cameraY) {
-    if (!tableInitialized) InitTileInfoTable();
-
-    Texture2D& tex = TextureManager::Get(textureKey);
-
-    // Chỉ vẽ các tile trong viewport (tối ưu hiệu suất)
     int screenW = GetScreenWidth();
     int screenH = GetScreenHeight();
 
-    int startCol = (int)(cameraX / tileSize);
-    int startRow = (int)(cameraY / tileSize);
-    int endCol = startCol + (screenW / tileSize) + 2;
-    int endRow = startRow + (screenH / tileSize) + 2;
+    // Scale factor: how much to scale native LDtk pixels to display pixels
+    float scale = (float)tileSize / (float)gridSize;
 
-    // Giới hạn trong map
-    if (startCol < 0) startCol = 0;
-    if (startRow < 0) startRow = 0;
-    if (endCol > mapWidth) endCol = mapWidth;
-    if (endRow > mapHeight) endRow = mapHeight;
+    for (const auto& layer : layers) {
+        Texture2D& tex = TextureManager::Get(layer.textureKey);
+        int layerGridSize = layer.gridSize;  // native grid size for this layer
 
-    for (int row = startRow; row < endRow; row++) {
-        for (int col = startCol; col < endCol; col++) {
-            TileType type = grid[row][col];
-            if (type == TileType::EMPTY) continue;
+        for (const auto& tile : layer.tiles) {
+            // Calculate display position (scaled from native LDtk coordinates)
+            float drawX = tile.px[0] * scale;
+            float drawY = tile.px[1] * scale;
 
-            TileInfo& info = tileInfoTable[(int)type];
+            // Viewport culling — skip tiles outside the visible area
+            float drawSize = layerGridSize * scale;
+            if (drawX + drawSize < cameraX || drawX > cameraX + screenW) continue;
+            if (drawY + drawSize < cameraY || drawY > cameraY + screenH) continue;
 
-            // Vị trí vẽ trên màn hình
-            float drawX = col * tileSize - cameraX;
-            float drawY = row * tileSize - cameraY;
+            // Source rectangle from tileset (native pixel coordinates)
+            float srcW = (float)layerGridSize;
+            float srcH = (float)layerGridSize;
 
-            // Source rect từ spritesheet, dest rect trên màn hình
-            Rectangle dest = { drawX, drawY, (float)tileSize, (float)tileSize };
-            DrawTexturePro(tex, info.sourceRect, dest, {0, 0}, 0.0f, WHITE);
+            // Handle flip flags by negating source width/height
+            if (tile.f & 1) srcW = -srcW;  // flip X
+            if (tile.f & 2) srcH = -srcH;  // flip Y
+
+            Rectangle srcRect = {
+                (float)tile.src[0],
+                (float)tile.src[1],
+                srcW,
+                srcH
+            };
+
+            Rectangle destRect = {
+                drawX,
+                drawY,
+                drawSize,
+                drawSize
+            };
+
+            DrawTexturePro(tex, srcRect, destRect, {0, 0}, 0.0f, WHITE);
         }
     }
 }

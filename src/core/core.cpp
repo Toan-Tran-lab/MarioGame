@@ -28,32 +28,101 @@ void GameStateManager::Draw() {
 // ======================================================
 
 void GameplayState::Initialize() {
-    // Load tileset texture
-    TextureManager::Load("tiles",
-        "assets/textures/Tileset/tileset2.png");
+    // Load map + tile atlas + textures từ file JSON (tất cả nằm trong JSON)
+    tileMap.LoadFromLdtk("assets/maps/maps.ldtk", "Level_0");
 
-    // Khởi tạo bảng source rect cho các loại tile
-    TileMap::InitTileInfoTable();
+    // --- Khởi tạo player (tạm thời) ---
+    int ts = tileMap.GetTileSize();
+    playerWidth  = (float)ts;
+    playerHeight = (float)ts;
+    playerX = 3.0f * ts;                                    // Bắt đầu ở cột 3
+    playerY = (float)((tileMap.GetMapHeight() - 4) * ts);   // Trên mặt đất
+    playerSpeed = 300.0f;
 
-    // Load map từ file JSON
-    tileMap.SetTextureKey("tiles");  // fallback nếu JSON không có textureKey
-    tileMap.LoadFromJsonFile("assets/maps/level1.json");
-
-    cameraX = 0.0f;
-    cameraY = 0.0f;
+    // --- Khởi tạo camera ---
+    camera.Init((float)tileMap.GetPixelWidth(),
+                (float)tileMap.GetPixelHeight());
 }
 
 void GameplayState::Update(float deltaTime) {
-    // Di chuyển camera bằng phím mũi tên để test
-    float speed = 200.0f;
-    if (IsKeyDown(KEY_RIGHT)) cameraX += 5*speed * deltaTime;
-    if (IsKeyDown(KEY_LEFT))  cameraX -= 5*speed * deltaTime;
-    if (IsKeyDown(KEY_DOWN))  cameraY += 5*speed * deltaTime;
-    if (IsKeyDown(KEY_UP))    cameraY -= 5*speed * deltaTime;
+    int ts = tileMap.GetTileSize();
 
-    // Giới hạn camera
-    if (cameraX < 0) cameraX = 0;
-    if (cameraY < 0) cameraY = 0;
+    // --- Player movement with tile collision ---
+    float moveX = 0.0f, moveY = 0.0f;
+    if (IsKeyDown(KEY_RIGHT)) moveX += 5 * playerSpeed * deltaTime;
+    if (IsKeyDown(KEY_LEFT))  moveX -= 5 * playerSpeed * deltaTime;
+    if (IsKeyDown(KEY_UP))    moveY -= 5 * playerSpeed * deltaTime;
+    if (IsKeyDown(KEY_DOWN))  moveY += 5 * playerSpeed * deltaTime;
+
+    // --- Resolve X axis first ---
+    playerX += moveX;
+
+    // Clamp to map boundaries
+    if (playerX < 0) playerX = 0;
+    if (playerX + playerWidth > tileMap.GetPixelWidth())
+        playerX = tileMap.GetPixelWidth() - playerWidth;
+
+    // Check collision on X axis
+    {
+        // Determine which tile columns/rows the player overlaps
+        int colStart = (int)(playerX / ts);
+        int colEnd   = (int)((playerX + playerWidth - 1) / ts);
+        int rowStart = (int)(playerY / ts);
+        int rowEnd   = (int)((playerY + playerHeight - 1) / ts);
+
+        for (int row = rowStart; row <= rowEnd; row++) {
+            for (int col = colStart; col <= colEnd; col++) {
+                if (tileMap.IsSolidAt(col, row)) {
+                    // Push player out of the solid tile
+                    if (moveX > 0) {
+                        // Moving right → push left edge of tile
+                        playerX = (float)(col * ts) - playerWidth;
+                    } else if (moveX < 0) {
+                        // Moving left → push to right edge of tile
+                        playerX = (float)((col + 1) * ts);
+                    }
+                }
+            }
+        }
+    }
+
+    // --- Resolve Y axis ---
+    playerY += moveY;
+
+    // Clamp to map boundaries
+    if (playerY < 0) playerY = 0;
+    if (playerY + playerHeight > tileMap.GetPixelHeight())
+        playerY = tileMap.GetPixelHeight() - playerHeight;
+
+    // Check collision on Y axis
+    {
+        int colStart = (int)(playerX / ts);
+        int colEnd   = (int)((playerX + playerWidth - 1) / ts);
+        int rowStart = (int)(playerY / ts);
+        int rowEnd   = (int)((playerY + playerHeight - 1) / ts);
+
+        for (int row = rowStart; row <= rowEnd; row++) {
+            for (int col = colStart; col <= colEnd; col++) {
+                if (tileMap.IsSolidAt(col, row)) {
+                    if (moveY > 0) {
+                        // Moving down → push to top edge of tile
+                        playerY = (float)(row * ts) - playerHeight;
+                    } else if (moveY < 0) {
+                        // Moving up → push to bottom edge of tile
+                        playerY = (float)((row + 1) * ts);
+                    }
+                }
+            }
+        }
+    }
+
+    // --- Cập nhật camera (theo dõi trung tâm player) ---
+    camera.Update(playerX + playerWidth  / 2.0f,
+                  playerY + playerHeight / 2.0f);
+
+    // Chặn player đi lùi qua cạnh trái viewport (giống Mario thật)
+    float leftEdge = camera.GetWorldLeft();
+    if (playerX < leftEdge) playerX = leftEdge;
 
     // Nhấn BACKSPACE để quay lại menu
     if (IsKeyPressed(KEY_BACKSPACE)) {
@@ -63,10 +132,20 @@ void GameplayState::Update(float deltaTime) {
 
 void GameplayState::Draw() {
     ClearBackground(SKYBLUE);
-    tileMap.Draw(cameraX, cameraY);
 
-    // Hướng dẫn
-    DrawText("Arrow keys: move camera | Backspace: back to menu", 10, 10, 16, WHITE);
+    camera.BeginDraw();
+
+        // Vẽ tilemap (truyền vị trí camera cho viewport culling)
+        tileMap.Draw(camera.GetWorldLeft(), camera.GetWorldTop());
+
+        // Vẽ player (tạm thời dùng hình chữ nhật đỏ)
+        DrawRectangle((int)playerX, (int)playerY,
+                      (int)playerWidth, (int)playerHeight, RED);
+
+    camera.EndDraw();
+
+    // HUD — vẽ ngoài camera để cố định trên màn hình
+    DrawText("Arrow keys: move player | Backspace: back to menu", 10, 10, 16, WHITE);
 }
 
 void GameplayState::Cleanup() {
