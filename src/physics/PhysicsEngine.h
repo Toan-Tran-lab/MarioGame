@@ -8,8 +8,11 @@ namespace physics {
     public:
         static constexpr float GRAVITY = 980.0f; // Pixels per second squared
         static constexpr float TERMINAL_VELOCITY = 600.0f;
-        static constexpr float MOVE_SPEED = 200.0f;
-        static constexpr float JUMP_FORCE = -450.0f;
+        static constexpr float MAX_MOVE_SPEED = 250.0f;
+        static constexpr float ACCELERATION = 800.0f;
+        static constexpr float FRICTION = 1000.0f;
+        static constexpr float JUMP_FORCE = -400.0f;
+        static constexpr float JUMP_HOVER_GRAVITY_MULTIPLIER = 0.5f;
 
         // Applies horizontal movement from inputs and vertical movement from gravity
         static void ApplyPhysics(PhysicsBody& body, const InputState& input, float dt);

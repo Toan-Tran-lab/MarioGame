@@ -3,14 +3,32 @@
 namespace physics {
 
     void PhysicsEngine::ApplyPhysics(PhysicsBody& body, const InputState& input, float dt) {
-        // Horizontal Movement
-        body.velocity.x = 0;
-        if (input.moveLeft)  body.velocity.x = -MOVE_SPEED;
-        if (input.moveRight) body.velocity.x = MOVE_SPEED;
+        // Horizontal Movement (Acceleration & Friction)
+        if (input.moveLeft) {
+            body.velocity.x -= ACCELERATION * dt;
+            if (body.velocity.x < -MAX_MOVE_SPEED) body.velocity.x = -MAX_MOVE_SPEED;
+        } else if (input.moveRight) {
+            body.velocity.x += ACCELERATION * dt;
+            if (body.velocity.x > MAX_MOVE_SPEED) body.velocity.x = MAX_MOVE_SPEED;
+        } else {
+            // Apply friction when no directional input
+            if (body.velocity.x > 0) {
+                body.velocity.x -= FRICTION * dt;
+                if (body.velocity.x < 0) body.velocity.x = 0;
+            } else if (body.velocity.x < 0) {
+                body.velocity.x += FRICTION * dt;
+                if (body.velocity.x > 0) body.velocity.x = 0;
+            }
+        }
 
-        // Vertical Movement (Gravity)
+        // Vertical Movement (Gravity & Jump)
         if (!body.isGrounded) {
-            body.velocity.y += GRAVITY * dt;
+            float appliedGravity = GRAVITY;
+            // Jump hover mechanic: less gravity while ascending and holding jump
+            if (body.velocity.y < 0 && input.jump) {
+                appliedGravity *= JUMP_HOVER_GRAVITY_MULTIPLIER;
+            }
+            body.velocity.y += appliedGravity * dt;
             if (body.velocity.y > TERMINAL_VELOCITY) {
                 body.velocity.y = TERMINAL_VELOCITY;
             }
@@ -19,7 +37,7 @@ namespace physics {
             body.velocity.y = 0;
             if (input.jump) {
                 body.velocity.y = JUMP_FORCE;
-                body.isGrounded = false; // Player is no longer grounded after jumping
+                body.isGrounded = false;
             }
         }
 
