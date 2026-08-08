@@ -12,8 +12,7 @@ namespace physics {
         static constexpr float MAX_SPRINT_SPEED = 300.0f;
         static constexpr float ACCELERATION = 800.0f;
         static constexpr float FRICTION = 1000.0f;
-        static constexpr float AIR_ACCEL_MULTIPLIER = 0.5f;
-        static constexpr float AIR_FRICTION_MULTIPLIER = 0.2f;
+        static constexpr float AIR_ACCEL_MULTIPLIER = 0.15f;
         static constexpr float JUMP_FORCE = -400.0f;
         static constexpr float JUMP_HOVER_GRAVITY_MULTIPLIER = 0.5f;
 

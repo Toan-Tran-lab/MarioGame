@@ -1,19 +1,24 @@
 #include "PhysicsEngine.h"
+#include <algorithm>
 
 namespace physics {
 
     void PhysicsEngine::ApplyPhysics(PhysicsBody& body, const InputState& input, float dt) {
         float currentMaxSpeed = input.sprint ? MAX_SPRINT_SPEED : MAX_WALK_SPEED;
         float currentAccel = body.isGrounded ? ACCELERATION : (ACCELERATION * AIR_ACCEL_MULTIPLIER);
-        float currentFriction = body.isGrounded ? FRICTION : (FRICTION * AIR_FRICTION_MULTIPLIER);
+        float currentFriction = FRICTION;
 
         // Horizontal Movement (Acceleration & Friction)
         if (input.moveLeft) {
+            float prevVx = body.velocity.x;
             body.velocity.x -= currentAccel * dt;
-            if (body.velocity.x < -currentMaxSpeed) body.velocity.x = -currentMaxSpeed;
+            float cap = body.isGrounded ? -currentMaxSpeed : std::min(-currentMaxSpeed, prevVx);
+            if (body.velocity.x < cap) body.velocity.x = cap;
         } else if (input.moveRight) {
+            float prevVx = body.velocity.x;
             body.velocity.x += currentAccel * dt;
-            if (body.velocity.x > currentMaxSpeed) body.velocity.x = currentMaxSpeed;
+            float cap = body.isGrounded ? currentMaxSpeed : std::max(currentMaxSpeed, prevVx);
+            if (body.velocity.x > cap) body.velocity.x = cap;
         } else {
             // Apply friction when no directional input
             if (body.velocity.x > 0) {

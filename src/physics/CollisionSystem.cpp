@@ -46,25 +46,49 @@ namespace physics {
 
         for (const auto& block : blocks) {
             CollisionInfo col = GetCollisionInfo(body.GetRect(), block);
-            if (col.side != CollisionSide::NONE) {
-                // Resolve Collision by pushing the body out of the obstacle
-                if (col.side == CollisionSide::LEFT) {
-                    body.position.x += col.overlap;
-                } 
-                else if (col.side == CollisionSide::RIGHT) {
-                    body.position.x -= col.overlap;
-                } 
-                else if (col.side == CollisionSide::TOP) {
-                    // Bonked head on ceiling
-                    body.position.y += col.overlap;
-                    if (body.velocity.y < 0) body.velocity.y = 0; 
-                } 
-                else if (col.side == CollisionSide::BOTTOM) {
-                    // Landed on floor
-                    body.position.y -= col.overlap;
-                    body.isGrounded = true;
-                    if (body.velocity.y > 0) body.velocity.y = 0;
+            if (col.side == CollisionSide::NONE) continue;
+
+            // Prevent massive horizontal warps when jumping into ceilings
+            // If it's a wall hit but the horizontal overlap is larger than our max horizontal frame movement, it's a ceiling hit!
+            if (col.side == CollisionSide::LEFT || col.side == CollisionSide::RIGHT) {
+                float maxValidX = std::abs(body.velocity.x) * (1.0f / 60.0f) + 2.0f;
+                if (col.overlap > maxValidX) {
+                    float bCY = body.position.y + body.size.y / 2.0f;
+                    float blCY = block.y + block.height / 2.0f;
+                    col.overlap = (body.size.y / 2.0f + block.height / 2.0f) - std::abs(bCY - blCY);
+                    col.side = (bCY - blCY > 0) ? CollisionSide::TOP : CollisionSide::BOTTOM;
                 }
+            }
+            
+            // Prevent snagging on corners when moving upward (landing on floor while jumping)
+            if (col.side == CollisionSide::BOTTOM && body.velocity.y < 0) {
+                float bCX = body.position.x + body.size.x / 2.0f;
+                float blCX = block.x + block.width / 2.0f;
+                col.overlap = (body.size.x / 2.0f + block.width / 2.0f) - std::abs(bCX - blCX);
+                col.side = (bCX - blCX > 0) ? CollisionSide::LEFT : CollisionSide::RIGHT;
+            }
+
+            if (col.overlap <= 0.0f) continue;
+
+            // Resolve Collision by pushing the body out of the obstacle
+            if (col.side == CollisionSide::LEFT) {
+                body.position.x += col.overlap;
+                if (body.velocity.x < 0) body.velocity.x = 0;
+            } 
+            else if (col.side == CollisionSide::RIGHT) {
+                body.position.x -= col.overlap;
+                if (body.velocity.x > 0) body.velocity.x = 0;
+            } 
+            else if (col.side == CollisionSide::TOP) {
+                // Bonked head on ceiling
+                body.position.y += col.overlap;
+                if (body.velocity.y < 0) body.velocity.y = 0; 
+            } 
+            else if (col.side == CollisionSide::BOTTOM) {
+                // Landed on floor
+                body.position.y -= col.overlap;
+                body.isGrounded = true;
+                if (body.velocity.y > 0) body.velocity.y = 0;
             }
         }
     }
