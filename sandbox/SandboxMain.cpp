@@ -46,12 +46,12 @@ int main() {
         // Apply Player Physics
         PhysicsEngine::ApplyPhysics(player, inputState, dt);
         
-        // Basic Enemy Physics (Gravity only, no horizontal input)
-        InputState emptyInput;
-        PhysicsEngine::ApplyPhysics(enemy, emptyInput, dt);
-        
-        // Update Enemy AI
-        ProximityAI::UpdateAI(enemy, player, 300.0f, dt);
+        // Update Enemy AI to generate inputs
+        InputState enemyInput;
+        ProximityAI::UpdateAI(enemy, player, 300.0f, dt, enemyInput);
+
+        // Apply Enemy Physics using the generated AI inputs
+        PhysicsEngine::ApplyPhysics(enemy, enemyInput, dt);
 
         // Map Collisions
         CollisionSystem::ResolveMapCollisions(player, blocks);
@@ -85,7 +85,7 @@ int main() {
         // Draw AI Detection Radius
         DrawCircleLines((int)enemy.position.x + 16, (int)enemy.position.y + 16, 300.0f, Fade(RED, 0.3f));
 
-        DrawText("Physics Sandbox: Use Arrows/WASD to Move, Space/W to Jump.", 10, 10, 20, DARKGRAY);
+        DrawText("Physics Sandbox: Use Arrows/WASD to Move, Space/W to Jump, Shift/Z to Sprint.", 10, 10, 20, DARKGRAY);
 
         EndDrawing();
     }
