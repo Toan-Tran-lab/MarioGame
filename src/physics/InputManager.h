@@ -9,6 +9,7 @@ namespace physics {
         bool moveRight = false;
         bool jumpPressed = false;
         bool jumpHeld = false;
+        bool sprint = false;
     };
 
     class InputManager {

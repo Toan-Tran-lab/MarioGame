@@ -11,6 +11,9 @@ namespace physics {
         state.jumpPressed = IsKeyPressed(KEY_SPACE) || IsKeyPressed(KEY_W);
         // We check for a down event for variable jump height (hover mechanics)
         state.jumpHeld = IsKeyDown(KEY_SPACE) || IsKeyDown(KEY_W);
+        
+        // Map Left Shift or Z to sprint
+        state.sprint = IsKeyDown(KEY_LEFT_SHIFT) || IsKeyDown(KEY_Z);
     }
 
 } // namespace physics
