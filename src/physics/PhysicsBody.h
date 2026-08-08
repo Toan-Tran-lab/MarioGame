@@ -10,6 +10,7 @@ namespace physics {
         Vector2 size = {32.0f, 32.0f};
         bool isGrounded = false;
         float jumpBufferTimer = 0.0f; // Remembers jump inputs for a few frames
+        int aiDirection = -1; // -1 for left, 1 for right
         
         // Helper to get the bounding box for this body
         Rectangle GetRect() const {

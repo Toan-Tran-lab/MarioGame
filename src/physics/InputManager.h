@@ -10,6 +10,7 @@ namespace physics {
         bool jumpPressed = false;
         bool jumpHeld = false;
         bool sprint = false;
+        bool ignorePhysics = false; // Bypasses horizontal acceleration and friction for simple AI
     };
 
     class InputManager {
