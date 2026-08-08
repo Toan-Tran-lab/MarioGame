@@ -15,7 +15,7 @@ public:
     virtual void Exit(Player& player) {}
     virtual void OnHit(Player& player) = 0;      // took damage
     virtual void OnPowerup(Player& player, PowerupType type) = 0; // collected mushroom/flower
-    virtual void UpdateState(Player* player, float dt);
+    virtual void UpdateState(Player& player, float dt);
 };
 
 class SmallState : public PlayerState {

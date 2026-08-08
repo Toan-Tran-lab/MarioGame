@@ -2,7 +2,7 @@
 
 void PlayerState::Enter(Player& player) {}
 void PlayerState::Exit(Player& player) {}
-void PlayerState::UpdateState(Player* player, float dt) {}
+void PlayerState::UpdateState(Player& player, float dt) {}
 
 void SmallState::OnHit(Player& player) override;
 void SmallState::OnPowerup(Player& player, PowerupType type) override;

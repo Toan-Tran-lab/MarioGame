@@ -1,6 +1,7 @@
 #include "Player.h"
+#include "Game Objects/Interaction Resolve/PlayerInteraction.h"
 
-~Player() {
+Player::~Player() {
     if (state != nullptr) delete state;
     state = nullptr;
 }
@@ -21,9 +22,9 @@ void Player::AcceptInteract(CharacterVisitor& other) {
     other.Visit(*this);
 }
 
-void Player::Update(float dt) override {
+void Player::Update(float dt) {
     if (state) state->UpdateState(*this, dt);
     ApplyMotion(dt);
 }
 
-void Player::Draw() override {}
+void Player::Draw() {}

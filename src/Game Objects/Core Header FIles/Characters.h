@@ -16,6 +16,9 @@ public:
     FacingDirection GetFacing() const { return facing_; }
     void SetFacing(FacingDirection dir) { facing_ = dir; }
 
+    bool IsGrounded() const { return grounded_; }
+    void SetGrounded(bool grounded) { grounded_ = grounded; }
+
     // Entry point, called with concrete-typed 'other'
     virtual void InteractWith(Character& other) = 0;
     virtual void AcceptInteract(CharacterVisitor& other) = 0;
@@ -24,6 +27,7 @@ protected:
     // Default movement when spawning into a stage is standing still, facing right.
     Vector2 velocity_{ 0.0f, 0.0f };
     FacingDirection facing_ = FacingDirection::Right;
+    bool grounded_ = true;
 
     // A helper ALL characters can reuse: standard physics integration.
     // Shouldn't need to override. Subclasses call this from their own Update().
