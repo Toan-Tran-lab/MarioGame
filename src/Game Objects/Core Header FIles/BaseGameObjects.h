@@ -7,10 +7,7 @@ enum class FacingDirection {
     Right
 };
 
-struct CollisionInfo {
-    Vector2 normal;       // e.g. (0, -1) = other object hit this one from below
-    Vector2 penetration;
-};
+struct CollisionInfo;
 
 class GameObject {
 public:
@@ -29,11 +26,10 @@ public:
     bool IsActive() const { return isActive_; }
     void SetActive(bool active) { isActive_ = active; }
 
-    virtual void OnCollision(GameObject& other, const CollisionInfo& info) = 0;
-
 protected:
     // Determine the position of the object in the world
     Vector2 position_{ 0.0f, 0.0f };
+    Vector2 size_{ 32.0f, 32.0f };
 
 private:
     // For object pooling / despawn logic

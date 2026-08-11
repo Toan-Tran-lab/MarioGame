@@ -16,8 +16,8 @@ if(NOT raylib_FOUND)
     FetchContent_MakeAvailable(raylib)
 endif()
 
-file(GLOB_RECURSE ALL_SRCS "src/*.cpp")
-file(GLOB_RECURSE PHYSICS_SRCS "src/physics/*.cpp")
+file(GLOB_RECURSE ALL_SRCS CONFIGURE_DEPENDS "src/*.cpp")
+file(GLOB_RECURSE PHYSICS_SRCS CONFIGURE_DEPENDS "src/physics/*.cpp")
 
 list(REMOVE_ITEM ALL_SRCS "${CMAKE_CURRENT_SOURCE_DIR}/src/main.cpp")
 

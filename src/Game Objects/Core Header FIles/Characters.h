@@ -1,5 +1,6 @@
 #pragma once
 #include "BaseGameObjects.h"
+#include "physics/PhysicsBody.h"
 
 class CharacterVisitor;
 
@@ -23,10 +24,35 @@ public:
     virtual void InteractWith(Character& other) = 0;
     virtual void AcceptInteract(CharacterVisitor& other) = 0;
 
+    physics::PhysicsBody& GetPhysicsBody() { return physicsBody_; }
+    const physics::PhysicsBody& GetPhysicsBody() const { return physicsBody_; }
+    Rectangle GetRect() const { return { position_.x, position_.y, size_.x, size_.y }; }
+    
+    // Push Character state into the PhysicsBody (call before running physics).
+    void SyncPhysicsBody() {
+        physicsBody_.position = position_;
+        physicsBody_.velocity = velocity_;
+        physicsBody_.isGrounded = grounded_;
+        physicsBody_.size = size_;
+    }
+
+    // Pull PhysicsBody results back into Character state (call after physics).
+    void SyncPhysics() {
+        position_ = physicsBody_.position;
+        velocity_ = physicsBody_.velocity;
+        grounded_ = physicsBody_.isGrounded;
+
+        // Auto-update facing based on horizontal movement
+        if (velocity_.x > 0.0f) facing_ = FacingDirection::Right;
+        else if (velocity_.x < 0.0f) facing_ = FacingDirection::Left;
+    }
+
 protected:
     // Default movement when spawning into a stage is standing still, facing right.
     Vector2 velocity_{ 0.0f, 0.0f };
     FacingDirection facing_ = FacingDirection::Right;
+    physics::PhysicsBody physicsBody_;
+
     bool grounded_ = true;
 
     // A helper ALL characters can reuse: standard physics integration.

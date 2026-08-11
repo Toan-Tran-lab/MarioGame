@@ -1,16 +1,19 @@
 #pragma once
 #include "Game Objects/Core Header Files/Characters.h"
+#include <vector>
 
 class PlayerState;
 
 class Player : public Character {
 private:
     PlayerState* state = nullptr;
+    const std::vector<Rectangle>* collisionBlocks_ = nullptr;
 public:
     ~Player();
 
     void SetState(PlayerState* Temp);
     void TakeDamage();
+    void SetCollisionBlocks(const std::vector<Rectangle>* blocks);
 
     //Inherit from Character.h
     void InteractWith(Character& other) override;

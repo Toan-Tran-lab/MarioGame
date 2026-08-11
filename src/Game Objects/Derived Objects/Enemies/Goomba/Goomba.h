@@ -1,17 +1,20 @@
 #pragma once
 #include "Game Objects/Core Header Files/Characters.h"
+#include <vector>
 
 class Goomba : public Character {
+private:
+    const physics::PhysicsBody* playerBody_ = nullptr;
+    const std::vector<Rectangle>* collisionBlocks_ = nullptr;
 public:
     ~Goomba();
+
+    void SetPlayerBody(const physics::PhysicsBody* player);
+    void SetCollisionBlocks(const std::vector<Rectangle>* blocks);
 
     void InteractWith(Character& other) override;
     void AcceptInteract(CharacterVisitor& other) override;
 
-    void Update(float dt) override {
-        // Simple AI: patrol back and forth
-        ApplyMotion(dt);
-    }
-
+    void Update(float dt) override;
     void Draw() override;
 };
