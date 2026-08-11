@@ -29,7 +29,7 @@ public:
     bool IsActive() const { return isActive_; }
     void SetActive(bool active) { isActive_ = active; }
 
-    virtual void OnCollision(GameObject& other, const CollisionInfo& info) {}
+    virtual void OnCollision(GameObject& other, const CollisionInfo& info) = 0;
 
 protected:
     // Determine the position of the object in the world
