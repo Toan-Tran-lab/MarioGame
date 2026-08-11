@@ -32,7 +32,7 @@ void GameplayState::Initialize() {
     Vector2 spawn = tileMap.GetPlayerSpawn();
     Vector2 spawnPos = { spawn.x > 0 ? spawn.x : 100, spawn.y > 0 ? spawn.y : 300 };
     player_.SetPosition(spawnPos);
-    player_.GetPhysicsBody().size = { 32, 60 }; // Scaled 16x30 by 2
+    player_.SetSize({ 48, 60 }); // Use SetSize so it persists into physics body
     player_.SyncPhysicsBody();
     
     // Extract map collision rects and pass to player
@@ -62,7 +62,7 @@ void GameplayState::Update(float deltaTime) {
     physics::CollisionInfo pveCol = physics::CollisionSystem::GetCollisionInfo(player_.GetRect(), enemy_.GetRect());
     if (pveCol.side == physics::CollisionSide::BOTTOM) {
         enemy_.position.y = 1000;
-        player_.GetPhysicsBody().velocity.y = physics::PhysicsEngine::JUMP_FORCE * 0.5f;
+        player_.GetPhysicsBody().velocity.y = physics::PhysicsEngine::JUMP_FORCE * 0.6f;
         player_.SyncPhysics(); // Sync changes back to player
     } else if (pveCol.side == physics::CollisionSide::LEFT || pveCol.side == physics::CollisionSide::RIGHT || pveCol.side == physics::CollisionSide::TOP) {
         // Player dies / resets

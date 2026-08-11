@@ -41,19 +41,18 @@ namespace physics {
         }
 
         // Vertical Movement (Gravity & Jump)
-        if (!body.isGrounded) {
-            float appliedGravity = GRAVITY;
-            // Jump hover mechanic: less gravity while ascending and holding jump
-            if (body.velocity.y < 0 && input.jumpHeld) {
-                appliedGravity *= JUMP_HOVER_GRAVITY_MULTIPLIER;
-            }
-            body.velocity.y += appliedGravity * dt;
-            if (body.velocity.y > TERMINAL_VELOCITY) {
-                body.velocity.y = TERMINAL_VELOCITY;
-            }
-        } else {
-            // Grounded
-            body.velocity.y = 0;
+        float appliedGravity = GRAVITY;
+        // Jump hover mechanic: less gravity while ascending and holding jump
+        if (body.velocity.y < 0 && input.jumpHeld && !body.isGrounded) {
+            appliedGravity *= JUMP_HOVER_GRAVITY_MULTIPLIER;
+        }
+        
+        body.velocity.y += appliedGravity * dt;
+        if (body.velocity.y > TERMINAL_VELOCITY) {
+            body.velocity.y = TERMINAL_VELOCITY;
+        }
+
+        if (body.isGrounded) {
             // If we buffered a jump, execute it immediately upon touching the ground!
             if (body.jumpBufferTimer > 0) {
                 body.velocity.y = JUMP_FORCE;

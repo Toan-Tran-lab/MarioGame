@@ -57,6 +57,10 @@ void Player::Update(float dt) {
 
     SyncPhysics();
 
+    // Auto-update facing based on input (allows moonwalking/sliding)
+    if (input.moveLeft && !input.moveRight) facing_ = FacingDirection::Left;
+    else if (input.moveRight && !input.moveLeft) facing_ = FacingDirection::Right;
+
     // Determine Animation State
     // Very basic logic: if not grounded -> Jump; if sliding -> Slide; if moving -> Walk; else -> Pose
     // For now, let's keep it simple

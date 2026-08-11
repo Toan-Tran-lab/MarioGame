@@ -274,15 +274,30 @@ std::vector<Rectangle> TileMap::GetCollisionRects() const {
     if (collisionGrid.empty()) return rects;
 
     for (int row = 0; row < (int)collisionGrid.size(); row++) {
+        int startCol = -1;
         for (int col = 0; col < (int)collisionGrid[row].size(); col++) {
             if (collisionGrid[row][col] != 0) {
-                rects.push_back({
-                    (float)(col * tileSize),
-                    (float)(row * tileSize),
-                    (float)tileSize,
-                    (float)tileSize
-                });
+                if (startCol == -1) startCol = col; // Start a new block
+            } else {
+                if (startCol != -1) { // End the block
+                    rects.push_back({
+                        (float)(startCol * tileSize),
+                        (float)(row * tileSize),
+                        (float)((col - startCol) * tileSize),
+                        (float)tileSize
+                    });
+                    startCol = -1;
+                }
             }
+        }
+        // If the row ended with a block, push it
+        if (startCol != -1) {
+            rects.push_back({
+                (float)(startCol * tileSize),
+                (float)(row * tileSize),
+                (float)((collisionGrid[row].size() - startCol) * tileSize),
+                (float)tileSize
+            });
         }
     }
     return rects;

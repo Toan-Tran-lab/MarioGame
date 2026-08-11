@@ -41,10 +41,6 @@ public:
         position_ = physicsBody_.position;
         velocity_ = physicsBody_.velocity;
         grounded_ = physicsBody_.isGrounded;
-
-        // Auto-update facing based on horizontal movement
-        if (velocity_.x > 0.0f) facing_ = FacingDirection::Right;
-        else if (velocity_.x < 0.0f) facing_ = FacingDirection::Left;
     }
 
 protected:

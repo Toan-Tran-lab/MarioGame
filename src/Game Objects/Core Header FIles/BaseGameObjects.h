@@ -23,6 +23,9 @@ public:
     const Vector2& GetPosition() const { return position_; }
     void SetPosition(const Vector2& pos) { position_ = pos; }
 
+    const Vector2& GetSize() const { return size_; }
+    void SetSize(const Vector2& size) { size_ = size; }
+
     bool IsActive() const { return isActive_; }
     void SetActive(bool active) { isActive_ = active; }
 
