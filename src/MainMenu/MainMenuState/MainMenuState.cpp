@@ -1,4 +1,5 @@
 #include "MainMenuState.h"
+#include "MainMenu/LevelSelectState/LevelSelectState.h"
 #include "MainMenu/SettingsState/SettingsState.h"
 #include "MainMenu/CharacterSelectState/CharacterSelectState.h"
 #include "Global/Global.h"

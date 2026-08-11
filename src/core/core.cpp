@@ -1,5 +1,7 @@
 #include "core.h"
 #include "raylib.h"
+#include "TextureManager/TextureManager.h"
+#include "Global/Global.h"
 #include "physics/InputManager.h"
 #include "physics/PhysicsEngine.h"
 #include "physics/CollisionSystem.h"

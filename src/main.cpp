@@ -4,6 +4,7 @@
 int main() {
     SetConfigFlags(FLAG_WINDOW_RESIZABLE);
     InitWindow(800, 600, "Mario Game");
+    ChangeDirectory(GetApplicationDirectory());
     SetTargetFPS(60);
 
     Global::Init();
