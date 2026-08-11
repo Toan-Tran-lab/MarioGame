@@ -2,7 +2,7 @@
 #include "raylib.h"
 #include "core/core.h"
 
-// Character select screen (currently just a stub)
+// Character select screen (Mario / Luigi) that launches the sandbox gameplay state
 class CharacterSelectState : public IGameState {
 private:
     float timeAccum = 0.0f;

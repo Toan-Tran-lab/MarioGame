@@ -2,6 +2,9 @@
 
 #include <memory>
 #include <stack>
+#include <vector>
+#include "physics/PhysicsBody.h"
+#include "physics/InputManager.h"
 
 class IGameState {
 public:
@@ -26,6 +29,12 @@ public:
 };
 
 class GameplayState : public IGameState {
+private:
+    physics::PhysicsBody player_;
+    physics::PhysicsBody enemy_;
+    std::vector<Rectangle> blocks_;
+    physics::InputState inputState_;
+
 public:
     void Initialize() override;
     void Update(float deltaTime) override;
