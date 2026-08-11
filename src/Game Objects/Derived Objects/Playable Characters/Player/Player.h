@@ -1,6 +1,7 @@
 #pragma once
 #include "Game Objects/Core Header Files/Characters.h"
-#include "PlayerState.h"
+
+class PlayerState;
 
 class Player : public Character {
 private:
@@ -9,19 +10,16 @@ public:
     ~Player();
 
     void SetState(PlayerState* Temp);
+    void TakeDamage();
 
     //Inherit from Character.h
     void InteractWith(Character& other) override;
     void AcceptInteract(CharacterVisitor& other) override;
 
     //Inherit from BaseGameObjects.h
-    void Update(float dt) override {
-        // game/input-specific logic here (jumping, gravity, input polling)...
-        ApplyMotion(dt); // reuse shared physics logic from Character
-    }
+    void Update(float dt) override;
 
-    void Draw() override {
-        // render the player's current animation frame at position_,
-        // flipped horizontally if facing_ == FacingDirection::Left
-    }
+    // render the player's current animation frame at position_,
+    // flipped horizontally if facing_ == FacingDirection::Left
+    void Draw() override;
 };
