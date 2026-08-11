@@ -4,6 +4,8 @@
 namespace Global {
     std::unique_ptr<GameStateManager> gameStateManager;
     bool shouldExit = false;
+    bool hasSaveGame = false;
+    KeyBindings keys;
 
     void Init() {
         gameStateManager = std::make_unique<GameStateManager>();
