@@ -3,11 +3,11 @@
 Button::Button()
     : bounds({0, 0, 0, 0}), text(""),
       normalColor(GRAY), hoverColor(DARKGRAY), currentColor(GRAY),
-      isHovered(false), wasClicked(false), prevMouseDown(false) {}
+      isHovered(false), wasClicked(false), prevMouseDown(true) {}
 
 Button::Button(Rectangle bounds, const std::string& text, Color normal, Color hover)
     : bounds(bounds), text(text), normalColor(normal), hoverColor(hover),
-      currentColor(normal), isHovered(false), wasClicked(false), prevMouseDown(false) {}
+      currentColor(normal), isHovered(false), wasClicked(false), prevMouseDown(true) {}
 
 void Button::SetBounds(Rectangle newBounds) {
     bounds = newBounds;

@@ -5,7 +5,7 @@
 
 // ========== Constructor ==========
 TileMap::TileMap()
-    : mapWidth(0), mapHeight(0), gridSize(16), tileSize(48) {}
+    : mapWidth(0), mapHeight(0), gridSize(16), tileSize(48), bgColor(SKYBLUE), playerSpawn({0,0}) {}
 
 // ========== Load from LDtk ==========
 bool TileMap::LoadFromLdtk(const std::string& filePath, const std::string& levelId) {
@@ -38,6 +38,17 @@ bool TileMap::LoadFromLdtk(const std::string& filePath, const std::string& level
         // --- Read level dimensions ---
         int pxWid = level.value("pxWid", 0);
         int pxHei = level.value("pxHei", 0);
+
+        // --- Read background color ---
+        std::string hexStr = level.value("__bgColor", "#87CEEB"); // default skyblue
+        if (hexStr.length() > 0 && hexStr[0] == '#') hexStr = hexStr.substr(1);
+        if (hexStr.length() == 6) hexStr += "FF";
+        try {
+            unsigned int val = std::stoul(hexStr, nullptr, 16);
+            bgColor = GetColor(val);
+        } catch (...) {
+            bgColor = SKYBLUE;
+        }
 
         // --- Build a tileset uid -> info lookup from the defs ---
         struct TilesetInfo {
@@ -202,6 +213,24 @@ bool TileMap::LoadFromLdtk(const std::string& filePath, const std::string& level
 
                 TraceLog(LOG_INFO, "TILEMAP: Loaded collision grid (%dx%d)", cWid, cHei);
             }
+            else if (type == "Entities") {
+                // --- Entity layer ---
+                if (li.contains("entityInstances") && li["entityInstances"].is_array()) {
+                    for (const auto& ent : li["entityInstances"]) {
+                        std::string entId = ent.value("__identifier", "");
+                        if (entId == "Player") {
+                            if (ent.contains("px") && ent["px"].is_array() && ent["px"].size() >= 2) {
+                                float pxX = ent["px"][0].get<float>();
+                                float pxY = ent["px"][1].get<float>();
+                                float scale = (float)tileSize / (float)gridSize;
+                                playerSpawn.x = pxX * scale;
+                                playerSpawn.y = pxY * scale;
+                                TraceLog(LOG_INFO, "TILEMAP: Found player spawn at (%f, %f)", playerSpawn.x, playerSpawn.y);
+                            }
+                        }
+                    }
+                }
+            }
         }
 
         TraceLog(LOG_INFO, "TILEMAP: Loaded LDtk level '%s' from %s (%dx%d tiles, %d layers, gridSize=%d, displaySize=%d)",
@@ -237,6 +266,8 @@ int TileMap::GetMapHeight() const { return mapHeight; }
 int TileMap::GetTileSize() const { return tileSize; }
 int TileMap::GetPixelWidth() const { return mapWidth * tileSize; }
 int TileMap::GetPixelHeight() const { return mapHeight * tileSize; }
+Color TileMap::GetBackgroundColor() const { return bgColor; }
+Vector2 TileMap::GetPlayerSpawn() const { return playerSpawn; }
 
 // ========== Coordinate conversion ==========
 Vector2 TileMap::WorldToTile(float worldX, float worldY) const {
@@ -248,7 +279,7 @@ Vector2 TileMap::TileToWorld(int col, int row) const {
 }
 
 // ========== Draw ==========
-void TileMap::Draw(float cameraX, float cameraY) {
+void TileMap::Draw(float cameraX, float cameraY, float cameraZoom) {
     int screenW = GetScreenWidth();
     int screenH = GetScreenHeight();
 
@@ -266,8 +297,8 @@ void TileMap::Draw(float cameraX, float cameraY) {
 
             // Viewport culling — skip tiles outside the visible area
             float drawSize = layerGridSize * scale;
-            if (drawX + drawSize < cameraX || drawX > cameraX + screenW) continue;
-            if (drawY + drawSize < cameraY || drawY > cameraY + screenH) continue;
+            if (drawX + drawSize < cameraX || drawX > cameraX + (screenW / cameraZoom)) continue;
+            if (drawY + drawSize < cameraY || drawY > cameraY + (screenH / cameraZoom)) continue;
 
             // Source rectangle from tileset (native pixel coordinates)
             float srcW = (float)layerGridSize;
@@ -284,11 +315,14 @@ void TileMap::Draw(float cameraX, float cameraY) {
                 srcH
             };
 
+            // Expand destination rect by a tiny sub-pixel amount to prevent tile gaps (seams)
+            // The expansion amount is scaled by 1/cameraZoom so it is exactly 1 pixel on screen
+            float overlap = 1.0f / cameraZoom;
             Rectangle destRect = {
                 drawX,
                 drawY,
-                drawSize,
-                drawSize
+                drawSize + overlap,
+                drawSize + overlap
             };
 
             DrawTexturePro(tex, srcRect, destRect, {0, 0}, 0.0f, WHITE);

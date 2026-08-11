@@ -27,16 +27,27 @@ void GameStateManager::Draw() {
 // GameplayState — test map + texture
 // ======================================================
 
-void GameplayState::Initialize() {
-    // Load map + tile atlas + textures từ file JSON (tất cả nằm trong JSON)
-    tileMap.LoadFromLdtk("assets/maps/maps.ldtk", "Level_0");
+void GameplayState::SetLevel(const Level& level) {
+    currentLevel = level;
+}
 
-    // --- Khởi tạo player (tạm thời) ---
+void GameplayState::Initialize() {
+    // Load map using the level's LDtk identifier
+    tileMap.LoadFromLdtk("assets/maps/maps.ldtk", currentLevel.GetLdtkLevelId());
+
+    // --- Khởi tạo player --
     int ts = tileMap.GetTileSize();
     playerWidth  = (float)ts;
     playerHeight = (float)ts;
-    playerX = 3.0f * ts;                                    // Bắt đầu ở cột 3
-    playerY = (float)((tileMap.GetMapHeight() - 4) * ts);   // Trên mặt đất
+    
+    Vector2 spawn = tileMap.GetPlayerSpawn();
+    if (spawn.x != 0 || spawn.y != 0) {
+        playerX = spawn.x;
+        playerY = spawn.y;
+    } else {
+        playerX = 3.0f * ts;                                    // Fallback
+        playerY = (float)((tileMap.GetMapHeight() - 4) * ts);   // Fallback
+    }
     playerSpeed = 300.0f;
 
     // --- Khởi tạo camera ---
@@ -131,7 +142,7 @@ void GameplayState::Update(float deltaTime) {
 }
 
 void GameplayState::Draw() {
-    ClearBackground(SKYBLUE);
+    ClearBackground(tileMap.GetBackgroundColor());
 
     camera.BeginDraw();
 
@@ -145,7 +156,8 @@ void GameplayState::Draw() {
     camera.EndDraw();
 
     // HUD — vẽ ngoài camera để cố định trên màn hình
-    DrawText("Arrow keys: move player | Backspace: back to menu", 10, 10, 16, WHITE);
+    DrawText(currentLevel.GetDisplayName().c_str(), 10, 10, 20, YELLOW);
+    DrawText("Arrow keys: move player | Backspace: back to menu", 10, 35, 16, WHITE);
 }
 
 void GameplayState::Cleanup() {

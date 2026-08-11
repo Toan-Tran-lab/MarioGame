@@ -31,8 +31,17 @@ private:
     int gridSize;      // native grid size from LDtk (pixels, e.g. 16)
     int tileSize;      // display tile size on screen (pixels, e.g. 48)
 
+    Color bgColor;     // background color from LDtk level property
+    Vector2 playerSpawn; // store player spawn position
+
 public:
     TileMap();
+
+    // Get background color
+    Color GetBackgroundColor() const;
+
+    // Get player spawn position (scaled to display size)
+    Vector2 GetPlayerSpawn() const;
 
     // Load a level from an LDtk project file
     // levelId: identifier of the level to load (e.g. "Level_0")
@@ -54,6 +63,6 @@ public:
     Vector2 WorldToTile(float worldX, float worldY) const;
     Vector2 TileToWorld(int col, int row) const;
 
-    // Draw all tile layers (cameraX, cameraY for viewport culling)
-    void Draw(float cameraX = 0.0f, float cameraY = 0.0f);
+    // Draw all tile layers (cameraX, cameraY, and cameraZoom for viewport culling)
+    void Draw(float cameraX = 0.0f, float cameraY = 0.0f, float cameraZoom = 1.0f);
 };

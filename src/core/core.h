@@ -3,6 +3,7 @@
 #include <memory>
 #include <stack>
 #include "World/TileMap.h"
+#include "Level/Level.h"
 
 class IGameState {
 public:
@@ -32,6 +33,7 @@ class GameplayState : public IGameState {
 private:
     TileMap tileMap;
     GameCamera camera;
+    Level currentLevel;
 
     // Player state (tạm thời — sẽ refactor thành class Player riêng)
     float playerX;
@@ -41,6 +43,7 @@ private:
     float playerSpeed;
 
 public:
+    void SetLevel(const Level& level);
     void Initialize() override;
     void Update(float deltaTime) override;
     void Draw() override;

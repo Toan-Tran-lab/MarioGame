@@ -1,4 +1,5 @@
 #include "MainMenuState.h"
+#include "MainMenu/LevelSelectState/LevelSelectState.h"
 #include "MainMenu/SettingsState/SettingsState.h"
 #include "Global/Global.h"
 
@@ -29,7 +30,7 @@ void MainMenuState::Update(float deltaTime) {
     for (auto& btn : buttons) btn.Update(mouse, mouseDown);
 
     if (buttons[NEW_GAME].IsClicked()) {
-        Global::gameStateManager->PushState(std::make_unique<GameplayState>());
+        Global::gameStateManager->PushState(std::make_unique<LevelSelectState>());
     }
     if (buttons[SETTINGS].IsClicked()) {
         Global::gameStateManager->PushState(std::make_unique<SettingsState>());
