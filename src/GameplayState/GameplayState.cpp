@@ -5,6 +5,8 @@
 #include "physics/PhysicsEngine.h"
 #include "physics/CollisionSystem.h"
 #include "physics/ProximityAI.h"
+#include "SaveManager/SaveManager.h"
+#include "MainMenu/PauseMenuState/PauseMenuState.h"
 #include <iostream>
 
 GameplayState::GameplayState() {
@@ -13,6 +15,24 @@ GameplayState::GameplayState() {
 
 void GameplayState::SetLevel(const Level& level) {
     currentLevel = level;
+}
+
+void GameplayState::SetLoadedData(Vector2 pos, int loadedScore, float loadedTime) {
+    player_.SetPosition(pos);
+    score = loadedScore;
+    timeLeft = loadedTime;
+    // We can use a flag or just rely on position.
+    // If the position is not (0,0), we might skip spawn overriding in Initialize.
+}
+
+SaveData GameplayState::GetSaveData() const {
+    SaveData data;
+    data.levelId = currentLevel.GetLevelNumber();
+    data.playerX = player_.GetPosition().x;
+    data.playerY = player_.GetPosition().y;
+    data.score = score;
+    data.timeLeft = timeLeft;
+    return data;
 }
 
 void GameplayState::Initialize() {
@@ -29,10 +49,13 @@ void GameplayState::Initialize() {
     TextureManager::Load("mario_slide", "assets/textures/Mario/slide/mario.png");
 
     // Initialize player
-    Vector2 spawn = tileMap.GetPlayerSpawn();
-    Vector2 spawnPos = { spawn.x > 0 ? spawn.x : 100, spawn.y > 0 ? spawn.y : 300 };
-    player_.SetPosition(spawnPos);
-    player_.SetSize({ 48, 60 }); // Use SetSize so it persists into physics body
+    if (player_.GetPosition().x == 0 && player_.GetPosition().y == 0) {
+        Vector2 spawn = tileMap.GetPlayerSpawn();
+        Vector2 spawnPos = { spawn.x > 0 ? spawn.x : 100, spawn.y > 0 ? spawn.y : 300 };
+        player_.SetPosition(spawnPos);
+    }
+    float scl = 0.8;
+    player_.SetSize({36 * scl, 60 * scl}); // Use SetSize so it persists into physics body
     player_.SyncPhysicsBody();
     
     // Extract map collision rects and pass to player
@@ -45,9 +68,38 @@ void GameplayState::Initialize() {
 
     // Initialize camera
     camera.Init((float)tileMap.GetPixelWidth(), (float)tileMap.GetPixelHeight());
+
+    // Auto-save logic
+    // We can just save current state.
+    SaveData data;
+    data.levelId = currentLevel.GetLevelNumber();
+    data.playerX = player_.GetPosition().x;
+    data.playerY = player_.GetPosition().y;
+    data.score = score;
+    data.timeLeft = timeLeft;
+    SaveManager::SaveGame("auto_save", data);
+    Global::hasSaveGame = true;
 }
 
 void GameplayState::Update(float deltaTime) {
+    // Check Pause (ESC)
+    if (IsKeyPressed(Global::keys.pause)) {
+        Global::gameStateManager->PushState(std::make_unique<PauseMenuState>(this));
+    }
+
+    if (isGameOver || isGameWon) {
+        if (IsKeyPressed(KEY_ENTER)) {
+            Global::gameStateManager->PopState(); // Or go to Game Over screen
+        }
+        return;
+    }
+
+    timeLeft -= deltaTime;
+    if (timeLeft <= 0) {
+        timeLeft = 0;
+        isGameOver = true;
+    }
+
     player_.Update(deltaTime);
 
     physics::InputState enemyInput;
@@ -87,7 +139,32 @@ void GameplayState::Draw() {
 
     camera.EndDraw();
 
-    DrawText("Physics Sandbox: Use Arrows/WASD to Move, Space/W to Jump, Shift/Z to Sprint.", 10, 10, 20, DARKGRAY);
+    // Draw HUD
+    float sw = (float)GetScreenWidth();
+    float sh = (float)GetScreenHeight();
+    int fontSize = (int)(sh * 0.035f);
+
+    DrawText("MARIO", (int)(sw * 0.05f), (int)(sh * 0.03f), fontSize, WHITE);
+    DrawText(TextFormat("%06i", score), (int)(sw * 0.05f), (int)(sh * 0.03f + fontSize + 4), fontSize, WHITE);
+
+    const char* worldLabel = "WORLD";
+    int worldX = (int)((sw - MeasureText(worldLabel, fontSize)) * 0.5f);
+    DrawText(worldLabel, worldX, (int)(sh * 0.03f), fontSize, WHITE);
+    DrawText(currentLevel.GetDisplayName().c_str(), worldX - 30, (int)(sh * 0.03f + fontSize + 4), fontSize, WHITE);
+
+    const char* timeLabel = "TIME";
+    int timeX = (int)(sw - MeasureText(timeLabel, fontSize) - sw * 0.05f);
+    DrawText(timeLabel, timeX, (int)(sh * 0.03f), fontSize, WHITE);
+    DrawText(TextFormat("%03i", (int)timeLeft), timeX + 15, (int)(sh * 0.03f + fontSize + 4), fontSize, WHITE);
+
+    if (isGameOver) {
+        DrawRectangle(0, 0, sw, sh, Color{0, 0, 0, 150});
+        int overSize = (int)(sh * 0.1f);
+        int textW = MeasureText("GAME OVER", overSize);
+        DrawText("GAME OVER", (sw - textW) / 2, sh / 2 - overSize, overSize, RED);
+        DrawText("Press ENTER to return", (sw - MeasureText("Press ENTER to return", 20)) / 2, sh / 2 + 50, 20, WHITE);
+    }
+
 }
 
 void GameplayState::Cleanup() {}

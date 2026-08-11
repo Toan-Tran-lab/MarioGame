@@ -41,3 +41,7 @@ void Button::Draw() {
 bool Button::IsClicked() const {
     return wasClicked;
 }
+
+Rectangle Button::GetBounds() const {
+    return bounds;
+}

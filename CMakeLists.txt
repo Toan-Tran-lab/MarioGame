@@ -23,7 +23,7 @@ list(REMOVE_ITEM ALL_SRCS "${CMAKE_CURRENT_SOURCE_DIR}/src/main.cpp")
 
 # --- Main Game Target ---
 add_executable(${PROJECT_NAME} ${ALL_SRCS} src/main.cpp)
-target_include_directories(${PROJECT_NAME} PRIVATE src)
+target_include_directories(${PROJECT_NAME} PRIVATE src ${CMAKE_SOURCE_DIR}/..)
 target_link_libraries(${PROJECT_NAME} PRIVATE raylib)
 
 add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD

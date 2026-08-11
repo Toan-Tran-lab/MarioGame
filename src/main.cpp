@@ -4,6 +4,7 @@
 int main() {
     SetConfigFlags(FLAG_WINDOW_RESIZABLE);
     InitWindow(800, 600, "Mario Game");
+    SetExitKey(0); // Disable ESC auto-exit; our states handle ESC themselves
     ChangeDirectory(GetApplicationDirectory());
     SetTargetFPS(60);
 

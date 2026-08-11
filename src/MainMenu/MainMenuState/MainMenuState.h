@@ -1,6 +1,7 @@
 #pragma once
 #include "raylib.h"
 #include "core/core.h"
+#include "World/TileMap.h"
 #include <vector>
 #include <string>
 
@@ -14,10 +15,14 @@ private:
 
     std::vector<MenuEntry> entries;
     int selectedIndex = 0;
-    bool prevMouseDown = false;
     float timeAccum = 0.0f;
     bool showExitPrompt = false;
     int exitChoice = 0;
+    Vector2 lastMousePos = { -1.0f, -1.0f };
+
+    // Background: rendered screenshot of Level 1 gameplay
+    RenderTexture2D bgTexture;
+    bool bgLoaded = false;
 
     Rectangle GetItemRect(int index, float sw, float sh) const;
 

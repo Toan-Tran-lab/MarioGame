@@ -9,6 +9,10 @@ namespace {
     int selectedCharacter = 0; // 0 = Mario, 1 = Luigi
 }
 
+void CharacterSelectState::SetLevel(const Level& level) {
+    selectedLevel = level;
+}
+
 void CharacterSelectState::Initialize() {
     timeAccum = 0.0f;
     selectedCharacter = 0;
@@ -24,11 +28,38 @@ void CharacterSelectState::Update(float deltaTime) {
     }
 
     if (IsKeyPressed(Global::keys.select) || IsKeyPressed(KEY_ENTER)) {
-        Global::gameStateManager->PushState(std::make_unique<GameplayState>());
+        auto gameplay = std::make_unique<GameplayState>();
+        gameplay->SetLevel(selectedLevel);
+        Global::gameStateManager->PushState(std::move(gameplay));
     }
 
     if (IsKeyPressed(Global::keys.back) || IsKeyPressed(KEY_ESCAPE)) {
         Global::gameStateManager->PopState();
+    }
+    
+    // Mouse hover and click logic
+    Vector2 mousePos = GetMousePosition();
+    float sw = (float)GetScreenWidth();
+    float sh = (float)GetScreenHeight();
+    float panelW = sw * 0.3f, panelH = sh * 0.4f;
+    float panelY = sh * 0.42f;
+    float marioX = sw * 0.5f - sw * 0.32f;
+    float luigiX = sw * 0.5f + sw * 0.02f;
+    Rectangle marioRect = { marioX, panelY, panelW, panelH };
+    Rectangle luigiRect = { luigiX, panelY, panelW, panelH };
+    
+    if (mousePos.x != lastMousePos.x || mousePos.y != lastMousePos.y) {
+        lastMousePos = mousePos;
+        if (CheckCollisionPointRec(mousePos, marioRect)) selectedCharacter = 0;
+        else if (CheckCollisionPointRec(mousePos, luigiRect)) selectedCharacter = 1;
+    }
+    
+    if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
+        if (CheckCollisionPointRec(mousePos, marioRect) || CheckCollisionPointRec(mousePos, luigiRect)) {
+            auto gameplay = std::make_unique<GameplayState>();
+            gameplay->SetLevel(selectedLevel);
+            Global::gameStateManager->PushState(std::move(gameplay));
+        }
     }
 }
 

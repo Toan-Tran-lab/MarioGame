@@ -20,4 +20,5 @@ public:
     void Update(Vector2 mousePos, bool mouseDown);
     void Draw();
     bool IsClicked() const;
+    Rectangle GetBounds() const;
 };

@@ -26,6 +26,7 @@ private:
 public:
     void PushState(std::unique_ptr<IGameState> state);
     void PopState();
+    void PopToMainMenu(); // Pops until only the bottom state (MainMenu) is left
     void Update(float deltaTime);
     void Draw();
 };

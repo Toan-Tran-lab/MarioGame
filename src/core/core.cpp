@@ -20,6 +20,13 @@ void GameStateManager::PopState() {
     }
 }
 
+void GameStateManager::PopToMainMenu() {
+    while (states.size() > 1) {
+        states.top()->Cleanup();
+        states.pop();
+    }
+}
+
 void GameStateManager::Update(float deltaTime) {
     if (!states.empty()) states.top()->Update(deltaTime);
 }

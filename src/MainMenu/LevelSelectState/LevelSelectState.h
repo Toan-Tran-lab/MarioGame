@@ -8,6 +8,9 @@ class LevelSelectState : public IGameState {
 private:
     std::vector<Button> levelButtons;
     Button backButton;
+    int selectedIndex = 0;
+    float timeAccum = 0.0f;
+    Vector2 lastMousePos = { -1.0f, -1.0f };
 
 public:
     void Initialize() override;
