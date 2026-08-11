@@ -4,10 +4,13 @@
 #include "physics/InputManager.h"
 #include "physics/PhysicsEngine.h"
 #include "physics/CollisionSystem.h"
+#include <cmath>
 
 Player::~Player() {
     if (state != nullptr) delete state;
     state = nullptr;
+    if (currentAnimation != nullptr) delete currentAnimation;
+    currentAnimation = nullptr;
 }
 
 void Player::SetState(PlayerState* Temp) {
@@ -23,6 +26,11 @@ void Player::TakeDamage() {
 
 void Player::SetCollisionBlocks(const std::vector<Rectangle>* blocks) {
     collisionBlocks_ = blocks;
+}
+
+void Player::SetAnimation(Animation* newAnim) {
+    if (currentAnimation) delete currentAnimation;
+    currentAnimation = newAnim;
 }
 
 void Player::InteractWith(Character& other) {
@@ -48,6 +56,40 @@ void Player::Update(float dt) {
     }
 
     SyncPhysics();
+
+    // Determine Animation State
+    // Very basic logic: if not grounded -> Jump; if sliding -> Slide; if moving -> Walk; else -> Pose
+    // For now, let's keep it simple
+    if (!grounded_) {
+        if (!dynamic_cast<JumpAnimation*>(currentAnimation)) {
+            SetAnimation(new JumpAnimation());
+        }
+    } else if (std::abs(velocity_.x) > 0.1f) {
+        // Simple slide check: moving one way, pressing the other
+        bool slidingLeft = (velocity_.x > 0 && input.moveLeft);
+        bool slidingRight = (velocity_.x < 0 && input.moveRight);
+        if (slidingLeft || slidingRight) {
+            if (!dynamic_cast<SlideAnimation*>(currentAnimation)) {
+                SetAnimation(new SlideAnimation());
+            }
+        } else {
+            if (!dynamic_cast<WalkAnimation*>(currentAnimation)) {
+                SetAnimation(new WalkAnimation());
+            }
+        }
+    } else {
+        if (!dynamic_cast<PoseAnimation*>(currentAnimation)) {
+            SetAnimation(new PoseAnimation());
+        }
+    }
+
+    if (currentAnimation) {
+        currentAnimation->Update(dt);
+    }
 }
 
-void Player::Draw() {}
+void Player::Draw() {
+    if (currentAnimation) {
+        currentAnimation->Draw(position_, facing_, size_);
+    }
+}

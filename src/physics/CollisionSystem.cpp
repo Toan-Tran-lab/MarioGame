@@ -93,4 +93,36 @@ namespace physics {
         }
     }
 
+    void CollisionSystem::ResolveMapCollisions(PhysicsBody& body, const TileMap& tileMap) {
+        body.isGrounded = false;
+        
+        Rectangle bodyRect = body.GetRect();
+        
+        // Find which grid cells the body overlaps
+        Vector2 minTile = tileMap.WorldToTile(bodyRect.x, bodyRect.y);
+        Vector2 maxTile = tileMap.WorldToTile(bodyRect.x + bodyRect.width, bodyRect.y + bodyRect.height);
+        
+        int startCol = (int)minTile.x;
+        int endCol = (int)maxTile.x;
+        int startRow = (int)minTile.y;
+        int endRow = (int)maxTile.y;
+        
+        std::vector<Rectangle> solidBlocks;
+        int tileSize = tileMap.GetTileSize();
+        
+        for (int row = startRow; row <= endRow; ++row) {
+            for (int col = startCol; col <= endCol; ++col) {
+                if (tileMap.IsSolidAt(col, row)) {
+                    Vector2 tileWorld = tileMap.TileToWorld(col, row);
+                    solidBlocks.push_back({ tileWorld.x, tileWorld.y, (float)tileSize, (float)tileSize });
+                }
+            }
+        }
+        
+        // Resolve using the same logic as the vector<Rectangle> version
+        if (!solidBlocks.empty()) {
+            ResolveMapCollisions(body, solidBlocks);
+        }
+    }
+
 } // namespace physics

@@ -269,6 +269,25 @@ int TileMap::GetPixelHeight() const { return mapHeight * tileSize; }
 Color TileMap::GetBackgroundColor() const { return bgColor; }
 Vector2 TileMap::GetPlayerSpawn() const { return playerSpawn; }
 
+std::vector<Rectangle> TileMap::GetCollisionRects() const {
+    std::vector<Rectangle> rects;
+    if (collisionGrid.empty()) return rects;
+
+    for (int row = 0; row < (int)collisionGrid.size(); row++) {
+        for (int col = 0; col < (int)collisionGrid[row].size(); col++) {
+            if (collisionGrid[row][col] != 0) {
+                rects.push_back({
+                    (float)(col * tileSize),
+                    (float)(row * tileSize),
+                    (float)tileSize,
+                    (float)tileSize
+                });
+            }
+        }
+    }
+    return rects;
+}
+
 // ========== Coordinate conversion ==========
 Vector2 TileMap::WorldToTile(float worldX, float worldY) const {
     return { worldX / tileSize, worldY / tileSize };

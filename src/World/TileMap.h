@@ -43,6 +43,9 @@ public:
     // Get player spawn position (scaled to display size)
     Vector2 GetPlayerSpawn() const;
 
+    // Get all collision blocks as rectangles (for physics engines that prefer rect lists)
+    std::vector<Rectangle> GetCollisionRects() const;
+
     // Load a level from an LDtk project file
     // levelId: identifier of the level to load (e.g. "Level_0")
     bool LoadFromLdtk(const std::string& filePath, const std::string& levelId = "Level_0");

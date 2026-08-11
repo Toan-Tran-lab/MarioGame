@@ -1,5 +1,6 @@
 #include "LevelSelectState.h"
 #include "Global/Global.h"
+#include "GameplayState/GameplayState.h"
 
 void LevelSelectState::Initialize() {
     int total = Level::GetTotalLevels();

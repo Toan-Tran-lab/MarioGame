@@ -30,31 +30,3 @@ public:
     void Draw();
 };
 
-#include "Camera/GameCamera.h"
-
-class GameplayState : public IGameState {
-private:
-    TileMap tileMap;
-    GameCamera camera;
-    Level currentLevel;
-
-    // Player state (tạm thời — sẽ refactor thành class Player riêng)
-    float playerX;
-    float playerY;
-    float playerWidth;
-    float playerHeight;
-    float playerSpeed;
-
-private:
-    physics::PhysicsBody player_;
-    physics::PhysicsBody enemy_;
-    std::vector<Rectangle> blocks_;
-    physics::InputState inputState_;
-
-public:
-    void SetLevel(const Level& level);
-    void Initialize() override;
-    void Update(float deltaTime) override;
-    void Draw() override;
-    void Cleanup() override;
-};

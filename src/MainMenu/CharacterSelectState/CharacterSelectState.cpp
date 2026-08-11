@@ -1,6 +1,7 @@
 #include "CharacterSelectState.h"
 #include "Global/Global.h"
 #include "ui/UIUtils.h"
+#include "GameplayState/GameplayState.h"
 #include <cmath>
 #include <memory>
 
