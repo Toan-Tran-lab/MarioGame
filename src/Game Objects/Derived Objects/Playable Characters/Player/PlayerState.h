@@ -34,7 +34,7 @@ public:
 class FireState : public PlayerState {
 public:
     void OnHit(Player& player) override;      // classic Mario rule: Fire -> Small directly, skips Super
-    void OnPowerup(Player& player, PowerupType type) override {} // already max state
+    void OnPowerup(Player& player, PowerupType type) override; // already max state; Star still applies
 };
 
 class StarState : public PlayerState {
