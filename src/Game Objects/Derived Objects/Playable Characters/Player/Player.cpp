@@ -74,14 +74,16 @@ void Player::Update(float dt) {
     // Determine Animation State
     // Very basic logic: if not grounded -> Jump; if sliding -> Slide; if moving -> Walk; else -> Pose
     // For now, let's keep it simple
-    if (!grounded_) {
+    if (!IsGrounded()) {
         if (!dynamic_cast<JumpAnimation*>(currentAnimation)) {
             SetAnimation(new JumpAnimation());
         }
-    } else if (std::abs(velocity_.x) > 0.1f) {
+    } else if (std::abs(physicsBody_.velocity.x) > 0.1f) {
         // Simple slide check: moving one way, pressing the other
-        bool slidingLeft = (velocity_.x > 0 && input.moveLeft);
-        bool slidingRight = (velocity_.x < 0 && input.moveRight);
+        bool onlyLeft = input.moveLeft && !input.moveRight;
+        bool onlyRight = input.moveRight && !input.moveLeft;
+        bool slidingLeft = (physicsBody_.velocity.x > 0 && onlyLeft);
+        bool slidingRight = (physicsBody_.velocity.x < 0 && onlyRight);
         if (slidingLeft || slidingRight) {
             if (!dynamic_cast<SlideAnimation*>(currentAnimation)) {
                 SetAnimation(new SlideAnimation());

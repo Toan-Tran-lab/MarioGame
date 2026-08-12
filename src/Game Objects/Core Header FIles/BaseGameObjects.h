@@ -7,8 +7,6 @@ enum class FacingDirection {
     Right
 };
 
-struct CollisionInfo;
-
 class GameObject {
 public:
     // Virtual destructor as needed for a pure abstract base class
