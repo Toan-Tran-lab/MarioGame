@@ -66,7 +66,7 @@ void Player::Update(float dt) {
     // For now, let's keep it simple
     if (!grounded_) {
         if (!dynamic_cast<JumpAnimation*>(currentAnimation)) {
-            SetAnimation(new JumpAnimation());
+            SetAnimation(CreateJumpAnimation());
         }
     } else if (std::abs(velocity_.x) > 0.1f) {
         // Simple slide check: moving one way, pressing the other
@@ -74,16 +74,16 @@ void Player::Update(float dt) {
         bool slidingRight = (velocity_.x < 0 && input.moveRight);
         if (slidingLeft || slidingRight) {
             if (!dynamic_cast<SlideAnimation*>(currentAnimation)) {
-                SetAnimation(new SlideAnimation());
+                SetAnimation(CreateSlideAnimation());
             }
         } else {
             if (!dynamic_cast<WalkAnimation*>(currentAnimation)) {
-                SetAnimation(new WalkAnimation());
+                SetAnimation(CreateWalkAnimation());
             }
         }
     } else {
         if (!dynamic_cast<PoseAnimation*>(currentAnimation)) {
-            SetAnimation(new PoseAnimation());
+            SetAnimation(CreatePoseAnimation());
         }
     }
 

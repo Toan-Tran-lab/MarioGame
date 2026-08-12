@@ -20,10 +20,6 @@ private:
     int exitChoice = 0;
     Vector2 lastMousePos = { -1.0f, -1.0f };
 
-    // Background: rendered screenshot of Level 1 gameplay
-    RenderTexture2D bgTexture;
-    bool bgLoaded = false;
-
     Rectangle GetItemRect(int index, float sw, float sh) const;
 
     // Helper methods for Update (< 70 lines each)
@@ -32,7 +28,6 @@ private:
     void HandleMenuAction();
 
     // Helper methods for Draw (< 70 lines each)
-    void DrawBackground(float sw, float sh) const;
     void DrawMenuEntries(float sw, float sh) const;
     void DrawExitPromptDialog(float sw, float sh) const;
 

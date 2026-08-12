@@ -103,6 +103,8 @@ void SettingsState::ApplySetting(int index) {
 
 void SettingsState::Update(float deltaTime) {
     timeAccum += deltaTime;
+    UIUtils::UpdateMenuBackground(deltaTime);
+
     float sw = (float)GetScreenWidth(), sh = (float)GetScreenHeight();
     Vector2 mouse = GetMousePosition();
     bool mouseDown = IsMouseButtonDown(MOUSE_LEFT_BUTTON);
@@ -178,6 +180,7 @@ void SettingsState::HandleMouseClick(float sw, float sh, Vector2 mouse) {
 void SettingsState::Draw() {
     float sw = (float)GetScreenWidth(), sh = (float)GetScreenHeight();
     ClearBackground(Color{ 60, 40, 80, 255 });
+    UIUtils::DrawMenuBackground(sw, sh);
     
     DrawTitleAndHeader(sw, sh);
     DrawSettingsList(sw, sh);

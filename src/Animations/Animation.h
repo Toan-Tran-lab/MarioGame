@@ -18,28 +18,41 @@ public:
 
 // Posing / Idle animation
 class PoseAnimation : public Animation {
+private:
+    std::string textureKey;
+    bool swapFrames;
 public:
+    PoseAnimation(const std::string& key, bool swapFrames = false) : textureKey(key), swapFrames(swapFrames) {}
     void Update(float dt) override;
     void Draw(const Vector2& position, FacingDirection facing, const Vector2& scale) override;
 };
 
 // Walking animation
 class WalkAnimation : public Animation {
+private:
+    std::string textureKey;
 public:
+    WalkAnimation(const std::string& key) : textureKey(key) {}
     void Update(float dt) override;
     void Draw(const Vector2& position, FacingDirection facing, const Vector2& scale) override;
 };
 
 // Jumping animation
 class JumpAnimation : public Animation {
+private:
+    std::string textureKey;
 public:
+    JumpAnimation(const std::string& key) : textureKey(key) {}
     void Update(float dt) override;
     void Draw(const Vector2& position, FacingDirection facing, const Vector2& scale) override;
 };
 
 // Sliding / Skidding animation
 class SlideAnimation : public Animation {
+private:
+    std::string textureKey;
 public:
+    SlideAnimation(const std::string& key) : textureKey(key) {}
     void Update(float dt) override;
     void Draw(const Vector2& position, FacingDirection facing, const Vector2& scale) override;
 };

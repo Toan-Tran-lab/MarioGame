@@ -20,6 +20,12 @@ public:
     void SetCollisionBlocks(const std::vector<Rectangle>* blocks);
     void SetAnimation(Animation* newAnim);
 
+    // Animation Factory Methods
+    virtual Animation* CreatePoseAnimation() = 0;
+    virtual Animation* CreateWalkAnimation() = 0;
+    virtual Animation* CreateJumpAnimation() = 0;
+    virtual Animation* CreateSlideAnimation() = 0;
+
     //Inherit from Character.h
     void InteractWith(Character& other) override;
     void AcceptInteract(CharacterVisitor& other) override;

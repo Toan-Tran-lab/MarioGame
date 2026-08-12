@@ -43,7 +43,7 @@ void PoseAnimation::Draw(const Vector2& position, FacingDirection facing, const 
     if (currentFrame != 0) {
         drawFrame = (facing == FacingDirection::Right) ? 1 : 2;
     }
-    DrawAnim("mario_pose", drawFrame, position, facing, scale);
+    DrawAnim(textureKey, drawFrame, position, facing, scale);
 }
 
 // --- WalkAnimation ---
@@ -56,7 +56,7 @@ void WalkAnimation::Update(float dt) {
 }
 
 void WalkAnimation::Draw(const Vector2& position, FacingDirection facing, const Vector2& scale) {
-    DrawAnim("mario_walk", currentFrame, position, facing, scale);
+    DrawAnim(textureKey, currentFrame, position, facing, scale);
 }
 
 // --- JumpAnimation ---
@@ -65,7 +65,7 @@ void JumpAnimation::Update(float dt) {
 }
 
 void JumpAnimation::Draw(const Vector2& position, FacingDirection facing, const Vector2& scale) {
-    DrawAnim("mario_jump", 0, position, facing, scale);
+    DrawAnim(textureKey, 0, position, facing, scale);
 }
 
 // --- SlideAnimation ---
@@ -76,5 +76,5 @@ void SlideAnimation::Update(float dt) {
 void SlideAnimation::Draw(const Vector2& position, FacingDirection facing, const Vector2& scale) {
     if(facing == FacingDirection::Left) facing = FacingDirection::Right;
     else facing = FacingDirection::Left;
-    DrawAnim("mario_slide", 0, position, facing, scale);
+    DrawAnim(textureKey, 0, position, facing, scale);
 }

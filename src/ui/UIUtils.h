@@ -13,4 +13,10 @@ namespace UIUtils {
     // Vẽ phím tắt và nhãn kế bên (ví dụ "ENTER SELECT"), tự động cộng thêm spacing vào x
     void DrawKeyPrompt(const char* key, const char* label, float& x, float y, int fontSize, int spacing);
 
+    // Menu Background Management
+    void InitMenuBackground();
+    void UpdateMenuBackground(float dt);
+    void DrawMenuBackground(float sw, float sh);
+    void CleanupMenuBackground();
+
 }

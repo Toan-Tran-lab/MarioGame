@@ -8,6 +8,7 @@
 #include "Game Objects/Derived Objects/Playable Characters/Player/Player.h"
 #include "SaveManager/SaveManager.h"
 #include <vector>
+#include <memory>
 
 class GameplayState : public IGameState {
 private:
@@ -15,7 +16,7 @@ private:
     GameCamera camera;
     Level currentLevel;
 
-    Player player_;
+    std::unique_ptr<Player> player_;
     physics::PhysicsBody enemy_; // Keeping the enemy for now, but will make it spawn differently later
     std::vector<Rectangle> mapCollisionRects;
 
@@ -29,6 +30,7 @@ public:
     GameplayState();
     
     void SetLevel(const Level& level);
+    void SetCharacter(int characterId);
     // Use this to override initial data when loading from a save file
     void SetLoadedData(Vector2 pos, int loadedScore, float loadedTime);
     SaveData GetSaveData() const;
