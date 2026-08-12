@@ -78,12 +78,15 @@ void GameplayState::Initialize() {
     mapCollisionRects = tileMap.GetCollisionRects();
     player_->SetCollisionBlocks(&mapCollisionRects);
 
-    // Initialize enemy (placeholder)
-    enemy_.position = { 500, 400 };
-    enemy_.size = { 32, 32 };
+    // Initialize enemy
+    goomba_.SetPosition({ 500, 400 });
+    goomba_.SetSize({ 32, 32 });
+    goomba_.SetPlayerBody(&player_.GetPhysicsBody());
+    goomba_.SetCollisionBlocks(&mapCollisionRects);
 
     // Initialize camera
-    camera.Init((float)tileMap.GetPixelWidth(), (float)tileMap.GetPixelHeight());
+    view = View(16.0f, (float)tileMap.GetTileSize());
+    view.Init((float)tileMap.GetPixelWidth(), (float)tileMap.GetPixelHeight());
 
     // Auto-save logic
     // We can just save current state.
@@ -118,6 +121,19 @@ void GameplayState::Update(float deltaTime) {
 
     player_->Update(deltaTime);
 
+    // Update the goomba (chase AI + physics + collisions)
+    if (goomba_.IsActive()) {
+        goomba_.Update(deltaTime);
+    }
+
+    // Entity interaction: player vs goomba
+    if (goomba_.IsActive() && player_.Overlaps(goomba_)) {
+        player_.InteractWith(goomba_);
+    }
+
+    // Handle player death (respawn at spawn point)
+    if (player_.IsDead()) {
+        player_.SetDead(false);
     physics::InputState enemyInput;
     // For now, no proximity AI update since it relies on blocks_. We will fix ProximityAI later.
     // physics::ProximityAI::UpdateAI(enemy_, player_.GetPhysicsBody(), 300.0f, deltaTime, enemyInput, blocks_);
@@ -140,20 +156,28 @@ void GameplayState::Update(float deltaTime) {
         player_->SyncPhysicsBody();
     }
 
+    view.Update(player_.GetPosition().x, player_.GetPosition().y);
     camera.Update(player_->GetPosition().x, player_->GetPosition().y);
 }
 
 void GameplayState::Draw() {
     ClearBackground(tileMap.GetBackgroundColor());
 
-    camera.BeginDraw();
+    view.BeginDraw();
 
-    tileMap.Draw(camera.GetWorldLeft(), camera.GetWorldTop(), camera.GetRawCamera().zoom);
+    tileMap.Draw(view.GetWorldLeft(), view.GetWorldTop(), view.GetRawCamera().zoom);
 
+    // If you want to manually draw blocks using view, you can do so here:
+    // view.DrawBlock(0, 0, 16, 16, RED);
+
+    player_.Draw();
+    if (goomba_.IsActive()) {
+        goomba_.Draw();
+    }
     player_->Draw();
     DrawRectangleRec(enemy_.GetRect(), RED);
 
-    camera.EndDraw();
+    view.EndDraw();
 
     // Draw HUD
     float sw = (float)GetScreenWidth();

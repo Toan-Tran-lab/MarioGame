@@ -11,14 +11,19 @@ private:
     PlayerState* state = nullptr;
     const std::vector<Rectangle>* collisionBlocks_ = nullptr;
     Animation* currentAnimation = nullptr;
-    
+    bool isDead_ = false;
+
 public:
+    Player();
     ~Player();
 
     void SetState(PlayerState* Temp);
     void TakeDamage();
     void SetCollisionBlocks(const std::vector<Rectangle>* blocks);
     void SetAnimation(Animation* newAnim);
+
+    bool IsDead() const;
+    void SetDead(bool dead);
 
     // Animation Factory Methods
     virtual Animation* CreatePoseAnimation() = 0;
