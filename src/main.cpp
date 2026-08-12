@@ -2,11 +2,11 @@
 #include "Global/Global.h"
 
 int main() {
-    SetConfigFlags(FLAG_WINDOW_RESIZABLE);
-    InitWindow(800, 600, "Mario Game");
+    SetConfigFlags(FLAG_WINDOW_RESIZABLE | FLAG_VSYNC_HINT);
+    InitWindow(1092, 768, "Mario Game");
     SetExitKey(0); // Disable ESC auto-exit; our states handle ESC themselves
     ChangeDirectory(GetApplicationDirectory());
-    SetTargetFPS(60);
+    // SetTargetFPS(60);
 
     Global::Init();
 

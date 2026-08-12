@@ -4,7 +4,7 @@
 #include "Level/Level.h"
 #include "physics/PhysicsBody.h"
 #include "physics/InputManager.h"
-#include "Camera/GameCamera.h"
+#include "Camera/View.h"
 #include "Game Objects/Derived Objects/Playable Characters/Player/Player.h"
 #include "SaveManager/SaveManager.h"
 #include <vector>
@@ -12,7 +12,7 @@
 class GameplayState : public IGameState {
 private:
     TileMap tileMap;
-    GameCamera camera;
+    View view;
     Level currentLevel;
 
     Player player_;
