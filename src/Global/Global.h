@@ -4,6 +4,9 @@
 #include "raylib.h"
 
 namespace Global {
+    constexpr float BASE_WIDTH = 800.0f;
+    constexpr float BASE_HEIGHT = 600.0f;
+
     struct KeyBindings {
         int moveLeft  = KEY_LEFT;
         int moveRight = KEY_RIGHT;

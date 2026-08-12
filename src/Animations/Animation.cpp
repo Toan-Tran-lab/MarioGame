@@ -74,5 +74,7 @@ void SlideAnimation::Update(float dt) {
 }
 
 void SlideAnimation::Draw(const Vector2& position, FacingDirection facing, const Vector2& scale) {
+    if(facing == FacingDirection::Left) facing = FacingDirection::Right;
+    else facing = FacingDirection::Left;
     DrawAnim("mario_slide", 0, position, facing, scale);
 }

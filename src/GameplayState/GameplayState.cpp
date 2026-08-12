@@ -54,8 +54,8 @@ void GameplayState::Initialize() {
         Vector2 spawnPos = { spawn.x > 0 ? spawn.x : 100, spawn.y > 0 ? spawn.y : 300 };
         player_.SetPosition(spawnPos);
     }
-    float scl = 0.8;
-    player_.SetSize({36 * scl, 60 * scl}); // Use SetSize so it persists into physics body
+    float scl = 2;
+    player_.SetSize({16 * scl, 30 * scl}); // Use SetSize so it persists into physics body
     player_.SyncPhysicsBody();
     
     // Extract map collision rects and pass to player

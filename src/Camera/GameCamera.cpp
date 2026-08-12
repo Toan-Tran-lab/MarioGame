@@ -1,5 +1,5 @@
 #include "GameCamera.h"
-
+#include "Global/Global.h"
 // ========== Constructor ==========
 GameCamera::GameCamera()
     : camera{0}, mapPixelWidth(0), mapPixelHeight(0), maxTargetX(0) {}
@@ -9,18 +9,19 @@ void GameCamera::Init(float mapW, float mapH) {
     mapPixelWidth  = mapW;
     mapPixelHeight = mapH;
 
+    camera.zoom     = (float)GetScreenHeight() / Global::BASE_HEIGHT;
     camera.offset   = { GetScreenWidth() / 2.0f, GetScreenHeight() / 2.0f };
-    camera.target   = { camera.offset.x, camera.offset.y };  // Bắt đầu ở góc trên-trái
+    camera.target   = { camera.offset.x / camera.zoom, camera.offset.y / camera.zoom };  // Bắt đầu ở góc trên-trái
     camera.rotation = 0.0f;
-    camera.zoom     = 1.0f;
 
     // Forward-only: bắt đầu từ vị trí ban đầu
-    maxTargetX = camera.offset.x;
+    maxTargetX = camera.target.x;
 }
 
 // ========== Update ==========
 void GameCamera::Update(float targetX, float targetY) {
-    // Cập nhật offset theo kích thước cửa sổ (hỗ trợ resize)
+    // Cập nhật zoom và offset theo kích thước cửa sổ (hỗ trợ resize)
+    camera.zoom   = (float)GetScreenHeight() / Global::BASE_HEIGHT;
     camera.offset = { GetScreenWidth() / 2.0f, GetScreenHeight() / 2.0f };
 
     // Camera theo dõi target (trung tâm player)
@@ -44,10 +45,10 @@ void GameCamera::Update(float targetX, float targetY) {
 // ========== Clamp ==========
 void GameCamera::ClampToBounds() {
     // Min/max target để viewport không vượt ra ngoài map
-    float minX = camera.offset.x;
-    float maxX = mapPixelWidth  - camera.offset.x;
-    float minY = camera.offset.y;
-    float maxY = mapPixelHeight - camera.offset.y;
+    float minX = camera.offset.x / camera.zoom;
+    float maxX = mapPixelWidth  - (camera.offset.x / camera.zoom);
+    float minY = camera.offset.y / camera.zoom;
+    float maxY = mapPixelHeight - (camera.offset.y / camera.zoom);
 
     // Trục X
     if (maxX < minX) {
@@ -79,11 +80,11 @@ void GameCamera::EndDraw() const {
 
 // ========== Truy vấn ==========
 float GameCamera::GetWorldLeft() const {
-    return camera.target.x - camera.offset.x;
+    return camera.target.x - (camera.offset.x / camera.zoom);
 }
 
 float GameCamera::GetWorldTop() const {
-    return camera.target.y - camera.offset.y;
+    return camera.target.y - (camera.offset.y / camera.zoom);
 }
 
 const Camera2D& GameCamera::GetRawCamera() const {
