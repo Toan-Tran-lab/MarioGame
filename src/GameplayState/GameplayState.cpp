@@ -62,9 +62,11 @@ void GameplayState::Initialize() {
     mapCollisionRects = tileMap.GetCollisionRects();
     player_.SetCollisionBlocks(&mapCollisionRects);
 
-    // Initialize enemy (placeholder)
-    enemy_.position = { 500, 400 };
-    enemy_.size = { 32, 32 };
+    // Initialize enemy
+    goomba_.SetPosition({ 500, 400 });
+    goomba_.SetSize({ 32, 32 });
+    goomba_.SetPlayerBody(&player_.GetPhysicsBody());
+    goomba_.SetCollisionBlocks(&mapCollisionRects);
 
     // Initialize camera
     camera.Init((float)tileMap.GetPixelWidth(), (float)tileMap.GetPixelHeight());
@@ -102,22 +104,19 @@ void GameplayState::Update(float deltaTime) {
 
     player_.Update(deltaTime);
 
-    physics::InputState enemyInput;
-    // For now, no proximity AI update since it relies on blocks_. We will fix ProximityAI later.
-    // physics::ProximityAI::UpdateAI(enemy_, player_.GetPhysicsBody(), 300.0f, deltaTime, enemyInput, blocks_);
-    physics::PhysicsEngine::ApplyPhysics(enemy_, enemyInput, deltaTime);
+    // Update the goomba (chase AI + physics + collisions)
+    if (goomba_.IsActive()) {
+        goomba_.Update(deltaTime);
+    }
 
-    // Grid-based collision for enemy (Now using rect list)
-    physics::CollisionSystem::ResolveMapCollisions(enemy_, mapCollisionRects);
+    // Entity interaction: player vs goomba
+    if (goomba_.IsActive() && player_.Overlaps(goomba_)) {
+        player_.InteractWith(goomba_);
+    }
 
-    // Entity collision
-    physics::CollisionInfo pveCol = physics::CollisionSystem::GetCollisionInfo(player_.GetRect(), enemy_.GetRect());
-    if (pveCol.side == physics::CollisionSide::BOTTOM) {
-        enemy_.position.y = 1000;
-        player_.GetPhysicsBody().velocity.y = physics::PhysicsEngine::JUMP_FORCE * 0.6f;
-        player_.SyncPhysics(); // Sync changes back to player
-    } else if (pveCol.side == physics::CollisionSide::LEFT || pveCol.side == physics::CollisionSide::RIGHT || pveCol.side == physics::CollisionSide::TOP) {
-        // Player dies / resets
+    // Handle player death (respawn at spawn point)
+    if (player_.IsDead()) {
+        player_.SetDead(false);
         Vector2 spawn = tileMap.GetPlayerSpawn();
         Vector2 spawnPos = { spawn.x > 0 ? spawn.x : 100, spawn.y > 0 ? spawn.y : 300 };
         player_.SetPosition(spawnPos);
@@ -135,7 +134,9 @@ void GameplayState::Draw() {
     tileMap.Draw(camera.GetWorldLeft(), camera.GetWorldTop(), camera.GetRawCamera().zoom);
 
     player_.Draw();
-    DrawRectangleRec(enemy_.GetRect(), RED);
+    if (goomba_.IsActive()) {
+        goomba_.Draw();
+    }
 
     camera.EndDraw();
 

@@ -6,6 +6,8 @@
 #include "physics/CollisionSystem.h"
 #include <cmath>
 
+Player::Player() : state(new SmallState()) {}
+
 Player::~Player() {
     if (state != nullptr) delete state;
     state = nullptr;
@@ -22,6 +24,14 @@ void Player::SetState(PlayerState* Temp) {
 
 void Player::TakeDamage() {
     if (state) state->OnHit(*this);
+}
+
+void Player::SetDead(bool dead) {
+    isDead_ = dead;
+}
+
+bool Player::IsDead() const {
+    return isDead_;
 }
 
 void Player::SetCollisionBlocks(const std::vector<Rectangle>* blocks) {

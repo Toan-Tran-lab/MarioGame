@@ -6,6 +6,7 @@
 #include "physics/InputManager.h"
 #include "Camera/GameCamera.h"
 #include "Game Objects/Derived Objects/Playable Characters/Player/Player.h"
+#include "Game Objects/Derived Objects/Enemies/Goomba/Goomba.h"
 #include "SaveManager/SaveManager.h"
 #include <vector>
 
@@ -16,7 +17,7 @@ private:
     Level currentLevel;
 
     Player player_;
-    physics::PhysicsBody enemy_; // Keeping the enemy for now, but will make it spawn differently later
+    Goomba goomba_;
     std::vector<Rectangle> mapCollisionRects;
 
     // HUD & Game Data
