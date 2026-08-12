@@ -34,8 +34,19 @@ private:
     Color bgColor;     // background color from LDtk level property
     Vector2 playerSpawn; // store player spawn position
 
+    float borderLeft;
+    float borderRight;
+    float borderTop;
+    float borderBottom;
+
+    RenderTexture2D mapTarget;
+    bool isTargetBuilt;
+
+    void BuildMapTexture();
+
 public:
     TileMap();
+    ~TileMap();
 
     // Get background color
     Color GetBackgroundColor() const;
@@ -61,6 +72,12 @@ public:
     int GetTileSize() const;
     int GetPixelWidth() const;   // mapWidth * tileSize
     int GetPixelHeight() const;  // mapHeight * tileSize
+    
+    // Map borders
+    float GetBorderLeft() const;
+    float GetBorderRight() const;
+    float GetBorderTop() const;
+    float GetBorderBottom() const;
 
     // Coordinate conversion (world <-> grid)
     Vector2 WorldToTile(float worldX, float worldY) const;

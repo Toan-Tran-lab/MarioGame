@@ -25,6 +25,7 @@ void LevelSelectState::Initialize() {
 
 void LevelSelectState::Update(float deltaTime) {
     timeAccum += deltaTime;
+    UIUtils::UpdateMenuBackground(deltaTime);
     float sw = (float)GetScreenWidth();
     float sh = (float)GetScreenHeight();
 
@@ -110,6 +111,7 @@ void LevelSelectState::Draw() {
     float sh = (float)GetScreenHeight();
 
     ClearBackground(Color{ 60, 40, 80, 255 });
+    UIUtils::DrawMenuBackground(sw, sh);
 
     // Title
     int titleSize = (int)(sh * 0.06f);

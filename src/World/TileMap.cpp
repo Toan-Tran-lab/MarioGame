@@ -5,7 +5,16 @@
 
 // ========== Constructor ==========
 TileMap::TileMap()
-    : mapWidth(0), mapHeight(0), gridSize(16), tileSize(48), bgColor(SKYBLUE), playerSpawn({0,0}) {}
+    : mapWidth(0), mapHeight(0), gridSize(16), tileSize(48), bgColor(SKYBLUE), playerSpawn({0,0}),
+      borderLeft(0.0f), borderRight(0.0f), borderTop(0.0f), borderBottom(0.0f), isTargetBuilt(false) {
+    mapTarget.id = 0;
+}
+
+TileMap::~TileMap() {
+    if (mapTarget.id != 0) {
+        UnloadRenderTexture(mapTarget);
+    }
+}
 
 // ========== Load from LDtk ==========
 bool TileMap::LoadFromLdtk(const std::string& filePath, const std::string& levelId) {
@@ -235,6 +244,15 @@ bool TileMap::LoadFromLdtk(const std::string& filePath, const std::string& level
 
         TraceLog(LOG_INFO, "TILEMAP: Loaded LDtk level '%s' from %s (%dx%d tiles, %d layers, gridSize=%d, displaySize=%d)",
                  levelId.c_str(), filePath.c_str(), mapWidth, mapHeight, (int)layers.size(), gridSize, tileSize);
+                 
+        // Set default borders based on map size
+        borderLeft = 0.0f;
+        borderTop = 0.0f;
+        borderRight = (float)GetPixelWidth();
+        borderBottom = (float)GetPixelHeight();
+                 
+        BuildMapTexture();
+                 
         return true;
 
     } catch (const nlohmann::json::exception& e) {
@@ -268,6 +286,11 @@ int TileMap::GetPixelWidth() const { return mapWidth * tileSize; }
 int TileMap::GetPixelHeight() const { return mapHeight * tileSize; }
 Color TileMap::GetBackgroundColor() const { return bgColor; }
 Vector2 TileMap::GetPlayerSpawn() const { return playerSpawn; }
+
+float TileMap::GetBorderLeft() const { return borderLeft; }
+float TileMap::GetBorderRight() const { return borderRight; }
+float TileMap::GetBorderTop() const { return borderTop; }
+float TileMap::GetBorderBottom() const { return borderBottom; }
 
 std::vector<Rectangle> TileMap::GetCollisionRects() const {
     std::vector<Rectangle> rects;
@@ -312,54 +335,53 @@ Vector2 TileMap::TileToWorld(int col, int row) const {
     return { (float)(col * tileSize), (float)(row * tileSize) };
 }
 
-// ========== Draw ==========
-void TileMap::Draw(float cameraX, float cameraY, float cameraZoom) {
-    int screenW = GetScreenWidth();
-    int screenH = GetScreenHeight();
+void TileMap::BuildMapTexture() {
+    if (mapWidth <= 0 || mapHeight <= 0) return;
 
-    // Scale factor: how much to scale native LDtk pixels to display pixels
+    if (mapTarget.id != 0) {
+        UnloadRenderTexture(mapTarget);
+    }
+    
+    mapTarget = LoadRenderTexture(GetPixelWidth(), GetPixelHeight());
+    
+    BeginTextureMode(mapTarget);
+    ClearBackground(bgColor);
+
     float scale = (float)tileSize / (float)gridSize;
 
     for (const auto& layer : layers) {
         Texture2D& tex = TextureManager::Get(layer.textureKey);
-        int layerGridSize = layer.gridSize;  // native grid size for this layer
+        int layerGridSize = layer.gridSize;
 
         for (const auto& tile : layer.tiles) {
-            // Calculate display position (scaled from native LDtk coordinates)
             float drawX = tile.px[0] * scale;
             float drawY = tile.px[1] * scale;
-
-            // Viewport culling — skip tiles outside the visible area
             float drawSize = layerGridSize * scale;
-            if (drawX + drawSize < cameraX || drawX > cameraX + (screenW / cameraZoom)) continue;
-            if (drawY + drawSize < cameraY || drawY > cameraY + (screenH / cameraZoom)) continue;
 
-            // Source rectangle from tileset (native pixel coordinates)
             float srcW = (float)layerGridSize;
             float srcH = (float)layerGridSize;
 
-            // Handle flip flags by negating source width/height
-            if (tile.f & 1) srcW = -srcW;  // flip X
-            if (tile.f & 2) srcH = -srcH;  // flip Y
+            if (tile.f & 1) srcW = -srcW;
+            if (tile.f & 2) srcH = -srcH;
 
-            Rectangle srcRect = {
-                (float)tile.src[0],
-                (float)tile.src[1],
-                srcW,
-                srcH
-            };
-
-            // Expand destination rect by a tiny sub-pixel amount to prevent tile gaps (seams)
-            // The expansion amount is scaled by 1/cameraZoom so it is exactly 1 pixel on screen
-            float overlap = 1.0f / cameraZoom;
-            Rectangle destRect = {
-                drawX,
-                drawY,
-                drawSize + overlap,
-                drawSize + overlap
-            };
+            Rectangle srcRect = { (float)tile.src[0], (float)tile.src[1], srcW, srcH };
+            Rectangle destRect = { drawX, drawY, drawSize, drawSize };
 
             DrawTexturePro(tex, srcRect, destRect, {0, 0}, 0.0f, WHITE);
         }
     }
+    
+    EndTextureMode();
+    isTargetBuilt = true;
+    
+    TraceLog(LOG_INFO, "TILEMAP: Built map render target (%dx%d)", mapTarget.texture.width, mapTarget.texture.height);
+}
+
+// ========== Draw ==========
+void TileMap::Draw(float cameraX, float cameraY, float cameraZoom) {
+    if (!isTargetBuilt) return;
+    
+    // The negative height flips it right-side up (OpenGL requirement for RenderTextures)
+    Rectangle source = { 0.0f, 0.0f, (float)mapTarget.texture.width, -(float)mapTarget.texture.height };
+    DrawTextureRec(mapTarget.texture, source, { 0.0f, 0.0f }, WHITE);
 }

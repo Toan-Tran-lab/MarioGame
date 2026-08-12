@@ -25,6 +25,12 @@ public:
     bool IsDead() const;
     void SetDead(bool dead);
 
+    // Animation Factory Methods
+    virtual Animation* CreatePoseAnimation() = 0;
+    virtual Animation* CreateWalkAnimation() = 0;
+    virtual Animation* CreateJumpAnimation() = 0;
+    virtual Animation* CreateSlideAnimation() = 0;
+
     //Inherit from Character.h
     void InteractWith(Character& other) override;
     void AcceptInteract(CharacterVisitor& other) override;

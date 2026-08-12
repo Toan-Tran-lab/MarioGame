@@ -2,6 +2,7 @@
 #include "SaveManager/SaveManager.h"
 #include "GameplayState/GameplayState.h"
 #include "Global/Global.h"
+#include "ui/UIUtils.h"
 
 SaveLoadState::SaveLoadState(Mode m, GameplayState* gs) 
     : mode(m), gameplayState(gs), selectedIndex(0), timeAccum(0.0f) {}
@@ -36,6 +37,7 @@ Rectangle SaveLoadState::GetItemRect(int index, float sw, float sh) const {
 
 void SaveLoadState::Update(float deltaTime) {
     timeAccum += deltaTime;
+    UIUtils::UpdateMenuBackground(deltaTime);
     float sw = (float)GetScreenWidth(), sh = (float)GetScreenHeight();
     
     if (IsKeyPressed(Global::keys.back)) {
@@ -118,6 +120,7 @@ void SaveLoadState::Draw() {
         gameplayState->Draw();
     } else {
         ClearBackground(DARKGRAY);
+        UIUtils::DrawMenuBackground((float)GetScreenWidth(), (float)GetScreenHeight());
     }
     
     float sw = (float)GetScreenWidth(), sh = (float)GetScreenHeight();

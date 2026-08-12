@@ -7,18 +7,29 @@
 #include "physics/ProximityAI.h"
 #include "SaveManager/SaveManager.h"
 #include "MainMenu/PauseMenuState/PauseMenuState.h"
+#include "Game Objects/Derived Objects/Playable Characters/Player/Mario.h"
+#include "Game Objects/Derived Objects/Playable Characters/Player/Luigi.h"
 #include <iostream>
 
 GameplayState::GameplayState() {
     currentLevel = Level::GetLevel(1);
+    player_ = std::make_unique<Mario>();
 }
 
 void GameplayState::SetLevel(const Level& level) {
     currentLevel = level;
 }
 
+void GameplayState::SetCharacter(int characterId) {
+    if (characterId == 1) {
+        player_ = std::make_unique<Luigi>();
+    } else {
+        player_ = std::make_unique<Mario>();
+    }
+}
+
 void GameplayState::SetLoadedData(Vector2 pos, int loadedScore, float loadedTime) {
-    player_.SetPosition(pos);
+    player_->SetPosition(pos);
     score = loadedScore;
     timeLeft = loadedTime;
     // We can use a flag or just rely on position.
@@ -28,8 +39,8 @@ void GameplayState::SetLoadedData(Vector2 pos, int loadedScore, float loadedTime
 SaveData GameplayState::GetSaveData() const {
     SaveData data;
     data.levelId = currentLevel.GetLevelNumber();
-    data.playerX = player_.GetPosition().x;
-    data.playerY = player_.GetPosition().y;
+    data.playerX = player_->GetPosition().x;
+    data.playerY = player_->GetPosition().y;
     data.score = score;
     data.timeLeft = timeLeft;
     return data;
@@ -48,35 +59,41 @@ void GameplayState::Initialize() {
     TextureManager::Load("mario_jump", "assets/textures/Mario/jump/mario.png");
     TextureManager::Load("mario_slide", "assets/textures/Mario/slide/mario.png");
 
+    TextureManager::Load("luigi_pose", "assets/textures/Luigi/pose/luigi.png");
+    TextureManager::Load("luigi_walk", "assets/textures/Luigi/walk/luigi.png");
+    TextureManager::Load("luigi_jump", "assets/textures/Luigi/jump/luigi.png");
+    TextureManager::Load("luigi_slide", "assets/textures/Luigi/slide/luigi.png");
+
     // Initialize player
-    if (player_.GetPosition().x == 0 && player_.GetPosition().y == 0) {
+    if (player_->GetPosition().x == 0 && player_->GetPosition().y == 0) {
         Vector2 spawn = tileMap.GetPlayerSpawn();
         Vector2 spawnPos = { spawn.x > 0 ? spawn.x : 100, spawn.y > 0 ? spawn.y : 300 };
-        player_.SetPosition(spawnPos);
+        player_->SetPosition(spawnPos);
     }
-    float scl = 0.8;
-    player_.SetSize({36 * scl, 60 * scl}); // Use SetSize so it persists into physics body
-    player_.SyncPhysicsBody();
+    float scl = 2;
+    player_->SetSize({16 * scl, 30 * scl}); // Use SetSize so it persists into physics body
+    player_->SyncPhysicsBody();
     
     // Extract map collision rects and pass to player
     mapCollisionRects = tileMap.GetCollisionRects();
-    player_.SetCollisionBlocks(&mapCollisionRects);
+    player_->SetCollisionBlocks(&mapCollisionRects);
 
     // Initialize enemy
     goomba_.SetPosition({ 500, 400 });
     goomba_.SetSize({ 32, 32 });
-    goomba_.SetPlayerBody(&player_.GetPhysicsBody());
+    goomba_.SetPlayerBody(&player_->GetPhysicsBody());
     goomba_.SetCollisionBlocks(&mapCollisionRects);
 
     // Initialize camera
-    camera.Init((float)tileMap.GetPixelWidth(), (float)tileMap.GetPixelHeight());
+    view = View(16.0f, (float)tileMap.GetTileSize());
+    view.Init((float)tileMap.GetPixelWidth(), (float)tileMap.GetPixelHeight());
 
     // Auto-save logic
     // We can just save current state.
     SaveData data;
     data.levelId = currentLevel.GetLevelNumber();
-    data.playerX = player_.GetPosition().x;
-    data.playerY = player_.GetPosition().y;
+    data.playerX = player_->GetPosition().x;
+    data.playerY = player_->GetPosition().y;
     data.score = score;
     data.timeLeft = timeLeft;
     SaveManager::SaveGame("auto_save", data);
@@ -102,7 +119,7 @@ void GameplayState::Update(float deltaTime) {
         isGameOver = true;
     }
 
-    player_.Update(deltaTime);
+    player_->Update(deltaTime);
 
     // Update the goomba (chase AI + physics + collisions)
     if (goomba_.IsActive()) {
@@ -110,35 +127,38 @@ void GameplayState::Update(float deltaTime) {
     }
 
     // Entity interaction: player vs goomba
-    if (goomba_.IsActive() && player_.Overlaps(goomba_)) {
-        player_.InteractWith(goomba_);
+    if (goomba_.IsActive() && player_->Overlaps(goomba_)) {
+        player_->InteractWith(goomba_);
     }
 
     // Handle player death (respawn at spawn point)
-    if (player_.IsDead()) {
-        player_.SetDead(false);
+    if (player_->IsDead()) {
+        player_->SetDead(false);
         Vector2 spawn = tileMap.GetPlayerSpawn();
         Vector2 spawnPos = { spawn.x > 0 ? spawn.x : 100, spawn.y > 0 ? spawn.y : 300 };
-        player_.SetPosition(spawnPos);
-        player_.SyncPhysicsBody();
+        player_->SetPosition(spawnPos);
+        player_->SyncPhysicsBody();
     }
 
-    camera.Update(player_.GetPosition().x, player_.GetPosition().y);
+    view.Update(player_->GetPosition().x, player_->GetPosition().y);
 }
 
 void GameplayState::Draw() {
     ClearBackground(tileMap.GetBackgroundColor());
 
-    camera.BeginDraw();
+    view.BeginDraw();
 
-    tileMap.Draw(camera.GetWorldLeft(), camera.GetWorldTop(), camera.GetRawCamera().zoom);
+    tileMap.Draw(view.GetWorldLeft(), view.GetWorldTop(), view.GetRawCamera().zoom);
 
-    player_.Draw();
+    // If you want to manually draw blocks using view, you can do so here:
+    // view.DrawBlock(0, 0, 16, 16, RED);
+
+    player_->Draw();
     if (goomba_.IsActive()) {
         goomba_.Draw();
     }
 
-    camera.EndDraw();
+    view.EndDraw();
 
     // Draw HUD
     float sw = (float)GetScreenWidth();

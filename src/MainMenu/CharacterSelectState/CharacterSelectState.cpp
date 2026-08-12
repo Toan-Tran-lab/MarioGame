@@ -2,6 +2,7 @@
 #include "Global/Global.h"
 #include "ui/UIUtils.h"
 #include "GameplayState/GameplayState.h"
+#include "TextureManager/TextureManager.h"
 #include <cmath>
 #include <memory>
 
@@ -16,12 +17,17 @@ void CharacterSelectState::SetLevel(const Level& level) {
 void CharacterSelectState::Initialize() {
     timeAccum = 0.0f;
     selectedCharacter = 0;
+    
+    // Load pose textures for preview
+    TextureManager::Load("mario_pose", "assets/textures/Mario/pose/mario.png");
+    TextureManager::Load("luigi_pose", "assets/textures/Luigi/pose/luigi.png");
 }
 
 // LEFT/RIGHT to switch character, ENTER to confirm and start the sandbox,
 // ESC to return to the main menu.
 void CharacterSelectState::Update(float deltaTime) {
     timeAccum += deltaTime;
+    UIUtils::UpdateMenuBackground(deltaTime);
 
     if (IsKeyPressed(KEY_LEFT) || IsKeyPressed(KEY_RIGHT)) {
         selectedCharacter = !selectedCharacter;
@@ -30,6 +36,7 @@ void CharacterSelectState::Update(float deltaTime) {
     if (IsKeyPressed(Global::keys.select) || IsKeyPressed(KEY_ENTER)) {
         auto gameplay = std::make_unique<GameplayState>();
         gameplay->SetLevel(selectedLevel);
+        gameplay->SetCharacter(selectedCharacter);
         Global::gameStateManager->PushState(std::move(gameplay));
     }
 
@@ -58,6 +65,7 @@ void CharacterSelectState::Update(float deltaTime) {
         if (CheckCollisionPointRec(mousePos, marioRect) || CheckCollisionPointRec(mousePos, luigiRect)) {
             auto gameplay = std::make_unique<GameplayState>();
             gameplay->SetLevel(selectedLevel);
+            gameplay->SetCharacter(selectedCharacter);
             Global::gameStateManager->PushState(std::move(gameplay));
         }
     }
@@ -69,6 +77,7 @@ void CharacterSelectState::Draw() {
     float sh = (float)GetScreenHeight();
 
     ClearBackground(Color{ 60, 40, 80, 255 });
+    UIUtils::DrawMenuBackground(sw, sh);
 
     int titleSize = (int)(sh * 0.06f);
     const char* title = "SELECT CHARACTER";
@@ -87,8 +96,39 @@ void CharacterSelectState::Draw() {
     DrawRectangleRec(luigiRect, Color{ 40, 25, 55, 255 });
 
     int nameSize = (int)(sh * 0.05f);
-    UIUtils::DrawCenteredText("MARIO", (int)(marioRect.y + marioRect.height * 0.5f), nameSize, RED, (int)sw);
-    UIUtils::DrawCenteredText("LUIGI", (int)(luigiRect.y + luigiRect.height * 0.5f), nameSize, GREEN, (int)sw);
+    
+    int marioTextW = MeasureText("MARIO", nameSize);
+    int luigiTextW = MeasureText("LUIGI", nameSize);
+    
+    int textY = (int)(marioRect.y + marioRect.height - nameSize - sh * 0.02f);
+    DrawText("MARIO", (int)(marioRect.x + (marioRect.width - marioTextW) * 0.5f), textY, nameSize, RED);
+    DrawText("LUIGI", (int)(luigiRect.x + (luigiRect.width - luigiTextW) * 0.5f), textY, nameSize, GREEN);
+
+    // Draw Character Poses
+    int tileW = 16, tileH = 30; // Native size of the pose sprite
+    float scale = (marioRect.height * 0.6f) / tileH;
+    float destW = tileW * scale;
+    float destH = tileH * scale;
+    
+    if (TextureManager::Has("mario_pose")) {
+        Rectangle srcRect = TextureManager::GetSourceRect("mario_pose", tileW, tileH, 0);
+        Rectangle destRect = {
+            marioRect.x + (marioRect.width - destW) * 0.5f,
+            marioRect.y + (marioRect.height * 0.8f - destH) * 0.5f, 
+            destW, destH
+        };
+        DrawTexturePro(TextureManager::Get("mario_pose"), srcRect, destRect, {0,0}, 0.0f, WHITE);
+    }
+    
+    if (TextureManager::Has("luigi_pose")) {
+        Rectangle srcRect = TextureManager::GetSourceRect("luigi_pose", tileW, tileH, 0);
+        Rectangle destRect = {
+            luigiRect.x + (luigiRect.width - destW) * 0.5f,
+            luigiRect.y + (luigiRect.height * 0.8f - destH) * 0.5f,
+            destW, destH
+        };
+        DrawTexturePro(TextureManager::Get("luigi_pose"), srcRect, destRect, {0,0}, 0.0f, WHITE);
+    }
 
     Rectangle selectedRect = (selectedCharacter == 0) ? marioRect : luigiRect;
     DrawRectangleLinesEx(selectedRect, 4, YELLOW);
