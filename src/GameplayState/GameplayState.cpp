@@ -69,7 +69,8 @@ void GameplayState::Initialize() {
     goomba_.SetCollisionBlocks(&mapCollisionRects);
 
     // Initialize camera
-    camera.Init((float)tileMap.GetPixelWidth(), (float)tileMap.GetPixelHeight());
+    view = View(16.0f, (float)tileMap.GetTileSize());
+    view.Init((float)tileMap.GetPixelWidth(), (float)tileMap.GetPixelHeight());
 
     // Auto-save logic
     // We can just save current state.
@@ -123,22 +124,25 @@ void GameplayState::Update(float deltaTime) {
         player_.SyncPhysicsBody();
     }
 
-    camera.Update(player_.GetPosition().x, player_.GetPosition().y);
+    view.Update(player_.GetPosition().x, player_.GetPosition().y);
 }
 
 void GameplayState::Draw() {
     ClearBackground(tileMap.GetBackgroundColor());
 
-    camera.BeginDraw();
+    view.BeginDraw();
 
-    tileMap.Draw(camera.GetWorldLeft(), camera.GetWorldTop(), camera.GetRawCamera().zoom);
+    tileMap.Draw(view.GetWorldLeft(), view.GetWorldTop(), view.GetRawCamera().zoom);
+
+    // If you want to manually draw blocks using view, you can do so here:
+    // view.DrawBlock(0, 0, 16, 16, RED);
 
     player_.Draw();
     if (goomba_.IsActive()) {
         goomba_.Draw();
     }
 
-    camera.EndDraw();
+    view.EndDraw();
 
     // Draw HUD
     float sw = (float)GetScreenWidth();

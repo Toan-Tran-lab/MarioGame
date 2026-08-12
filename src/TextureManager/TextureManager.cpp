@@ -17,6 +17,9 @@ void TextureManager::Load(const std::string& key, const std::string& filePath) {
         return;
     }
 
+    // LỆNH QUAN TRỌNG: Tắt nội suy mượt (setSmooth(false)) để pixel không bị mờ khi phóng to
+    SetTextureFilter(tex, TEXTURE_FILTER_POINT);
+
     textures[key] = tex;
     TraceLog(LOG_INFO, "TextureManager: Đã load texture '%s' (%dx%d)",
              key.c_str(), tex.width, tex.height);
