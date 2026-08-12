@@ -104,6 +104,7 @@ void Player::Update(float dt) {
 
 void Player::Draw() {
     if (currentAnimation) {
-        currentAnimation->Draw(position_, facing_, size_);
+        Vector2 drawPos = { std::round(position_.x), std::round(position_.y) };
+        currentAnimation->Draw(drawPos, facing_, size_);
     }
 }

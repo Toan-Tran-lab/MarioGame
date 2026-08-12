@@ -75,6 +75,6 @@ void Goomba::Draw() {
     Rectangle src = kGoombaFrames[goombaFrame_];
     if (facing_ == FacingDirection::Left) src.width = -src.width;
 
-    Rectangle dest = { position_.x, position_.y, size_.x, size_.y };
+    Rectangle dest = { std::round(position_.x), std::round(position_.y), size_.x, size_.y };
     DrawTexturePro(TextureManager::Get("goomba"), src, dest, { 0.0f, 0.0f }, 0.0f, WHITE);
 }

@@ -18,7 +18,7 @@ void View::Init(float mapPixelW, float mapPixelH) {
 
     camera.offset = { GetScreenWidth() / 2.0f, GetScreenHeight() / 2.0f };
     camera.target = { camera.offset.x, camera.offset.y };
-    maxTargetX = camera.offset.x;
+    maxTargetX = 0.0f;
 }
 
 void View::Update(float targetX, float targetY) {
@@ -42,6 +42,10 @@ void View::Update(float targetX, float targetY) {
     }
 
     ClampToBounds();
+
+    // Round the target to prevent sub-pixel jitter/tearing when moving
+    camera.target.x = (float)(int)camera.target.x;
+    camera.target.y = (float)(int)camera.target.y;
 
     // Update max target after clamping
     maxTargetX = camera.target.x;
