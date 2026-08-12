@@ -17,10 +17,8 @@ private:
     View view;
     Level currentLevel;
 
-    Player player_;
     Goomba goomba_;
     std::unique_ptr<Player> player_;
-    physics::PhysicsBody enemy_; // Keeping the enemy for now, but will make it spawn differently later
     std::vector<Rectangle> mapCollisionRects;
 
     // HUD & Game Data

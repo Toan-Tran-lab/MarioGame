@@ -81,7 +81,7 @@ void GameplayState::Initialize() {
     // Initialize enemy
     goomba_.SetPosition({ 500, 400 });
     goomba_.SetSize({ 32, 32 });
-    goomba_.SetPlayerBody(&player_.GetPhysicsBody());
+    goomba_.SetPlayerBody(&player_->GetPhysicsBody());
     goomba_.SetCollisionBlocks(&mapCollisionRects);
 
     // Initialize camera
@@ -127,37 +127,20 @@ void GameplayState::Update(float deltaTime) {
     }
 
     // Entity interaction: player vs goomba
-    if (goomba_.IsActive() && player_.Overlaps(goomba_)) {
-        player_.InteractWith(goomba_);
+    if (goomba_.IsActive() && player_->Overlaps(goomba_)) {
+        player_->InteractWith(goomba_);
     }
 
     // Handle player death (respawn at spawn point)
-    if (player_.IsDead()) {
-        player_.SetDead(false);
-    physics::InputState enemyInput;
-    // For now, no proximity AI update since it relies on blocks_. We will fix ProximityAI later.
-    // physics::ProximityAI::UpdateAI(enemy_, player_.GetPhysicsBody(), 300.0f, deltaTime, enemyInput, blocks_);
-    physics::PhysicsEngine::ApplyPhysics(enemy_, enemyInput, deltaTime);
-
-    // Grid-based collision for enemy (Now using rect list)
-    physics::CollisionSystem::ResolveMapCollisions(enemy_, mapCollisionRects);
-
-    // Entity collision
-    physics::CollisionInfo pveCol = physics::CollisionSystem::GetCollisionInfo(player_->GetRect(), enemy_.GetRect());
-    if (pveCol.side == physics::CollisionSide::BOTTOM) {
-        enemy_.position.y = 1000;
-        player_->GetPhysicsBody().velocity.y = physics::PhysicsEngine::JUMP_FORCE * 0.6f;
-        player_->SyncPhysics(); // Sync changes back to player
-    } else if (pveCol.side == physics::CollisionSide::LEFT || pveCol.side == physics::CollisionSide::RIGHT || pveCol.side == physics::CollisionSide::TOP) {
-        // Player dies / resets
+    if (player_->IsDead()) {
+        player_->SetDead(false);
         Vector2 spawn = tileMap.GetPlayerSpawn();
         Vector2 spawnPos = { spawn.x > 0 ? spawn.x : 100, spawn.y > 0 ? spawn.y : 300 };
         player_->SetPosition(spawnPos);
         player_->SyncPhysicsBody();
     }
 
-    view.Update(player_.GetPosition().x, player_.GetPosition().y);
-    camera.Update(player_->GetPosition().x, player_->GetPosition().y);
+    view.Update(player_->GetPosition().x, player_->GetPosition().y);
 }
 
 void GameplayState::Draw() {
@@ -170,12 +153,10 @@ void GameplayState::Draw() {
     // If you want to manually draw blocks using view, you can do so here:
     // view.DrawBlock(0, 0, 16, 16, RED);
 
-    player_.Draw();
+    player_->Draw();
     if (goomba_.IsActive()) {
         goomba_.Draw();
     }
-    player_->Draw();
-    DrawRectangleRec(enemy_.GetRect(), RED);
 
     view.EndDraw();
 
