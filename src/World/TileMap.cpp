@@ -343,6 +343,7 @@ void TileMap::BuildMapTexture() {
     }
     
     mapTarget = LoadRenderTexture(GetPixelWidth(), GetPixelHeight());
+    SetTextureFilter(mapTarget.texture, TEXTURE_FILTER_POINT);
     
     BeginTextureMode(mapTarget);
     ClearBackground(bgColor);
@@ -364,8 +365,17 @@ void TileMap::BuildMapTexture() {
             if (tile.f & 1) srcW = -srcW;
             if (tile.f & 2) srcH = -srcH;
 
-            Rectangle srcRect = { (float)tile.src[0], (float)tile.src[1], srcW, srcH };
-            Rectangle destRect = { drawX, drawY, drawSize, drawSize };
+            // Shrink source rect slightly to prevent texture atlas bleeding (sampling neighboring pixels)
+            float margin = 0.02f;
+            Rectangle srcRect = { 
+                (float)tile.src[0] + margin, 
+                (float)tile.src[1] + margin, 
+                srcW > 0 ? srcW - 2.0f*margin : srcW + 2.0f*margin, 
+                srcH > 0 ? srcH - 2.0f*margin : srcH + 2.0f*margin 
+            };
+            
+            // Expand destination rect slightly to prevent 1-pixel transparent seams when baking
+            Rectangle destRect = { drawX, drawY, drawSize + 0.5f, drawSize + 0.5f };
 
             DrawTexturePro(tex, srcRect, destRect, {0, 0}, 0.0f, WHITE);
         }
