@@ -1,17 +1,24 @@
 #include "Mario.h"
 
-Animation* Mario::CreatePoseAnimation() {
-    return new PoseAnimation("mario_pose");
+// Define static animations for Mario
+// Parameters: textureKey, tileW, tileH, startFrame, frameCount, frameDurations
+static const Animation marioPoseAnim("mario_pose", 16, 30, 0, 2, {3.0f, 0.8f});
+static const Animation marioWalkAnim("mario_walk", 16, 30, 0, 3, {0.1f});
+static const Animation marioJumpAnim("mario_jump", 16, 30, 0, 1, {1.0f});
+static const Animation marioSlideAnim("mario_slide", 16, 30, 0, 1, {1.0f});
+
+const Animation* Mario::GetPoseAnimation() const {
+    return &marioPoseAnim;
 }
 
-Animation* Mario::CreateWalkAnimation() {
-    return new WalkAnimation("mario_walk");
+const Animation* Mario::GetWalkAnimation() const {
+    return &marioWalkAnim;
 }
 
-Animation* Mario::CreateJumpAnimation() {
-    return new JumpAnimation("mario_jump");
+const Animation* Mario::GetJumpAnimation() const {
+    return &marioJumpAnim;
 }
 
-Animation* Mario::CreateSlideAnimation() {
-    return new SlideAnimation("mario_slide");
+const Animation* Mario::GetSlideAnimation() const {
+    return &marioSlideAnim;
 }

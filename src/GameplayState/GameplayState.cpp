@@ -84,6 +84,8 @@ void GameplayState::Initialize() {
     goomba_.SetPlayerBody(&player_->GetPhysicsBody());
     goomba_.SetCollisionBlocks(&mapCollisionRects);
 
+
+
     // Initialize camera
     view = View(16.0f, (float)tileMap.GetTileSize());
     view.Init((float)tileMap.GetPixelWidth(), (float)tileMap.GetPixelHeight());
@@ -126,6 +128,8 @@ void GameplayState::Update(float deltaTime) {
         goomba_.Update(deltaTime);
     }
 
+
+
     // Entity interaction: player vs goomba
     if (goomba_.IsActive() && player_->Overlaps(goomba_)) {
         player_->InteractWith(goomba_);
@@ -157,6 +161,8 @@ void GameplayState::Draw() {
     if (goomba_.IsActive()) {
         goomba_.Draw();
     }
+
+
 
     view.EndDraw();
 

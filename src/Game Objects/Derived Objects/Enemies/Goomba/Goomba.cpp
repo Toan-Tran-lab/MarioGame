@@ -9,15 +9,12 @@
 namespace {
 constexpr float kDetectionRadius = 300.0f; // pixels: how close the player must get before the goomba starts chasing
 constexpr float kFrameDuration = 0.15f;    // seconds per walk frame (roughly 6-7 FPS)
+}
 
-// Walk frames inside assets/textures/enemies-3.png. The cells are 16x16 but
-// NOT on a regular grid (they are arranged diagonally), so they cannot be
-// indexed with TextureManager::GetSourceRect.
-const Rectangle kGoombaFrames[3] = {
-    { 0.0f,  8.0f, 16.0f, 16.0f },
-    { 18.0f, 26.0f, 16.0f, 16.0f },
-    { 36.0f, 44.0f, 16.0f, 16.0f },
-};
+static const Animation goombaWalkAnim("goomba", 16, 16, 0, 3, {kFrameDuration});
+
+Goomba::Goomba() {
+    animState.SetAnimation(&goombaWalkAnim);
 }
 
 Goomba::~Goomba() {}
@@ -60,22 +57,14 @@ void Goomba::Update(float dt) {
     else if (physicsBody_.velocity.x < 0.0f) facing_ = FacingDirection::Left;
 
     // Advance walk animation
-    goombaAnimTimer_ += dt;
-    if (goombaAnimTimer_ >= kFrameDuration) {
-        goombaAnimTimer_ = 0.0f;
-        goombaFrame_ = (goombaFrame_ + 1) % 3;
-    }
+    animState.Update(dt);
 }
 
 void Goomba::Draw() {
     if (!TextureManager::Has("goomba")) {
         TextureManager::Load("goomba", "assets/textures/enemies-3.png");
-        return;
     }
 
-    Rectangle src = kGoombaFrames[goombaFrame_];
-    if (facing_ == FacingDirection::Left) src.width = -src.width;
-
-    Rectangle dest = { std::round(position_.x), std::round(position_.y), size_.x, size_.y };
-    DrawTexturePro(TextureManager::Get("goomba"), src, dest, { 0.0f, 0.0f }, 0.0f, WHITE);
+    Vector2 drawPos = { std::round(position_.x), std::round(position_.y) };
+    animState.Draw(drawPos, facing_, size_);
 }

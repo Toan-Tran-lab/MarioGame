@@ -1,17 +1,24 @@
 #include "Luigi.h"
 
-Animation* Luigi::CreatePoseAnimation() {
-    return new PoseAnimation("luigi_pose");
+// Define static animations for Luigi
+// Parameters: textureKey, tileW, tileH, startFrame, frameCount, frameDurations
+static const Animation luigiPoseAnim("luigi_pose", 16, 30, 0, 2, {3.0f, 0.8f});
+static const Animation luigiWalkAnim("luigi_walk", 16, 30, 0, 3, {0.1f});
+static const Animation luigiJumpAnim("luigi_jump", 16, 30, 0, 1, {1.0f});
+static const Animation luigiSlideAnim("luigi_slide", 16, 30, 0, 1, {1.0f});
+
+const Animation* Luigi::GetPoseAnimation() const {
+    return &luigiPoseAnim;
 }
 
-Animation* Luigi::CreateWalkAnimation() {
-    return new WalkAnimation("luigi_walk");
+const Animation* Luigi::GetWalkAnimation() const {
+    return &luigiWalkAnim;
 }
 
-Animation* Luigi::CreateJumpAnimation() {
-    return new JumpAnimation("luigi_jump");
+const Animation* Luigi::GetJumpAnimation() const {
+    return &luigiJumpAnim;
 }
 
-Animation* Luigi::CreateSlideAnimation() {
-    return new SlideAnimation("luigi_slide");
+const Animation* Luigi::GetSlideAnimation() const {
+    return &luigiSlideAnim;
 }

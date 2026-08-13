@@ -2,57 +2,46 @@
 #include "raylib.h"
 #include "Game Objects/Core Header Files/BaseGameObjects.h"
 #include <string>
+#include <vector>
 
-class Animation {
-protected:
+// Flyweight class containing shared animation data
+struct Animation {
+    std::string textureKey;
+    int tileW;
+    int tileH;
+    int startFrame;
+    int frameCount;
+    std::vector<float> frameDurations; // Can have 1 element for uniform delay, or multiple for variable delays
+
+    Animation() : tileW(0), tileH(0), startFrame(0), frameCount(0) {}
+    Animation(const std::string& key, int tw, int th, int start, int count, const std::vector<float>& durations)
+        : textureKey(key), tileW(tw), tileH(th), startFrame(start), frameCount(count), frameDurations(durations) {}
+
+    float GetDuration(int frameOffset) const {
+        if (frameDurations.empty()) return 0.1f;
+        if (frameDurations.size() == 1) return frameDurations[0];
+        return frameDurations[frameOffset % frameDurations.size()];
+    }
+};
+
+// Extrinsic state class to be stored inside Game Objects
+class AnimationState {
+private:
+    const Animation* currentAnim = nullptr;
     float animTimer = 0.0f;
-    int currentFrame = 0;
-    
-public:
-    virtual ~Animation() = default;
-    
-    // Virtual methods for state updates and drawing
-    virtual void Update(float dt) = 0;
-    virtual void Draw(const Vector2& position, FacingDirection facing, const Vector2& scale) = 0;
-};
+    int currentFrameOffset = 0;
 
-// Posing / Idle animation
-class PoseAnimation : public Animation {
-private:
-    std::string textureKey;
-    bool swapFrames;
 public:
-    PoseAnimation(const std::string& key, bool swapFrames = false) : textureKey(key), swapFrames(swapFrames) {}
-    void Update(float dt) override;
-    void Draw(const Vector2& position, FacingDirection facing, const Vector2& scale) override;
-};
+    void SetAnimation(const Animation* newAnim) {
+        if (currentAnim != newAnim) {
+            currentAnim = newAnim;
+            animTimer = 0.0f;
+            currentFrameOffset = 0;
+        }
+    }
 
-// Walking animation
-class WalkAnimation : public Animation {
-private:
-    std::string textureKey;
-public:
-    WalkAnimation(const std::string& key) : textureKey(key) {}
-    void Update(float dt) override;
-    void Draw(const Vector2& position, FacingDirection facing, const Vector2& scale) override;
-};
+    const Animation* GetAnimation() const { return currentAnim; }
 
-// Jumping animation
-class JumpAnimation : public Animation {
-private:
-    std::string textureKey;
-public:
-    JumpAnimation(const std::string& key) : textureKey(key) {}
-    void Update(float dt) override;
-    void Draw(const Vector2& position, FacingDirection facing, const Vector2& scale) override;
-};
-
-// Sliding / Skidding animation
-class SlideAnimation : public Animation {
-private:
-    std::string textureKey;
-public:
-    SlideAnimation(const std::string& key) : textureKey(key) {}
-    void Update(float dt) override;
-    void Draw(const Vector2& position, FacingDirection facing, const Vector2& scale) override;
+    void Update(float dt);
+    void Draw(const Vector2& position, FacingDirection facing, const Vector2& scale);
 };

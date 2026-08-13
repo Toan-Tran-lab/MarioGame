@@ -34,6 +34,7 @@ private:
     Color bgColor;     // background color from LDtk level property
     Vector2 playerSpawn; // store player spawn position
 
+
     float borderLeft;
     float borderRight;
     float borderTop;
@@ -53,6 +54,8 @@ public:
 
     // Get player spawn position (scaled to display size)
     Vector2 GetPlayerSpawn() const;
+    
+
 
     // Get all collision blocks as rectangles (for physics engines that prefer rect lists)
     std::vector<Rectangle> GetCollisionRects() const;
