@@ -1,3 +1,4 @@
+#include <cmath>
 #include "Goomba.h"
 #include "Game Objects/Interaction Resolve/Visitor.h"
 #include "physics/ProximityAI.h"
