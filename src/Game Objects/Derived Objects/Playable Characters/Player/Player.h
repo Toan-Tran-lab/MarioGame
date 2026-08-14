@@ -10,15 +10,26 @@ class Player : public Character {
 private:
     PlayerState* state = nullptr;
     const std::vector<Rectangle>* collisionBlocks_ = nullptr;
-    Animation* currentAnimation = nullptr;
-    
+    AnimationState animState;
+    bool isDead_ = false;
+
 public:
+    Player();
     ~Player();
 
     void SetState(PlayerState* Temp);
     void TakeDamage();
     void SetCollisionBlocks(const std::vector<Rectangle>* blocks);
-    void SetAnimation(Animation* newAnim);
+    void SetAnimation(const Animation* newAnim);
+
+    bool IsDead() const;
+    void SetDead(bool dead);
+
+    // Animation Getters
+    virtual const Animation* GetPoseAnimation() const = 0;
+    virtual const Animation* GetWalkAnimation() const = 0;
+    virtual const Animation* GetJumpAnimation() const = 0;
+    virtual const Animation* GetSlideAnimation() const = 0;
 
     //Inherit from Character.h
     void InteractWith(Character& other) override;

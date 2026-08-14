@@ -6,13 +6,12 @@
 #include "physics/CollisionSystem.h"
 #include <cmath>
 
+Player::Player() : state(new SmallState()) {}
+
 Player::~Player() {
     if (state != nullptr) delete state;
     state = nullptr;
-    if (currentAnimation != nullptr) delete currentAnimation;
-    currentAnimation = nullptr;
 }
-
 void Player::SetState(PlayerState* Temp) {
     if (state) state->Exit(*this);
     delete state;
@@ -24,13 +23,20 @@ void Player::TakeDamage() {
     if (state) state->OnHit(*this);
 }
 
+void Player::SetDead(bool dead) {
+    isDead_ = dead;
+}
+
+bool Player::IsDead() const {
+    return isDead_;
+}
+
 void Player::SetCollisionBlocks(const std::vector<Rectangle>* blocks) {
     collisionBlocks_ = blocks;
 }
 
-void Player::SetAnimation(Animation* newAnim) {
-    if (currentAnimation) delete currentAnimation;
-    currentAnimation = newAnim;
+void Player::SetAnimation(const Animation* newAnim) {
+    animState.SetAnimation(newAnim);
 }
 
 void Player::InteractWith(Character& other) {
@@ -64,36 +70,35 @@ void Player::Update(float dt) {
     // Determine Animation State
     // Very basic logic: if not grounded -> Jump; if sliding -> Slide; if moving -> Walk; else -> Pose
     // For now, let's keep it simple
-    if (!grounded_) {
-        if (!dynamic_cast<JumpAnimation*>(currentAnimation)) {
-            SetAnimation(new JumpAnimation());
+    if (!IsGrounded()) {
+        if (animState.GetAnimation() != GetJumpAnimation()) {
+            SetAnimation(GetJumpAnimation());
         }
-    } else if (std::abs(velocity_.x) > 0.1f) {
+    } else if (std::abs(physicsBody_.velocity.x) > 0.1f) {
         // Simple slide check: moving one way, pressing the other
-        bool slidingLeft = (velocity_.x > 0 && input.moveLeft);
-        bool slidingRight = (velocity_.x < 0 && input.moveRight);
+        bool onlyLeft = input.moveLeft && !input.moveRight;
+        bool onlyRight = input.moveRight && !input.moveLeft;
+        bool slidingLeft = (physicsBody_.velocity.x > 0 && onlyLeft);
+        bool slidingRight = (physicsBody_.velocity.x < 0 && onlyRight);
         if (slidingLeft || slidingRight) {
-            if (!dynamic_cast<SlideAnimation*>(currentAnimation)) {
-                SetAnimation(new SlideAnimation());
+            if (animState.GetAnimation() != GetSlideAnimation()) {
+                SetAnimation(GetSlideAnimation());
             }
         } else {
-            if (!dynamic_cast<WalkAnimation*>(currentAnimation)) {
-                SetAnimation(new WalkAnimation());
+            if (animState.GetAnimation() != GetWalkAnimation()) {
+                SetAnimation(GetWalkAnimation());
             }
         }
     } else {
-        if (!dynamic_cast<PoseAnimation*>(currentAnimation)) {
-            SetAnimation(new PoseAnimation());
+        if (animState.GetAnimation() != GetPoseAnimation()) {
+            SetAnimation(GetPoseAnimation());
         }
     }
 
-    if (currentAnimation) {
-        currentAnimation->Update(dt);
-    }
+    animState.Update(dt);
 }
 
 void Player::Draw() {
-    if (currentAnimation) {
-        currentAnimation->Draw(position_, facing_, size_);
-    }
+    Vector2 drawPos = { std::round(position_.x), std::round(position_.y) };
+    animState.Draw(drawPos, facing_, size_);
 }

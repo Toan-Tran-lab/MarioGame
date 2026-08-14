@@ -10,15 +10,19 @@ public:
 
     // Update() and Draw() are still pure virtual here, inherited unimplemented.
 
-    // New state specific to actors
-    const Vector2& GetVelocity() const { return velocity_; }
-    void SetVelocity(const Vector2& vel) { velocity_ = vel; }
+    // New state specific to actors (velocity/grounding live in the PhysicsBody)
+    const Vector2& GetVelocity() const { return physicsBody_.velocity; }
+    void SetVelocity(const Vector2& vel) { physicsBody_.velocity = vel; }
 
     FacingDirection GetFacing() const { return facing_; }
     void SetFacing(FacingDirection dir) { facing_ = dir; }
+    void UpdateFacing() {
+        if (physicsBody_.velocity.x > 0.0f) facing_ = FacingDirection::Right;
+        else if (physicsBody_.velocity.x < 0.0f) facing_ = FacingDirection::Left;
+    }
 
-    bool IsGrounded() const { return grounded_; }
-    void SetGrounded(bool grounded) { grounded_ = grounded; }
+    bool IsGrounded() const { return physicsBody_.isGrounded; }
+    void SetGrounded(bool grounded) { physicsBody_.isGrounded = grounded; }
 
     // Entry point, called with concrete-typed 'other'
     virtual void InteractWith(Character& other) = 0;
@@ -27,31 +31,25 @@ public:
     physics::PhysicsBody& GetPhysicsBody() { return physicsBody_; }
     const physics::PhysicsBody& GetPhysicsBody() const { return physicsBody_; }
     Rectangle GetRect() const { return { position_.x, position_.y, size_.x, size_.y }; }
+
+    // Entity-vs-entity overlap check (axis-aligned). Used to drive interactions.
+    bool Overlaps(const Character& other) const {
+        return CheckCollisionRecs(GetRect(), other.GetRect());
+    }
     
-    // Push Character state into the PhysicsBody (call before running physics).
+    // Push GameObject state into the PhysicsBody (call before running physics).
     void SyncPhysicsBody() {
         physicsBody_.position = position_;
-        physicsBody_.velocity = velocity_;
-        physicsBody_.isGrounded = grounded_;
         physicsBody_.size = size_;
     }
 
-    // Pull PhysicsBody results back into Character state (call after physics).
+    // Pull PhysicsBody results back into GameObject state (call after physics).
     void SyncPhysics() {
         position_ = physicsBody_.position;
-        velocity_ = physicsBody_.velocity;
-        grounded_ = physicsBody_.isGrounded;
     }
 
 protected:
     // Default movement when spawning into a stage is standing still, facing right.
-    Vector2 velocity_{ 0.0f, 0.0f };
     FacingDirection facing_ = FacingDirection::Right;
     physics::PhysicsBody physicsBody_;
-
-    bool grounded_ = true;
-
-    // A helper ALL characters can reuse: standard physics integration.
-    // Shouldn't need to override. Subclasses call this from their own Update().
-    void ApplyMotion(float dt);
 };

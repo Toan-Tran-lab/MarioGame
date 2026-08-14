@@ -1,11 +1,20 @@
+#include <cmath>
 #include "Goomba.h"
 #include "Game Objects/Interaction Resolve/Visitor.h"
 #include "physics/ProximityAI.h"
 #include "physics/PhysicsEngine.h"
 #include "physics/CollisionSystem.h"
+#include "TextureManager/TextureManager.h"
 
 namespace {
 constexpr float kDetectionRadius = 300.0f; // pixels: how close the player must get before the goomba starts chasing
+constexpr float kFrameDuration = 0.15f;    // seconds per walk frame (roughly 6-7 FPS)
+}
+
+static const Animation goombaWalkAnim("goomba", 16, 16, 0, 3, {kFrameDuration});
+
+Goomba::Goomba() {
+    animState.SetAnimation(&goombaWalkAnim);
 }
 
 Goomba::~Goomba() {}
@@ -42,8 +51,20 @@ void Goomba::Update(float dt) {
     }
 
     SyncPhysics();
+
+    // Face the direction the goomba is moving
+    if (physicsBody_.velocity.x > 0.0f) facing_ = FacingDirection::Right;
+    else if (physicsBody_.velocity.x < 0.0f) facing_ = FacingDirection::Left;
+
+    // Advance walk animation
+    animState.Update(dt);
 }
 
 void Goomba::Draw() {
-    // Placeholder: no sprite attached yet.
+    if (!TextureManager::Has("goomba")) {
+        TextureManager::Load("goomba", "assets/textures/enemies-3.png");
+    }
+
+    Vector2 drawPos = { std::round(position_.x), std::round(position_.y) };
+    animState.Draw(drawPos, facing_, size_);
 }

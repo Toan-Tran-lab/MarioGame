@@ -6,8 +6,11 @@
 #include "physics/InputManager.h"
 #include "Camera/View.h"
 #include "Game Objects/Derived Objects/Playable Characters/Player/Player.h"
+#include "Game Objects/Derived Objects/Enemies/Goomba/Goomba.h"
+
 #include "SaveManager/SaveManager.h"
 #include <vector>
+#include <memory>
 
 class GameplayState : public IGameState {
 private:
@@ -15,8 +18,9 @@ private:
     View view;
     Level currentLevel;
 
-    Player player_;
-    physics::PhysicsBody enemy_; // Keeping the enemy for now, but will make it spawn differently later
+    Goomba goomba_;
+
+    std::unique_ptr<Player> player_;
     std::vector<Rectangle> mapCollisionRects;
 
     // HUD & Game Data
@@ -29,6 +33,7 @@ public:
     GameplayState();
     
     void SetLevel(const Level& level);
+    void SetCharacter(int characterId);
     // Use this to override initial data when loading from a save file
     void SetLoadedData(Vector2 pos, int loadedScore, float loadedTime);
     SaveData GetSaveData() const;

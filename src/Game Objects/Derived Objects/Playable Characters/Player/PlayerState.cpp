@@ -8,8 +8,8 @@ void PlayerState::UpdateState(Player& player, float dt) {}
 
 void SmallState::OnHit(Player& player) {
     // Already the smallest form; there is no smaller state to shrink to.
-    // Hook: trigger death / respawn logic here.
-    (void)player;
+    // The player dies, which the gameplay layer reacts to (respawn/game over).
+    player.SetDead(true);
 }
 
 void SmallState::OnPowerup(Player& player, PowerupType type) {

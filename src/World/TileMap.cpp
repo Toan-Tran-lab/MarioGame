@@ -236,7 +236,6 @@ bool TileMap::LoadFromLdtk(const std::string& filePath, const std::string& level
                                 playerSpawn.y = pxY * scale;
                                 TraceLog(LOG_INFO, "TILEMAP: Found player spawn at (%f, %f)", playerSpawn.x, playerSpawn.y);
                             }
-                        }
                     }
                 }
             }
@@ -285,7 +284,11 @@ int TileMap::GetTileSize() const { return tileSize; }
 int TileMap::GetPixelWidth() const { return mapWidth * tileSize; }
 int TileMap::GetPixelHeight() const { return mapHeight * tileSize; }
 Color TileMap::GetBackgroundColor() const { return bgColor; }
-Vector2 TileMap::GetPlayerSpawn() const { return playerSpawn; }
+Vector2 TileMap::GetPlayerSpawn() const {
+    return playerSpawn;
+}
+
+
 
 float TileMap::GetBorderLeft() const { return borderLeft; }
 float TileMap::GetBorderRight() const { return borderRight; }
