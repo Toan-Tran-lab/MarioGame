@@ -43,13 +43,13 @@ namespace physics {
 
     void CollisionSystem::ResolveMapCollisions(PhysicsBody& body, const std::vector<Rectangle>& blocks) {
         body.isGrounded = false; // Assume not grounded until proven otherwise
+        body.hitCeiling = false; // Reset ceiling hit flag
 
         for (const auto& block : blocks) {
             CollisionInfo col = GetCollisionInfo(body.GetRect(), block);
             if (col.side == CollisionSide::NONE) continue;
 
             // Prevent massive horizontal warps when jumping into ceilings
-            // If it's a wall hit but the horizontal overlap is larger than our max horizontal frame movement, it's a ceiling hit!
             if (col.side == CollisionSide::LEFT || col.side == CollisionSide::RIGHT) {
                 float maxValidX = std::abs(body.velocity.x) * (1.0f / 60.0f) + 2.0f;
                 if (col.overlap > maxValidX) {
@@ -57,6 +57,14 @@ namespace physics {
                     float blCY = block.y + block.height / 2.0f;
                     col.overlap = (body.size.y / 2.0f + block.height / 2.0f) - std::abs(bCY - blCY);
                     col.side = (bCY - blCY > 0) ? CollisionSide::TOP : CollisionSide::BOTTOM;
+                } else {
+                    // Prevent snagging on floor edges when walking or landing:
+                    // If feet are near top of block, resolve as floor collision instead of wall collision
+                    float footY = body.position.y + body.size.y;
+                    if (footY >= block.y && footY <= block.y + 10.0f && body.velocity.y >= 0) {
+                        col.side = CollisionSide::BOTTOM;
+                        col.overlap = footY - block.y;
+                    }
                 }
             }
             
@@ -82,9 +90,10 @@ namespace physics {
             else if (col.side == CollisionSide::TOP) {
                 // Bonked head on ceiling
                 body.position.y += col.overlap;
-                if (body.velocity.y < 0) body.velocity.y = 0; 
-            } 
-            else if (col.side == CollisionSide::BOTTOM) {
+                body.velocity.y = 0; // stop upward movement
+                body.hitCeiling = true;
+                body.hitCeilingRect = block;
+            } else if (col.side == CollisionSide::BOTTOM) {
                 // Landed on floor
                 body.position.y -= col.overlap;
                 body.isGrounded = true;
@@ -93,33 +102,62 @@ namespace physics {
         }
     }
 
-    void CollisionSystem::ResolveMapCollisions(PhysicsBody& body, const TileMap& tileMap) {
+    void CollisionSystem::ResolveMapCollisions(PhysicsBody& body, const BlockGrid& blockGrid) {
         body.isGrounded = false;
         
         Rectangle bodyRect = body.GetRect();
+        int tileSize = blockGrid.GetTileSize();
+        if (tileSize <= 0) return;
         
         // Find which grid cells the body overlaps
-        Vector2 minTile = tileMap.WorldToTile(bodyRect.x, bodyRect.y);
-        Vector2 maxTile = tileMap.WorldToTile(bodyRect.x + bodyRect.width, bodyRect.y + bodyRect.height);
-        
-        int startCol = (int)minTile.x;
-        int endCol = (int)maxTile.x;
-        int startRow = (int)minTile.y;
-        int endRow = (int)maxTile.y;
+        int startCol = (int)(bodyRect.x / tileSize);
+        int endCol = (int)((bodyRect.x + bodyRect.width) / tileSize);
+        int startRow = (int)(bodyRect.y / tileSize);
+        int endRow = (int)((bodyRect.y + bodyRect.height) / tileSize);
+
+        startRow = std::max(0, startRow);
+        endRow = std::min(blockGrid.GetHeight() - 1, endRow);
         
         std::vector<Rectangle> solidBlocks;
-        int tileSize = tileMap.GetTileSize();
         
+        // Expand and merge adjacent solid blocks across full continuous platforms
         for (int row = startRow; row <= endRow; ++row) {
             for (int col = startCol; col <= endCol; ++col) {
-                if (tileMap.IsSolidAt(col, row)) {
-                    Vector2 tileWorld = tileMap.TileToWorld(col, row);
-                    solidBlocks.push_back({ tileWorld.x, tileWorld.y, (float)tileSize, (float)tileSize });
+                if (blockGrid.IsSolidAt(col, row)) {
+                    int leftCol = col;
+                    while (leftCol > 0 && blockGrid.IsSolidAt(leftCol - 1, row)) {
+                        leftCol--;
+                    }
+                    int rightCol = col;
+                    while (rightCol < blockGrid.GetWidth() - 1 && blockGrid.IsSolidAt(rightCol + 1, row)) {
+                        rightCol++;
+                    }
+
+                    Rectangle mergedRect = {
+                        (float)(leftCol * tileSize),
+                        (float)(row * tileSize),
+                        (float)((rightCol - leftCol + 1) * tileSize),
+                        (float)tileSize
+                    };
+
+                    bool alreadyAdded = false;
+                    for (const auto& existing : solidBlocks) {
+                        if (existing.y == mergedRect.y && existing.x == mergedRect.x && existing.width == mergedRect.width) {
+                            alreadyAdded = true;
+                            break;
+                        }
+                    }
+
+                    if (!alreadyAdded) {
+                        solidBlocks.push_back(mergedRect);
+                    }
+
+                    col = rightCol;
                 }
             }
         }
         
-        // Resolve using the same logic as the vector<Rectangle> version
+        // Resolve using expanded merged solid blocks
         if (!solidBlocks.empty()) {
             ResolveMapCollisions(body, solidBlocks);
         }

@@ -30,7 +30,7 @@ void AnimationState::Draw(const Vector2& position, FacingDirection facing, const
         srcRect.width = -srcRect.width;
     }
     
-    Vector2 drawPos = { std::round(position.x), std::round(position.y) };
+    Vector2 drawPos = { position.x, position.y };
     Rectangle destRect = { drawPos.x, drawPos.y, scale.x, scale.y };
     DrawTexturePro(TextureManager::Get(currentAnim->textureKey), srcRect, destRect, {0, 0}, 0.0f, WHITE);
 }
