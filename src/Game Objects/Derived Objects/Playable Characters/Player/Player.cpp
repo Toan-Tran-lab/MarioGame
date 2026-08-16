@@ -4,6 +4,7 @@
 #include "physics/InputManager.h"
 #include "physics/PhysicsEngine.h"
 #include "physics/CollisionSystem.h"
+#include "World/BlockGrid.h"
 #include <cmath>
 
 Player::Player() : state(new SmallState()) {}
@@ -51,8 +52,8 @@ void Player::SetSitting(bool sitting) {
     isSitting_ = sitting;
 }
 
-void Player::SetCollisionBlocks(const std::vector<Rectangle>* blocks) {
-    collisionBlocks_ = blocks;
+void Player::SetCollisionGrid(const BlockGrid* grid) {
+    collisionGrid_ = grid;
 }
 
 void Player::SetAnimation(const Animation* newAnim) {
@@ -110,8 +111,14 @@ void Player::Update(float dt) {
 
     physics::PhysicsEngine::ApplyPhysics(physicsBody_, input, dt);
 
-    if (collisionBlocks_) {
-        physics::CollisionSystem::ResolveMapCollisions(physicsBody_, *collisionBlocks_);
+    float curVelY = physicsBody_.velocity.y;
+    if (IsGrounded() || (prevVelY_ >= 0.0f && curVelY < 0.0f)) {
+        canHitBlock_ = true;
+    }
+    prevVelY_ = curVelY;
+
+    if (collisionGrid_) {
+        physics::CollisionSystem::ResolveMapCollisions(physicsBody_, *collisionGrid_);
     }
 
     SyncPhysics();
@@ -156,6 +163,6 @@ void Player::Update(float dt) {
 }
 
 void Player::Draw() {
-    Vector2 drawPos = { std::round(position_.x), std::round(position_.y) };
+    Vector2 drawPos = { position_.x, position_.y };
     animState.Draw(drawPos, facing_, size_);
 }

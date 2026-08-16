@@ -3,7 +3,7 @@
 
 namespace physics {
 
-    void ProximityAI::UpdateAI(PhysicsBody& enemy, const PhysicsBody& player, float detectionRadius, float dt, InputState& outInput, const std::vector<Rectangle>& blocks) {
+    void ProximityAI::UpdateAI(PhysicsBody& enemy, const PhysicsBody& player, float detectionRadius, float dt, InputState& outInput, const BlockGrid& blockGrid) {
         float dx = player.position.x - enemy.position.x;
         float dy = player.position.y - enemy.position.y;
         float distance = std::sqrt(dx * dx + dy * dy);
@@ -28,11 +28,11 @@ namespace physics {
                 float checkX = (enemy.aiDirection > 0) ? (enemy.position.x + enemy.size.x + 2.0f) : (enemy.position.x - 2.0f);
                 float checkY = enemy.position.y + enemy.size.y + 4.0f;
                 
-                for (const auto& block : blocks) {
-                    if (CheckCollisionPointRec(Vector2{checkX, checkY}, block)) {
-                        groundAhead = true;
-                        break;
-                    }
+                int col = (int)(checkX / blockGrid.GetTileSize());
+                int row = (int)(checkY / blockGrid.GetTileSize());
+                
+                if (blockGrid.IsSolidAt(col, row)) {
+                    groundAhead = true;
                 }
                 
                 if (!groundAhead) {

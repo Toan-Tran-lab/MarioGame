@@ -190,7 +190,7 @@ void SandboxState::Update(float deltaTime) {
                             g->SetPosition({ 16.0f + c * cellSize_, 10.0f + r * cellSize_ });
                             g->SetSize({ Global::TILE_SIZE * Global::GAME_SCALE, Global::TILE_SIZE * Global::GAME_SCALE });
                             g->SetPlayerBody(&testPlayer_->GetPhysicsBody());
-                            g->SetCollisionBlocks(&tempCollisions_);
+                            g->SetCollisionGrid(&tempBlockGrid_);
                             playtestGoombas_.push_back(std::move(g));
                         } else if (grid_[r][c].type == 4) {
                             playtestCoins_.push_back({ { 16.0f + c * cellSize_, 10.0f + r * cellSize_ }, true });

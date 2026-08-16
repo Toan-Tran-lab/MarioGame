@@ -7,6 +7,11 @@
 #include "Camera/View.h"
 #include "Game Objects/Derived Objects/Playable Characters/Player/Player.h"
 #include "Game Objects/Derived Objects/Enemies/Goomba/Goomba.h"
+#include "Game Objects/Derived Objects/Enemies/KoopaShell/KoopaShell.h"
+#include "Game Objects/Derived Objects/Static Objects/Coin/Coin.h"
+#include "Game Objects/Derived Objects/Static Objects/Block.h"
+#include "Game Objects/Derived Objects/Static Objects/Luckyblock/Luckyblock.h"
+#include "Game Objects/Derived Objects/Static Objects/Debris.h"
 #include "Game Objects/Derived Objects/Items/Mushroom.h"
 
 #include "SaveManager/SaveManager.h"
@@ -20,15 +25,12 @@ private:
     Level currentLevel;
 
     std::vector<std::unique_ptr<Goomba>> goombas_;
-    struct GameplayCoin {
-        Vector2 position;
-        bool active;
-    };
-    std::vector<GameplayCoin> coins_;
+    std::vector<std::unique_ptr<KoopaShell>> koopas_;
+    std::vector<std::unique_ptr<Coin>> coins_;
+    std::vector<DebrisPiece> debrisList_;
     Mushroom mushroom_;
 
     std::unique_ptr<Player> player_;
-    std::vector<Rectangle> mapCollisionRects;
 
     bool isSandboxMode_ = false;
     std::vector<std::vector<SandboxCellData>> sandboxGrid_;

@@ -3,6 +3,7 @@
 #include "Button/Button.h"
 #include "Game Objects/Derived Objects/Playable Characters/Player/Mario.h"
 #include "Game Objects/Derived Objects/Enemies/Goomba/Goomba.h"
+#include "World/BlockGrid.h"
 #include <vector>
 #include <memory>
 
@@ -31,7 +32,7 @@ private:
     // Playtest mode variables
     bool isPlaying_;
     std::unique_ptr<Mario> testPlayer_;
-    std::vector<Rectangle> tempCollisions_;
+    BlockGrid tempBlockGrid_;
 
     // Camera variables
     Camera2D editorCam_;

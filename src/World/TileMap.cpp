@@ -58,6 +58,7 @@ bool TileMap::LoadFromLdtk(const std::string& filePath, const std::string& level
             std::string relPath;
             int tileGridSize;
             int spacing;
+            std::vector<int> luckyTiles;
         };
         std::unordered_map<int, TilesetInfo> tilesetLookup;
 
@@ -68,6 +69,15 @@ bool TileMap::LoadFromLdtk(const std::string& filePath, const std::string& level
                 info.relPath = ts.value("relPath", "");
                 info.tileGridSize = ts.value("tileGridSize", 16);
                 info.spacing = ts.value("spacing", 0);
+                
+                if (ts.contains("customData") && ts["customData"].is_array()) {
+                    for (const auto& cd : ts["customData"]) {
+                        if (cd.value("data", "") == "Luckyblock") {
+                            info.luckyTiles.push_back(cd.value("tileId", -1));
+                        }
+                    }
+                }
+                
                 tilesetLookup[uid] = info;
             }
         }
@@ -89,7 +99,7 @@ bool TileMap::LoadFromLdtk(const std::string& filePath, const std::string& level
 
         // --- Parse layer instances ---
         layers.clear();
-        collisionGrid.clear();
+        entities.clear();
 
         if (!level.contains("layerInstances") || !level["layerInstances"].is_array()) {
             TraceLog(LOG_ERROR, "TILEMAP: No layerInstances in level '%s'", levelId.c_str());
@@ -172,14 +182,32 @@ bool TileMap::LoadFromLdtk(const std::string& filePath, const std::string& level
 
                 // Parse grid tiles
                 if (li.contains("gridTiles") && li["gridTiles"].is_array()) {
+                    const auto& luckyList = tilesetLookup[tilesetUid].luckyTiles;
+                    
                     for (const auto& gt : li["gridTiles"]) {
-                        LdtkTile tile;
-                        tile.px[0]  = gt["px"][0].get<int>();
-                        tile.px[1]  = gt["px"][1].get<int>();
-                        tile.src[0] = gt["src"][0].get<int>();
-                        tile.src[1] = gt["src"][1].get<int>();
-                        tile.f      = gt.value("f", 0);
-                        tl.tiles.push_back(tile);
+                        int tId = gt.value("t", -1);
+                        bool isLucky = false;
+                        for (int id : luckyList) {
+                            if (id == tId) { isLucky = true; break; }
+                        }
+                        
+                        int pxX = gt["px"][0].get<int>();
+                        int pxY = gt["px"][1].get<int>();
+
+                        if (isLucky) {
+                            float scale = (float)tileSize / (float)gridSize;
+                            Vector2 pos = { pxX * scale, pxY * scale };
+                            entities.push_back({ "Luckyblock", pos });
+                            TraceLog(LOG_INFO, "TILEMAP: Found Luckyblock at (%f, %f)", pos.x, pos.y);
+                        } else {
+                            LdtkTile tile;
+                            tile.px[0]  = pxX;
+                            tile.px[1]  = pxY;
+                            tile.src[0] = gt["src"][0].get<int>();
+                            tile.src[1] = gt["src"][1].get<int>();
+                            tile.f      = gt.value("f", 0);
+                            tl.tiles.push_back(tile);
+                        }
                     }
                 }
 
@@ -200,35 +228,42 @@ bool TileMap::LoadFromLdtk(const std::string& filePath, const std::string& level
                 int cWid = li.value("__cWid", mapWidth);
                 int cHei = li.value("__cHei", mapHeight);
 
-                collisionGrid.resize(cHei);
-                for (int row = 0; row < cHei; row++) {
-                    collisionGrid[row].resize(cWid, 0);
-                }
+                blockGrid.Init(cWid, cHei, tileSize);
 
                 if (li.contains("intGridCsv") && li["intGridCsv"].is_array()) {
                     const auto& csv = li["intGridCsv"];
                     for (int i = 0; i < (int)csv.size() && i < cWid * cHei; i++) {
                         int row = i / cWid;
                         int col = i % cWid;
-                        collisionGrid[row][col] = csv[i].get<int>();
+                        int val = csv[i].get<int>();
+                        if (val != 0) {
+                            auto tb = std::make_unique<TerrainBlock>();
+                            tb->SetPosition({ (float)(col * tileSize), (float)(row * tileSize) });
+                            tb->SetSize({ (float)tileSize, (float)tileSize });
+                            blockGrid.SetBlock(col, row, std::move(tb));
+                        }
                     }
                 }
 
-                TraceLog(LOG_INFO, "TILEMAP: Loaded collision grid (%dx%d)", cWid, cHei);
+                TraceLog(LOG_INFO, "TILEMAP: Loaded BlockGrid (%dx%d)", cWid, cHei);
             }
             else if (type == "Entities") {
                 // --- Entity layer ---
                 if (li.contains("entityInstances") && li["entityInstances"].is_array()) {
                     for (const auto& ent : li["entityInstances"]) {
                         std::string entId = ent.value("__identifier", "");
-                        if (entId == "Player") {
-                            if (ent.contains("px") && ent["px"].is_array() && ent["px"].size() >= 2) {
-                                float pxX = ent["px"][0].get<float>();
-                                float pxY = ent["px"][1].get<float>();
-                                float scale = (float)tileSize / (float)gridSize;
-                                playerSpawn.x = pxX * scale;
-                                playerSpawn.y = pxY * scale;
+                        if (ent.contains("px") && ent["px"].is_array() && ent["px"].size() >= 2) {
+                            float pxX = ent["px"][0].get<float>();
+                            float pxY = ent["px"][1].get<float>();
+                            float scale = (float)tileSize / (float)gridSize;
+                            Vector2 pos = { pxX * scale, pxY * scale };
+                            
+                            if (entId == "Player") {
+                                playerSpawn = pos;
                                 TraceLog(LOG_INFO, "TILEMAP: Found player spawn at (%f, %f)", playerSpawn.x, playerSpawn.y);
+                            } else {
+                                entities.push_back({ entId, pos });
+                                TraceLog(LOG_INFO, "TILEMAP: Found entity %s at (%f, %f)", entId.c_str(), pos.x, pos.y);
                             }
                         }
                     }
@@ -244,6 +279,8 @@ bool TileMap::LoadFromLdtk(const std::string& filePath, const std::string& level
         borderTop = 0.0f;
         borderRight = (float)GetPixelWidth();
         borderBottom = (float)GetPixelHeight();
+        // We no longer clear the collision grid here to prevent internal edge collisions (snagging).
+        // The block interactions will be handled via grid coordinates.
                  
         return true;
 
@@ -259,14 +296,6 @@ void TileMap::SetTileSize(int size) {
 }
 
 // ========== Queries ==========
-bool TileMap::IsSolidAt(int col, int row) const {
-    if (!IsInBounds(col, row)) return false;
-    if (collisionGrid.empty()) return false;
-    if (row < 0 || row >= (int)collisionGrid.size()) return false;
-    if (col < 0 || col >= (int)collisionGrid[row].size()) return false;
-    return collisionGrid[row][col] != 0;
-}
-
 bool TileMap::IsInBounds(int col, int row) const {
     return col >= 0 && col < mapWidth && row >= 0 && row < mapHeight;
 }
@@ -281,6 +310,10 @@ Vector2 TileMap::GetPlayerSpawn() const {
     return playerSpawn;
 }
 
+const std::vector<EntitySpawnInfo>& TileMap::GetEntities() const {
+    return entities;
+}
+
 
 
 float TileMap::GetBorderLeft() const { return borderLeft; }
@@ -288,39 +321,11 @@ float TileMap::GetBorderRight() const { return borderRight; }
 float TileMap::GetBorderTop() const { return borderTop; }
 float TileMap::GetBorderBottom() const { return borderBottom; }
 
-std::vector<Rectangle> TileMap::GetCollisionRects() const {
-    std::vector<Rectangle> rects;
-    if (collisionGrid.empty()) return rects;
-
-    for (int row = 0; row < (int)collisionGrid.size(); row++) {
-        int startCol = -1;
-        for (int col = 0; col < (int)collisionGrid[row].size(); col++) {
-            if (collisionGrid[row][col] != 0) {
-                if (startCol == -1) startCol = col; // Start a new block
-            } else {
-                if (startCol != -1) { // End the block
-                    rects.push_back({
-                        (float)(startCol * tileSize),
-                        (float)(row * tileSize),
-                        (float)((col - startCol) * tileSize),
-                        (float)tileSize
-                    });
-                    startCol = -1;
-                }
-            }
-        }
-        // If the row ended with a block, push it
-        if (startCol != -1) {
-            rects.push_back({
-                (float)(startCol * tileSize),
-                (float)(row * tileSize),
-                (float)((collisionGrid[row].size() - startCol) * tileSize),
-                (float)tileSize
-            });
-        }
-    }
-    return rects;
+bool TileMap::IsSolidAt(int col, int row) const {
+    return blockGrid.IsSolidAt(col, row);
 }
+
+// GetCollisionRects removed in favor of BlockGrid
 
 // ========== Coordinate conversion ==========
 Vector2 TileMap::WorldToTile(float worldX, float worldY) const {
@@ -329,6 +334,23 @@ Vector2 TileMap::WorldToTile(float worldX, float worldY) const {
 
 Vector2 TileMap::TileToWorld(int col, int row) const {
     return { (float)(col * tileSize), (float)(row * tileSize) };
+}
+
+bool TileMap::RemoveTileAt(int col, int row, std::string& outTexKey, Rectangle& outSrcRect) {
+    int nativePxX = col * gridSize;
+    int nativePxY = row * gridSize;
+
+    for (auto& layer : layers) {
+        for (auto it = layer.tiles.begin(); it != layer.tiles.end(); ++it) {
+            if (it->px[0] == nativePxX && it->px[1] == nativePxY) {
+                outTexKey = layer.textureKey;
+                outSrcRect = { (float)it->src[0], (float)it->src[1], (float)layer.gridSize, (float)layer.gridSize };
+                layer.tiles.erase(it);
+                return true;
+            }
+        }
+    }
+    return false;
 }
 
 // ========== Draw ==========
@@ -355,6 +377,14 @@ void TileMap::Draw(float cameraX, float cameraY, float cameraZoom) {
             float drawX = tile.px[0] * scale;
             float drawY = tile.px[1] * scale;
 
+            // Offset Y if the block is undergoing a bump bounce animation
+            int tileCol = tile.px[0] / gridSize;
+            int tileRow = tile.px[1] / gridSize;
+            Block* b = blockGrid.GetBlock(tileCol, tileRow);
+            if (b != nullptr) {
+                drawY += b->GetBumpOffsetY();
+            }
+
             // Viewport culling check
             if (drawX + drawSize < left || drawX > right ||
                 drawY + drawSize < top || drawY > bottom) {
@@ -362,9 +392,6 @@ void TileMap::Draw(float cameraX, float cameraY, float cameraZoom) {
             }
 
             // --- Snap to screen pixel grid to eliminate seams ---
-            // Floor the start position so it lands on an exact screen pixel.
-            // Compute the end position as floor of the *next* tile's start,
-            // guaranteeing consecutive tiles share the same edge (no gaps).
             float sx0 = floorf((drawX - cameraX) * cameraZoom);
             float sy0 = floorf((drawY - cameraY) * cameraZoom);
             float sx1 = floorf((drawX + drawSize - cameraX) * cameraZoom);
@@ -376,13 +403,15 @@ void TileMap::Draw(float cameraX, float cameraY, float cameraZoom) {
             float snappedW = (sx1 - sx0) / cameraZoom;
             float snappedH = (sy1 - sy0) / cameraZoom;
 
-            float srcW = (float)layerGridSize;
-            float srcH = (float)layerGridSize;
+            // Inset nửa texel để tránh bleeding pixel giữa các tile kề nhau trong tileset
+            const float e = 0.5f;
+            float srcW = (float)layerGridSize - 2.0f * e;
+            float srcH = (float)layerGridSize - 2.0f * e;
 
             if (tile.f & 1) srcW = -srcW;
             if (tile.f & 2) srcH = -srcH;
 
-            Rectangle srcRect = { (float)tile.src[0], (float)tile.src[1], srcW, srcH };
+            Rectangle srcRect = { (float)tile.src[0] + e, (float)tile.src[1] + e, srcW, srcH };
             Rectangle destRect = { snappedX, snappedY, snappedW, snappedH };
 
             DrawTexturePro(tex, srcRect, destRect, {0, 0}, 0.0f, WHITE);
@@ -405,8 +434,7 @@ bool TileMap::LoadFromSandbox(const std::vector<std::vector<SandboxCellData>>& s
     borderBottom = (float)(mapHeight * tileSize);
 
     layers.clear();
-    collisionGrid.clear();
-    collisionGrid.resize(mapHeight, std::vector<int>(mapWidth, 0));
+    blockGrid.Init(mapWidth, mapHeight, tileSize);
 
     playerSpawn = { 100.0f, (float)((mapHeight - 3) * tileSize) }; // Default spawn if Player Start is not set
 
@@ -435,7 +463,10 @@ bool TileMap::LoadFromSandbox(const std::vector<std::vector<SandboxCellData>>& s
                 layerMap[cell.texKey].tiles.push_back(tile);
 
                 if (cell.isSolid) {
-                    collisionGrid[r][c] = 1;
+                    auto tb = std::make_unique<TerrainBlock>();
+                    tb->SetPosition({ (float)(c * tileSize), (float)(r * tileSize) });
+                    tb->SetSize({ (float)tileSize, (float)tileSize });
+                    blockGrid.SetBlock(c, r, std::move(tb));
                 }
             } else if (cell.type == 2) {
                 // Player Spawn (type 2)

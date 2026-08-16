@@ -3,16 +3,20 @@
 #include "Animations/Animation.h"
 #include <vector>
 
+class BlockGrid;
+
 class Mushroom : public Character {
 private:
     AnimationState animState;
-    const std::vector<Rectangle>* collisionBlocks_ = nullptr;
+    const BlockGrid* collisionGrid_ = nullptr;
     bool active = true;
 
 public:
     Mushroom();
 
-    void SetCollisionBlocks(const std::vector<Rectangle>* blocks) { collisionBlocks_ = blocks; }
+    void Spawn(Vector2 pos);
+
+    void SetCollisionGrid(const BlockGrid* grid) { collisionGrid_ = grid; }
     void Update(float dt) override;
     void Draw() override;
     

@@ -1,6 +1,6 @@
 #pragma once
 #include "Game Objects/Core Header Files/Characters.h"
-#include "world/TileMap.h"
+#include "World/TileMap.h"
 #include "Animations/Animation.h"
 #include <vector>
 
@@ -10,11 +10,13 @@ enum class PowerupType;
 class Player : public Character {
 private:
     PlayerState* state = nullptr;
-    const std::vector<Rectangle>* collisionBlocks_ = nullptr;
+    const BlockGrid* collisionGrid_ = nullptr;
     AnimationState animState;
     bool isDead_ = false;
     bool isSmall_ = true;
     bool isSitting_ = false;
+    bool canHitBlock_ = true;
+    float prevVelY_ = 0.0f;
 
 public:
     Player();
@@ -23,8 +25,11 @@ public:
     void SetState(PlayerState* Temp);
     void TakeDamage();
     void TakePowerup(PowerupType type);
-    void SetCollisionBlocks(const std::vector<Rectangle>* blocks);
+    void SetCollisionGrid(const BlockGrid* grid);
     void SetAnimation(const Animation* newAnim);
+
+    bool CanHitBlock() const { return canHitBlock_; }
+    void SetCanHitBlock(bool can) { canHitBlock_ = can; }
 
     bool IsDead() const;
     void SetDead(bool dead);

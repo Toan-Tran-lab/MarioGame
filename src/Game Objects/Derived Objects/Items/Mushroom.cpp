@@ -2,6 +2,7 @@
 #include "Game Objects/Interaction Resolve/Visitor.h"
 #include "physics/PhysicsEngine.h"
 #include "physics/CollisionSystem.h"
+#include "World/BlockGrid.h"
 #include "Global/Global.h"
 #include <cmath>
 
@@ -25,9 +26,9 @@ void Mushroom::Update(float dt) {
 
     physics::PhysicsEngine::ApplyPhysics(physicsBody_, noInput, dt);
 
-    if (collisionBlocks_) {
-        // Resolve collisions
-        physics::CollisionSystem::ResolveMapCollisions(physicsBody_, *collisionBlocks_);
+    if (collisionGrid_) {
+        // Mushroom turns around when hitting a wall
+        physics::CollisionSystem::ResolveMapCollisions(physicsBody_, *collisionGrid_);
         
         // Bounce off walls if x velocity was zeroed by collision
         if (std::abs(physicsBody_.velocity.x) < 0.1f) {
@@ -46,7 +47,7 @@ void Mushroom::Update(float dt) {
 
 void Mushroom::Draw() {
     if (!active) return;
-    Vector2 drawPos = { std::round(position_.x), std::round(position_.y) };
+    Vector2 drawPos = { position_.x, position_.y };
     animState.Draw(drawPos, facing_, size_);
 }
 

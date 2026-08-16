@@ -50,12 +50,20 @@ Rectangle TextureManager::GetSourceRect(const std::string& key, int tileWidth, i
     int col = index % cols;
     int row = index / cols;
 
-    return Rectangle{
-        (float)(col * tileWidth),
-        (float)(row * tileHeight),
-        (float)tileWidth,
-        (float)tileHeight
-    };
+    float x = (float)(col * tileWidth);
+    float y = (float)(row * tileHeight);
+    float w = (float)tileWidth;
+    float h = (float)tileHeight;
+
+    // Inset nửa texel để tránh bleeding pixel từ frame/tile kề nhau trong spritesheet
+    // (khi vẽ ở tọa độ không nguyên, GPU có thể sample đúng đường nối giữa 2 ô)
+    const float e = 0.5f;
+    x += e;
+    y += e;
+    w -= 2.0f * e;
+    h -= 2.0f * e;
+
+    return Rectangle{ x, y, w, h };
 }
 
 void TextureManager::Unload(const std::string& key) {
