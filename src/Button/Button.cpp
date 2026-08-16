@@ -28,10 +28,24 @@ void Button::Update(Vector2 mousePos, bool mouseDown) {
 }
 
 void Button::Draw() {
-    DrawRectangleRounded(bounds, 0.1f, 10, currentColor);
-    DrawRectangleRoundedLinesEx(bounds, 0.1f, 10, 2.0f, BLACK);
+    // 1. Drop shadow
+    DrawRectangleRounded({bounds.x + 4, bounds.y + 4, bounds.width, bounds.height}, 0.15f, 10, Color{10, 5, 20, 120});
+    
+    // 2. Main body
+    DrawRectangleRounded(bounds, 0.15f, 10, currentColor);
+    
+    // 3. Inner 3D Bevel effect (highlight at top-left)
+    DrawRectangleRoundedLinesEx({bounds.x + 1, bounds.y + 1, bounds.width - 2, bounds.height - 2}, 0.15f, 10, 1.0f, Color{255, 255, 255, 100});
+    
+    // 4. Outer border (thick gold glow if hovered, dark border otherwise)
+    if (isHovered) {
+        DrawRectangleRoundedLinesEx(bounds, 0.15f, 10, 3.0f, GOLD);
+    } else {
+        DrawRectangleRoundedLinesEx(bounds, 0.15f, 10, 2.0f, Color{50, 35, 20, 255});
+    }
 
-    int fontSize = (int)(bounds.height * 0.5f);
+    // 5. Text with drop shadow
+    int fontSize = (int)(bounds.height * 0.45f);
     int maxW = (int)bounds.width - 20;
     int textW = MeasureText(text.c_str(), fontSize);
     while (textW > maxW && fontSize > 10) {
@@ -39,10 +53,13 @@ void Button::Draw() {
         textW = MeasureText(text.c_str(), fontSize);
     }
     
-    DrawText(text.c_str(),
-        (int)(bounds.x + (bounds.width - textW) / 2),
-        (int)(bounds.y + (bounds.height - fontSize) / 2),
-        fontSize, BLACK);
+    int tx = (int)(bounds.x + (bounds.width - textW) / 2);
+    int ty = (int)(bounds.y + (bounds.height - fontSize) / 2);
+    
+    Color textColor = isHovered ? WHITE : Color{230, 230, 230, 255};
+    
+    // Draw main text (will be automatically outlined by the global macro)
+    DrawText(text.c_str(), tx, ty, fontSize, textColor);
 }
 
 bool Button::IsClicked() const {

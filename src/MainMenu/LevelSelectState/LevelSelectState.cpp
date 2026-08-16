@@ -107,9 +107,22 @@ void LevelSelectState::Draw() {
     ClearBackground(Color{ 60, 40, 80, 255 });
     UIUtils::DrawMenuBackground(sw, sh);
 
-    // Title
+    // Title with Drop Shadow
     int titleSize = (int)(sh * 0.06f);
-    UIUtils::DrawCenteredTitle("SELECT LEVEL", (int)(sh * 0.12f), titleSize, WHITE, (int)sw);
+    int titleY = (int)(sh * 0.12f);
+    
+    // Draw drop shadow
+    UIUtils::DrawCenteredTitle("SELECT LEVEL", titleY + 3, titleSize, Color{20, 10, 30, 255}, (int)sw);
+    // Draw main title
+    UIUtils::DrawCenteredTitle("SELECT LEVEL", titleY, titleSize, WHITE, (int)sw);
+    
+    // Draw a decorative line under the title (classic Mario style)
+    float lineY = titleY + titleSize + 10;
+    float lineW = sw * 0.4f;
+    float lineX = (sw - lineW) * 0.5f;
+    DrawRectangle((int)lineX, (int)lineY, (int)lineW, 4, GOLD);
+    DrawRectangle((int)(lineX - 8), (int)(lineY - 2), 8, 8, RED);
+    DrawRectangle((int)(lineX + lineW), (int)(lineY - 2), 8, 8, RED);
 
     // Draw buttons
     int menuFontSize = (int)(sh * 0.035f);

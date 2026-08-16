@@ -4,6 +4,7 @@
 #include "Level/Level.h"
 #include "World/TileMap.h"
 #include "Global/Global.h"
+#include "TextureManager/TextureManager.h"
 #include <cmath>
 
 namespace UIUtils {
@@ -130,22 +131,18 @@ namespace UIUtils {
     }
 
     void DrawMenuHUD(float sw, float sh) {
-        int fontSize = (int)(sh * 0.035f);
-        DrawText("MARIO", (int)(sw * 0.05f), (int)(sh * 0.03f), fontSize, WHITE);
-        DrawText("000000", (int)(sw * 0.05f), (int)(sh * 0.03f + fontSize + 4), fontSize, WHITE);
-
-        const char* worldLabel = "WORLD";
-        int worldX = (int)((sw - MeasureText(worldLabel, fontSize)) * 0.5f);
-        DrawText(worldLabel, worldX, (int)(sh * 0.03f), fontSize, WHITE);
-        
-        int levelW = MeasureText(cachedLevelName.c_str(), fontSize);
-        DrawText(cachedLevelName.c_str(), (int)(worldX + MeasureText(worldLabel, fontSize)/2 - levelW/2), (int)(sh * 0.03f + fontSize + 4), fontSize, WHITE);
-
-        const char* timeLabel = "TIME";
-        int timeX = (int)(sw - MeasureText(timeLabel, fontSize) - sw * 0.05f);
-        DrawText(timeLabel, timeX, (int)(sh * 0.03f), fontSize, WHITE);
-
-        DrawCenteredTitle("SUPER MARIO", (int)(sh * 0.22f), (int)(sh * 0.08f), YELLOW, (int)sw);
+        // Only draw the logo, remove MARIO, WORLD, TIME text.
+        if (TextureManager::Has("title_logo")) {
+            Texture2D& logo = TextureManager::Get("title_logo");
+            float scale = (sh * 0.3f) / logo.height;
+            float drawW = logo.width * scale;
+            float drawH = logo.height * scale;
+            float drawX = (sw - drawW) * 0.5f;
+            float drawY = sh * 0.15f;
+            DrawTextureEx(logo, {drawX, drawY}, 0.0f, scale, WHITE);
+        } else {
+            DrawCenteredTitle("SUPER MARIO", (int)(sh * 0.22f), (int)(sh * 0.08f), YELLOW, (int)sw);
+        }
     }
 
     void CleanupMenuBackground() {

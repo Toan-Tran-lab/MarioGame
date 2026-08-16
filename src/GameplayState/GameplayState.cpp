@@ -87,6 +87,9 @@ void GameplayState::Initialize() {
     // Items
     TextureManager::Load("mushroom", "assets/textures/mushroom/mushroom.png");
 
+    // UI
+    TextureManager::Load("gameover_img", "assets/textures/gameover.png");
+
     // Initialize player
     if (player_->GetPosition().x == 0 && player_->GetPosition().y == 0) {
         Vector2 spawn = tileMap.GetPlayerSpawn();
@@ -222,8 +225,8 @@ void GameplayState::Draw() {
 
     if (isGameOver) {
         DrawRectangle(0, 0, sw, sh, Color{0, 0, 0, 150});
-        int overSize = (int)(sh * 0.15f); // Increased size
         
+        int overSize = (int)(sh * 0.15f); // Increased size
         Vector2 goSize = MeasureTextEx(Global::titleFont, "GAME OVER", overSize, 1.0f);
         DrawTextEx(Global::titleFont, "GAME OVER", { (sw - goSize.x) / 2, sh / 2 - goSize.y }, overSize, 1.0f, RED);
         

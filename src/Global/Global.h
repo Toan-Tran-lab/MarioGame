@@ -35,6 +35,19 @@ namespace Global {
     void Cleanup();
 }
 
-// Override Raylib default font functions to use baseFont globally
+// Override Raylib default font functions to use baseFont globally with outline
+inline void DrawTextOutlined(Font font, const char* text, Vector2 pos, float fontSize, float spacing, Color color) {
+    int outlineSize = 3;
+    for (int dx = -outlineSize; dx <= outlineSize; dx++) {
+        for (int dy = -outlineSize; dy <= outlineSize; dy++) {
+            if (dx != 0 || dy != 0) {
+                (DrawTextEx)(font, text, { pos.x + (float)dx, pos.y + (float)dy }, fontSize, spacing, BLACK);
+            }
+        }
+    }
+    (DrawTextEx)(font, text, pos, fontSize, spacing, color);
+}
+
 #define MeasureText(text, ...) ((int)MeasureTextEx(Global::baseFont, (text), (float)(__VA_ARGS__), 1.0f).x)
-#define DrawText(text, posX, posY, fontSize, ...) DrawTextEx(Global::baseFont, (text), { (float)(posX), (float)(posY) }, (float)(fontSize), 1.0f, (__VA_ARGS__))
+#define DrawTextEx(font, text, ...) DrawTextOutlined((font), (text), __VA_ARGS__)
+#define DrawText(text, posX, posY, fontSize, ...) DrawTextOutlined(Global::baseFont, (text), { (float)(posX), (float)(posY) }, (float)(fontSize), 1.0f, (__VA_ARGS__))

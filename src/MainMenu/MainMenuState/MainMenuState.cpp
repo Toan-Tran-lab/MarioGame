@@ -17,6 +17,7 @@ void MainMenuState::Initialize() {
     exitChoice = 0;
 
     UIUtils::InitMenuBackground();
+    TextureManager::Load("title_logo", "assets/textures/group6mario.png");
 }
 
 Rectangle MainMenuState::GetItemRect(int index, float sw, float sh) const {
