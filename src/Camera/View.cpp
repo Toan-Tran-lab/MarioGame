@@ -1,4 +1,5 @@
 #include "View.h"
+#include <cmath>
 
 View::View(float blocksY, float blockSize) {
     logicalHeight = blocksY * blockSize;
@@ -16,7 +17,7 @@ void View::Init(float mapPixelW, float mapPixelH) {
     mapPixelWidth = mapPixelW;
     mapPixelHeight = mapPixelH;
 
-    camera.offset = { GetScreenWidth() / 2.0f, GetScreenHeight() / 2.0f };
+    camera.offset = { floorf(GetScreenWidth() / 2.0f), floorf(GetScreenHeight() / 2.0f) };
     camera.target = { camera.offset.x, camera.offset.y };
     maxTargetX = 0.0f;
 }
@@ -30,7 +31,7 @@ void View::Update(float targetX, float targetY) {
         camera.zoom = screenH / logicalHeight;
     }
 
-    camera.offset = { screenW / 2.0f, screenH / 2.0f };
+    camera.offset = { floorf(screenW / 2.0f), floorf(screenH / 2.0f) };
 
     // Track target
     camera.target.x = targetX;
@@ -43,9 +44,11 @@ void View::Update(float targetX, float targetY) {
 
     ClampToBounds();
 
-    // Round the target to prevent sub-pixel jitter/tearing when moving
-    camera.target.x = (float)(int)camera.target.x;
-    camera.target.y = (float)(int)camera.target.y;
+    // Snap camera target to screen pixel grid for smoother scrolling.
+    // Old: rounded to world pixels (1 world-px = ~2.8 screen-px → jerky)
+    // New: rounds to screen pixels (moves 1 screen-px at a time → smooth)
+    camera.target.x = roundf(camera.target.x * camera.zoom) / camera.zoom;
+    camera.target.y = roundf(camera.target.y * camera.zoom) / camera.zoom;
 
     // Update max target after clamping
     maxTargetX = camera.target.x;

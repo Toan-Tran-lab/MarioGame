@@ -19,6 +19,8 @@ void TextureManager::Load(const std::string& key, const std::string& filePath) {
 
     // LỆNH QUAN TRỌNG: Tắt nội suy mượt (setSmooth(false)) để pixel không bị mờ khi phóng to
     SetTextureFilter(tex, TEXTURE_FILTER_POINT);
+    // Ngăn GPU sample nhầm pixel từ tile kế bên trong spritesheet (gây bleeding ở cạnh tile)
+    SetTextureWrap(tex, TEXTURE_WRAP_CLAMP);
 
     textures[key] = tex;
     TraceLog(LOG_INFO, "TextureManager: Đã load texture '%s' (%dx%d)",

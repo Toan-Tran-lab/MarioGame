@@ -361,6 +361,21 @@ void TileMap::Draw(float cameraX, float cameraY, float cameraZoom) {
                 continue; // Skip out-of-bounds tiles
             }
 
+            // --- Snap to screen pixel grid to eliminate seams ---
+            // Floor the start position so it lands on an exact screen pixel.
+            // Compute the end position as floor of the *next* tile's start,
+            // guaranteeing consecutive tiles share the same edge (no gaps).
+            float sx0 = floorf((drawX - cameraX) * cameraZoom);
+            float sy0 = floorf((drawY - cameraY) * cameraZoom);
+            float sx1 = floorf((drawX + drawSize - cameraX) * cameraZoom);
+            float sy1 = floorf((drawY + drawSize - cameraY) * cameraZoom);
+
+            // Convert back to world space for DrawTexturePro (we're inside BeginMode2D)
+            float snappedX = sx0 / cameraZoom + cameraX;
+            float snappedY = sy0 / cameraZoom + cameraY;
+            float snappedW = (sx1 - sx0) / cameraZoom;
+            float snappedH = (sy1 - sy0) / cameraZoom;
+
             float srcW = (float)layerGridSize;
             float srcH = (float)layerGridSize;
 
@@ -368,7 +383,7 @@ void TileMap::Draw(float cameraX, float cameraY, float cameraZoom) {
             if (tile.f & 2) srcH = -srcH;
 
             Rectangle srcRect = { (float)tile.src[0], (float)tile.src[1], srcW, srcH };
-            Rectangle destRect = { drawX, drawY, drawSize, drawSize };
+            Rectangle destRect = { snappedX, snappedY, snappedW, snappedH };
 
             DrawTexturePro(tex, srcRect, destRect, {0, 0}, 0.0f, WHITE);
         }
