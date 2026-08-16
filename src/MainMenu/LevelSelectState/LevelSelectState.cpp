@@ -7,15 +7,9 @@ void LevelSelectState::Initialize() {
     int total = Level::GetTotalLevels();
     levelButtons.resize(total);
 
-    // Color pairs for each level button
-    Color normalColors[] = { DARKGREEN, DARKBLUE, DARKPURPLE };
-    Color hoverColors[]  = { GREEN,     BLUE,     PURPLE };
-
     for (int i = 0; i < total; i++) {
-        Level lvl = Level::GetLevel(i + 1);
-        Color normal = normalColors[i % 3];
-        Color hover  = hoverColors[i % 3];
-        levelButtons[i] = Button({0, 0, 0, 0}, lvl.GetDisplayName(), normal, hover);
+        std::string levelText = "LEVEL " + std::to_string(i + 1);
+        levelButtons[i] = Button({0, 0, 0, 0}, levelText, YELLOW, ORANGE);
     }
 
     backButton = Button({0, 0, 0, 0}, "Back", MAROON, RED);
@@ -115,7 +109,7 @@ void LevelSelectState::Draw() {
 
     // Title
     int titleSize = (int)(sh * 0.06f);
-    UIUtils::DrawCenteredText("SELECT LEVEL", (int)(sh * 0.12f), titleSize, WHITE, (int)sw);
+    UIUtils::DrawCenteredTitle("SELECT LEVEL", (int)(sh * 0.12f), titleSize, WHITE, (int)sw);
 
     // Draw buttons
     int menuFontSize = (int)(sh * 0.035f);
@@ -144,10 +138,8 @@ void LevelSelectState::Draw() {
     DrawLine(0, barY, (int)sw, barY, Color{ 100, 80, 120, 255 });
     int barFontSize = (int)(sh * 0.025f);
     int spacing = (int)(sw * 0.08f);
-    float x = sw - spacing * 3;
+    float x = sw - spacing * 1.5f;
 
-    UIUtils::DrawKeyPrompt("U/D", "NAVIGATE", x, barY + 5, barFontSize, spacing);
-    UIUtils::DrawKeyPrompt("ENTER", "SELECT", x, barY + 5, barFontSize, spacing);
     UIUtils::DrawKeyPrompt("ESC", "BACK", x, barY + 5, barFontSize, spacing);
 }
 

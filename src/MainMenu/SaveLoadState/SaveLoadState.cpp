@@ -128,8 +128,7 @@ void SaveLoadState::Draw() {
     
     int titleSize = (int)(sh * 0.08f);
     std::string title = (mode == Mode::Save) ? "SAVE GAME" : "LOAD GAME";
-    int titleW = MeasureText(title.c_str(), titleSize);
-    DrawText(title.c_str(), (int)(sw - titleW) / 2, (int)(sh * 0.1f), titleSize, WHITE);
+    UIUtils::DrawCenteredTitle(title.c_str(), (int)(sh * 0.1f), titleSize, WHITE, (int)sw);
     
     for (int i = 0; i < (int)slots.size(); i++) {
         Rectangle r = GetItemRect(i, sw, sh);
@@ -138,8 +137,8 @@ void SaveLoadState::Draw() {
             bgColor = Color{50, 50, 50, 255};
         }
         
-        DrawRectangleRec(r, bgColor);
-        DrawRectangleLinesEx(r, 2.0f, WHITE);
+        DrawRectangleRounded(r, 0.1f, 10, bgColor);
+        DrawRectangleRoundedLinesEx(r, 0.1f, 10, 2.0f, WHITE);
         
         int nameSize = (int)(r.height * 0.4f);
         DrawText(slots[i].name.c_str(), (int)(r.x + 20), (int)(r.y + 10), nameSize, WHITE);

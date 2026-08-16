@@ -1,4 +1,5 @@
 #include "Dropdown.h"
+#include "Global/Global.h"
 #include <algorithm>
 
 Dropdown::Dropdown()

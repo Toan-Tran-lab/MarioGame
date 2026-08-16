@@ -54,15 +54,38 @@ void GameplayState::Initialize() {
     }
 
     // Load player animations/textures
+    // Mario Normal
     TextureManager::Load("mario_pose", "assets/textures/Mario/pose/mario.png");
     TextureManager::Load("mario_walk", "assets/textures/Mario/walk/mario.png");
     TextureManager::Load("mario_jump", "assets/textures/Mario/jump/mario.png");
     TextureManager::Load("mario_slide", "assets/textures/Mario/slide/mario.png");
+    TextureManager::Load("mario_sit", "assets/textures/Mario/sit/mario.png");
 
+    // Mario Mini
+    TextureManager::Load("mario_mini_pose", "assets/textures/Mario-mini/pose/mario.png");
+    TextureManager::Load("mario_mini_walk", "assets/textures/Mario-mini/walk/mario.png");
+    TextureManager::Load("mario_mini_jump", "assets/textures/Mario-mini/jump/mario.png");
+    TextureManager::Load("mario_mini_slide", "assets/textures/Mario-mini/slide/mario.png");
+    TextureManager::Load("mario_mini_die", "assets/textures/Mario-mini/die/mario.png");
+    TextureManager::Load("mario_mini_sit", "assets/textures/Mario/sit/mario.png"); // using normal sit if mini sit isn't provided
+
+    // Luigi Normal
     TextureManager::Load("luigi_pose", "assets/textures/Luigi/pose/luigi.png");
     TextureManager::Load("luigi_walk", "assets/textures/Luigi/walk/luigi.png");
     TextureManager::Load("luigi_jump", "assets/textures/Luigi/jump/luigi.png");
     TextureManager::Load("luigi_slide", "assets/textures/Luigi/slide/luigi.png");
+    TextureManager::Load("luigi_sit", "assets/textures/Luigi/sit/luigi.png");
+
+    // Luigi Mini
+    TextureManager::Load("luigi_mini_pose", "assets/textures/Luigi-mini/pose/luigi.png");
+    TextureManager::Load("luigi_mini_walk", "assets/textures/Luigi-mini/walk/luigi.png");
+    TextureManager::Load("luigi_mini_jump", "assets/textures/Luigi-mini/jump/luigi.png");
+    TextureManager::Load("luigi_mini_slide", "assets/textures/Luigi-mini/slide/luigi.png");
+    TextureManager::Load("luigi_mini_die", "assets/textures/Luigi-mini/die/luigi.png");
+    TextureManager::Load("luigi_mini_sit", "assets/textures/Luigi/sit/luigi.png"); // fallback
+
+    // Items
+    TextureManager::Load("mushroom", "assets/textures/mushroom/mushroom.png");
 
     // Initialize player
     if (player_->GetPosition().x == 0 && player_->GetPosition().y == 0) {
@@ -70,8 +93,11 @@ void GameplayState::Initialize() {
         Vector2 spawnPos = { spawn.x > 0 ? spawn.x : 100, spawn.y > 0 ? spawn.y : 300 };
         player_->SetPosition(spawnPos);
     }
-    float scl = 2;
-    player_->SetSize({16 * scl, 30 * scl}); // Use SetSize so it persists into physics body
+    if (player_->IsSmall()) {
+        player_->SetSize({Global::MINI_PLAYER_WIDTH * Global::GAME_SCALE, Global::MINI_PLAYER_HEIGHT * Global::GAME_SCALE}); 
+    } else {
+        player_->SetSize({Global::SUPER_PLAYER_WIDTH * Global::GAME_SCALE, Global::SUPER_PLAYER_HEIGHT * Global::GAME_SCALE}); 
+    }
     player_->SyncPhysicsBody();
     
     // Extract map collision rects and pass to player
@@ -80,11 +106,13 @@ void GameplayState::Initialize() {
 
     // Initialize enemy
     goomba_.SetPosition({ 500, 400 });
-    goomba_.SetSize({ 32, 32 });
+    goomba_.SetSize({ Global::TILE_SIZE * Global::GAME_SCALE, Global::TILE_SIZE * Global::GAME_SCALE });
     goomba_.SetPlayerBody(&player_->GetPhysicsBody());
     goomba_.SetCollisionBlocks(&mapCollisionRects);
 
-
+    // Initialize mushroom
+    mushroom_.SetPosition({ 300, 400 });
+    mushroom_.SetCollisionBlocks(&mapCollisionRects);
 
     // Initialize camera
     view = View(16.0f, (float)tileMap.GetTileSize());
@@ -128,20 +156,25 @@ void GameplayState::Update(float deltaTime) {
         goomba_.Update(deltaTime);
     }
 
-
-
-    // Entity interaction: player vs goomba
-    if (goomba_.IsActive() && player_->Overlaps(goomba_)) {
-        player_->InteractWith(goomba_);
+    if (mushroom_.IsActive()) {
+        mushroom_.Update(deltaTime);
     }
 
-    // Handle player death (respawn at spawn point)
+    // Entity interaction: player vs goomba/mushroom
+    if (!player_->IsDead()) {
+        if (goomba_.IsActive() && player_->Overlaps(goomba_)) {
+            player_->InteractWith(goomba_);
+        }
+        if (mushroom_.IsActive() && player_->Overlaps(mushroom_)) {
+            player_->InteractWith(mushroom_);
+        }
+    }
+
+    // Handle player death (Game Over when falling off map)
     if (player_->IsDead()) {
-        player_->SetDead(false);
-        Vector2 spawn = tileMap.GetPlayerSpawn();
-        Vector2 spawnPos = { spawn.x > 0 ? spawn.x : 100, spawn.y > 0 ? spawn.y : 300 };
-        player_->SetPosition(spawnPos);
-        player_->SyncPhysicsBody();
+        if (player_->GetPosition().y > tileMap.GetBorderBottom() + 100) {
+            isGameOver = true;
+        }
     }
 
     view.Update(player_->GetPosition().x, player_->GetPosition().y);
@@ -161,8 +194,9 @@ void GameplayState::Draw() {
     if (goomba_.IsActive()) {
         goomba_.Draw();
     }
-
-
+    if (mushroom_.IsActive()) {
+        mushroom_.Draw();
+    }
 
     view.EndDraw();
 
@@ -177,7 +211,9 @@ void GameplayState::Draw() {
     const char* worldLabel = "WORLD";
     int worldX = (int)((sw - MeasureText(worldLabel, fontSize)) * 0.5f);
     DrawText(worldLabel, worldX, (int)(sh * 0.03f), fontSize, WHITE);
-    DrawText(currentLevel.GetDisplayName().c_str(), worldX - 30, (int)(sh * 0.03f + fontSize + 4), fontSize, WHITE);
+    
+    int levelW = MeasureText(currentLevel.GetDisplayName().c_str(), fontSize);
+    DrawText(currentLevel.GetDisplayName().c_str(), (int)(worldX + MeasureText(worldLabel, fontSize)/2 - levelW/2), (int)(sh * 0.03f + fontSize + 4), fontSize, WHITE);
 
     const char* timeLabel = "TIME";
     int timeX = (int)(sw - MeasureText(timeLabel, fontSize) - sw * 0.05f);
@@ -186,10 +222,15 @@ void GameplayState::Draw() {
 
     if (isGameOver) {
         DrawRectangle(0, 0, sw, sh, Color{0, 0, 0, 150});
-        int overSize = (int)(sh * 0.1f);
-        int textW = MeasureText("GAME OVER", overSize);
-        DrawText("GAME OVER", (sw - textW) / 2, sh / 2 - overSize, overSize, RED);
-        DrawText("Press ENTER to return", (sw - MeasureText("Press ENTER to return", 20)) / 2, sh / 2 + 50, 20, WHITE);
+        int overSize = (int)(sh * 0.15f); // Increased size
+        
+        Vector2 goSize = MeasureTextEx(Global::titleFont, "GAME OVER", overSize, 1.0f);
+        DrawTextEx(Global::titleFont, "GAME OVER", { (sw - goSize.x) / 2, sh / 2 - goSize.y }, overSize, 1.0f, RED);
+        
+        const char* prompt = "Press ENTER to return";
+        int promptSize = (int)(sh * 0.05f);
+        Vector2 pSize = MeasureTextEx(Global::baseFont, prompt, promptSize, 1.0f);
+        DrawTextEx(Global::baseFont, prompt, { (sw - pSize.x) / 2, sh / 2 + 50 }, promptSize, 1.0f, WHITE);
     }
 
 }

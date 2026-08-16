@@ -1,4 +1,5 @@
 #include "Button.h"
+#include "Global/Global.h"
 
 Button::Button()
     : bounds({0, 0, 0, 0}), text(""),
@@ -27,11 +28,17 @@ void Button::Update(Vector2 mousePos, bool mouseDown) {
 }
 
 void Button::Draw() {
-    DrawRectangleRec(bounds, currentColor);
-    DrawRectangleLinesEx(bounds, 2, BLACK);
+    DrawRectangleRounded(bounds, 0.1f, 10, currentColor);
+    DrawRectangleRoundedLinesEx(bounds, 0.1f, 10, 2.0f, BLACK);
 
     int fontSize = (int)(bounds.height * 0.5f);
+    int maxW = (int)bounds.width - 20;
     int textW = MeasureText(text.c_str(), fontSize);
+    while (textW > maxW && fontSize > 10) {
+        fontSize--;
+        textW = MeasureText(text.c_str(), fontSize);
+    }
+    
     DrawText(text.c_str(),
         (int)(bounds.x + (bounds.width - textW) / 2),
         (int)(bounds.y + (bounds.height - fontSize) / 2),

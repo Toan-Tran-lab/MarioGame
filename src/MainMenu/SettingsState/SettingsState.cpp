@@ -25,12 +25,14 @@ void SettingsState::Initialize() {
         {"FULLSCREEN", "Toggle fullscreen mode", ItemType::Toggle},
         {"AUDIO", "", ItemType::Header},
         {"SOUND VOLUME", "Adjust sound volume", ItemType::SliderInt},
+        {"MUTE", "Mute all sounds", ItemType::Toggle},
         {"CONTROLS", "", ItemType::Header},
         {"KEY BINDINGS", "Customize controls", ItemType::Display}
     };
     items[1].cycleValues = resolutionLabels; items[1].cycleIndex = defaultResIndex; items[1].defaultCycleIndex = defaultResIndex;
     items[4].sliderValue = 80; items[4].defaultSlider = 80; items[4].sliderMin = 0; items[4].sliderMax = 100; items[4].sliderStep = 10;
-    items[6].displayValue = "Coming Soon";
+    items[5].toggleValue = false; items[5].defaultToggle = false;
+    items[7].displayValue = "Coming Soon";
     selectedIndex = 1; editMode = false; prevMouseDown = false; timeAccum = 0.0f;
 }
 
@@ -53,7 +55,7 @@ int SettingsState::GetNextItem(int current) const {
 }
 
 Rectangle SettingsState::GetItemRect(int index, float sw, float sh) const {
-    float itemW = sw * 0.7f, itemH = sh * 0.065f, itemX = sw * 0.12f, startY = sh * 0.18f, gap = sh * 0.015f;
+    float itemW = sw * 0.7f, itemH = sh * 0.065f, itemX = sw * 0.12f, startY = sh * 0.23f, gap = sh * 0.015f;
     return { itemX, startY + index * (itemH + gap), itemW, itemH };
 }
 
@@ -75,14 +77,8 @@ void SettingsState::ChangeValue(int dir) {
     } else if (item.type == ItemType::SliderInt) {
         item.sliderValue += dir * item.sliderStep;
         item.sliderValue = std::max(item.sliderMin, std::min(item.sliderMax, item.sliderValue));
+        ApplySetting(selectedIndex);
     }
-}
-
-void SettingsState::ResetCurrentItem() {
-    SettingItem& item = items[selectedIndex];
-    if (item.type == ItemType::Cycle) { item.cycleIndex = item.defaultCycleIndex; ApplySetting(selectedIndex); }
-    else if (item.type == ItemType::Toggle) { item.toggleValue = item.defaultToggle; ApplySetting(selectedIndex); }
-    else if (item.type == ItemType::SliderInt) { item.sliderValue = item.defaultSlider; }
 }
 
 void SettingsState::ApplyResolution(int idx) {
@@ -97,6 +93,15 @@ void SettingsState::ApplySetting(int index) {
     switch (static_cast<SettingId>(index)) {
         case SettingId::Resolution: ApplyResolution(items[index].cycleIndex); break;
         case SettingId::Fullscreen: ApplyFullscreen(); break;
+        case SettingId::Volume: 
+            if (!items[static_cast<int>(SettingId::Mute)].toggleValue) {
+                SetMasterVolume(items[index].sliderValue / 100.0f);
+            }
+            break;
+        case SettingId::Mute:
+            if (items[index].toggleValue) SetMasterVolume(0.0f);
+            else SetMasterVolume(items[static_cast<int>(SettingId::Volume)].sliderValue / 100.0f);
+            break;
         default: break;
     }
 }
@@ -132,8 +137,6 @@ void SettingsState::HandleEditModeInput() {
     if (IsKeyPressed(Global::keys.select) || IsKeyPressed(KEY_ENTER) || IsKeyPressed(KEY_SPACE) || 
         IsKeyPressed(Global::keys.back) || IsKeyPressed(KEY_ESCAPE)) {
         editMode = false;
-    } else if (IsKeyPressed(Global::keys.reset) || IsKeyPressed(KEY_R)) {
-        ResetCurrentItem();
     } else if (IsKeyPressed(KEY_LEFT) || IsKeyPressed(KEY_RIGHT)) {
         ChangeValue(IsKeyPressed(KEY_RIGHT) ? 1 : -1);
     }
@@ -144,8 +147,7 @@ void SettingsState::HandleKeyboardNavigation() {
     else if (IsKeyPressed(KEY_DOWN)) selectedIndex = GetNextItem(selectedIndex);
     else if (IsKeyPressed(Global::keys.select) || IsKeyPressed(KEY_ENTER) || IsKeyPressed(KEY_SPACE)) {
         if (items[selectedIndex].type != ItemType::Display) editMode = true;
-    } else if (IsKeyPressed(Global::keys.reset) || IsKeyPressed(KEY_R)) ResetCurrentItem();
-    else if (IsKeyPressed(Global::keys.back) || IsKeyPressed(KEY_ESCAPE)) Global::gameStateManager->PopState();
+    } else if (IsKeyPressed(Global::keys.back) || IsKeyPressed(KEY_ESCAPE)) Global::gameStateManager->PopState();
 }
 
 void SettingsState::HandleMouseClick(float sw, float sh, Vector2 mouse) {
@@ -188,8 +190,7 @@ void SettingsState::Draw() {
 }
 
 void SettingsState::DrawTitleAndHeader(float sw, float sh) const {
-    DrawText(items[selectedIndex].label.c_str(), (int)(sw * 0.05f), (int)(sh * 0.03f), (int)(sh * 0.035f), YELLOW);
-    UIUtils::DrawCenteredText("SETTINGS", (int)(sh * 0.08f), (int)(sh * 0.06f), WHITE, (int)sw);
+    UIUtils::DrawCenteredTitle("SETTINGS", (int)(sh * 0.15f), (int)(sh * 0.06f), WHITE, (int)sw);
 }
 
 void SettingsState::DrawSettingsList(float sw, float sh) const {
@@ -245,10 +246,8 @@ void SettingsState::DrawBottomBar(float sw, float sh) const {
     DrawLine(0, barY, (int)sw, barY, Color{ 100, 80, 120, 255 });
     
     int barFontSize = (int)(sh * 0.025f), spacing = (int)(sw * 0.08f);
-    float x = sw - spacing * 3;
+    float x = sw - spacing * 1.5f;
     
-    UIUtils::DrawKeyPrompt("ENTER", "SELECT", x, barY + 5, barFontSize, spacing);
-    UIUtils::DrawKeyPrompt("R", "RESET", x, barY + 5, barFontSize, spacing);
     UIUtils::DrawKeyPrompt("ESC", "BACK", x, barY + 5, barFontSize, spacing);
 }
 

@@ -236,6 +236,7 @@ bool TileMap::LoadFromLdtk(const std::string& filePath, const std::string& level
                                 playerSpawn.y = pxY * scale;
                                 TraceLog(LOG_INFO, "TILEMAP: Found player spawn at (%f, %f)", playerSpawn.x, playerSpawn.y);
                             }
+                        }
                     }
                 }
             }

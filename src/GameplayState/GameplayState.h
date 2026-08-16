@@ -7,6 +7,7 @@
 #include "Camera/View.h"
 #include "Game Objects/Derived Objects/Playable Characters/Player/Player.h"
 #include "Game Objects/Derived Objects/Enemies/Goomba/Goomba.h"
+#include "Game Objects/Derived Objects/Items/Mushroom.h"
 
 #include "SaveManager/SaveManager.h"
 #include <vector>
@@ -19,6 +20,7 @@ private:
     Level currentLevel;
 
     Goomba goomba_;
+    Mushroom mushroom_;
 
     std::unique_ptr<Player> player_;
     std::vector<Rectangle> mapCollisionRects;

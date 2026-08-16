@@ -1,6 +1,8 @@
 #include "PlayerInteraction.h"
 #include "Game Objects/Derived Objects/Enemies/Goomba/Goomba.h"
 #include "Game Objects/Derived Objects/Playable Characters/Player/Player.h"
+#include "Game Objects/Derived Objects/Items/Mushroom.h"
+#include "Game Objects/Derived Objects/Playable Characters/Player/PlayerState.h"
 
 namespace {
 // How far above the goomba's center the player's center may sit and still
@@ -35,4 +37,11 @@ void PlayerInteraction::Visit(Player& p) {
 void PlayerInteraction::Visit(KoopaShell& k) {
     // KoopaShell is not implemented yet; stub.
     (void)k;
+}
+
+void PlayerInteraction::Visit(Mushroom& m) {
+    if (m.IsActive()) {
+        m.SetActive(false);
+        self.TakePowerup(PowerupType::Mushroom);
+    }
 }

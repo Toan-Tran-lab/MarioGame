@@ -10,7 +10,8 @@ private:
         Resolution  = 1,
         Fullscreen  = 2,
         Volume      = 4,
-        KeyBindings = 6
+        Mute        = 5,
+        KeyBindings = 7
     };
 
     enum class ItemType { Header, Cycle, Toggle, SliderInt, Display };
@@ -53,7 +54,6 @@ private:
     Rectangle GetItemRect(int index, float sw, float sh) const;
     Rectangle GetArrowRect(Rectangle itemRect, bool isLeft, float sw) const;
     void ChangeValue(int dir);
-    void ResetCurrentItem();
     void ApplyResolution(int idx);
     void ApplyFullscreen();
     void ApplySetting(int index);

@@ -8,8 +8,12 @@ namespace Global {
     bool shouldExit = false;
     bool hasSaveGame = false;
     KeyBindings keys;
+    Font titleFont;
+    Font baseFont;
 
     void Init() {
+        titleFont = LoadFontEx("assets/fonts/SuperMario256.ttf", 128, 0, 250);
+        baseFont = LoadFontEx("assets/fonts/PressStart2P-Regular.ttf", 64, 0, 250);
         gameStateManager = std::make_unique<GameStateManager>();
         gameStateManager->PushState(std::make_unique<MainMenuState>());
 
@@ -20,6 +24,8 @@ namespace Global {
     }
 
     void Cleanup() {
+        UnloadFont(titleFont);
+        UnloadFont(baseFont);
         gameStateManager.reset();
         TextureManager::UnloadAll();
     }

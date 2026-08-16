@@ -20,6 +20,11 @@ namespace UIUtils {
         DrawText(text, (screenWidth - textW) / 2, y, fontSize, color);
     }
 
+    void DrawCenteredTitle(const char* text, int y, int fontSize, Color color, int screenWidth) {
+        Vector2 textSize = MeasureTextEx(Global::titleFont, text, (float)fontSize, 1.0f);
+        DrawTextEx(Global::titleFont, text, { (screenWidth - textSize.x) / 2.0f, (float)y }, (float)fontSize, 1.0f, color);
+    }
+
     void DrawKeyPrompt(const char* key, const char* label, float& x, float y, int fontSize, int spacing) {
         int keyW = MeasureText(key, fontSize);
         DrawText(key, (int)x, (int)y, fontSize, YELLOW);
@@ -122,6 +127,9 @@ namespace UIUtils {
 
         DrawRectangle(0, 0, (int)sw, (int)sh, Color{ 0, 0, 0, 140 });
 
+    }
+
+    void DrawMenuHUD(float sw, float sh) {
         int fontSize = (int)(sh * 0.035f);
         DrawText("MARIO", (int)(sw * 0.05f), (int)(sh * 0.03f), fontSize, WHITE);
         DrawText("000000", (int)(sw * 0.05f), (int)(sh * 0.03f + fontSize + 4), fontSize, WHITE);
@@ -137,7 +145,7 @@ namespace UIUtils {
         int timeX = (int)(sw - MeasureText(timeLabel, fontSize) - sw * 0.05f);
         DrawText(timeLabel, timeX, (int)(sh * 0.03f), fontSize, WHITE);
 
-        DrawCenteredText("SUPER MARIO", (int)(sh * 0.22f), (int)(sh * 0.08f), YELLOW, (int)sw);
+        DrawCenteredTitle("SUPER MARIO", (int)(sh * 0.22f), (int)(sh * 0.08f), YELLOW, (int)sw);
     }
 
     void CleanupMenuBackground() {

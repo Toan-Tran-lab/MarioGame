@@ -80,9 +80,7 @@ void CharacterSelectState::Draw() {
     UIUtils::DrawMenuBackground(sw, sh);
 
     int titleSize = (int)(sh * 0.06f);
-    const char* title = "SELECT CHARACTER";
-    int titleW = MeasureText(title, titleSize);
-    DrawText(title, (int)((sw - titleW) * 0.5f), (int)(sh * 0.3f), titleSize, WHITE);
+    UIUtils::DrawCenteredTitle("SELECT CHARACTER", (int)(sh * 0.3f), titleSize, WHITE, (int)sw);
 
     float panelW = sw * 0.3f, panelH = sh * 0.4f;
     float panelY = sh * 0.42f;
@@ -91,9 +89,6 @@ void CharacterSelectState::Draw() {
 
     Rectangle marioRect = { marioX, panelY, panelW, panelH };
     Rectangle luigiRect = { luigiX, panelY, panelW, panelH };
-
-    DrawRectangleRec(marioRect, Color{ 40, 25, 55, 255 });
-    DrawRectangleRec(luigiRect, Color{ 40, 25, 55, 255 });
 
     int nameSize = (int)(sh * 0.05f);
     
@@ -111,7 +106,8 @@ void CharacterSelectState::Draw() {
     float destH = tileH * scale;
     
     if (TextureManager::Has("mario_pose")) {
-        Rectangle srcRect = TextureManager::GetSourceRect("mario_pose", tileW, tileH, 0);
+        int marioFrame = (selectedCharacter == 0) ? 1 : 0;
+        Rectangle srcRect = TextureManager::GetSourceRect("mario_pose", tileW, tileH, marioFrame);
         Rectangle destRect = {
             marioRect.x + (marioRect.width - destW) * 0.5f,
             marioRect.y + (marioRect.height * 0.8f - destH) * 0.5f, 
@@ -121,7 +117,8 @@ void CharacterSelectState::Draw() {
     }
     
     if (TextureManager::Has("luigi_pose")) {
-        Rectangle srcRect = TextureManager::GetSourceRect("luigi_pose", tileW, tileH, 0);
+        int luigiFrame = (selectedCharacter == 1) ? 1 : 0;
+        Rectangle srcRect = TextureManager::GetSourceRect("luigi_pose", tileW, tileH, luigiFrame);
         Rectangle destRect = {
             luigiRect.x + (luigiRect.width - destW) * 0.5f,
             luigiRect.y + (luigiRect.height * 0.8f - destH) * 0.5f,
@@ -131,7 +128,7 @@ void CharacterSelectState::Draw() {
     }
 
     Rectangle selectedRect = (selectedCharacter == 0) ? marioRect : luigiRect;
-    DrawRectangleLinesEx(selectedRect, 4, YELLOW);
+    DrawRectangleRoundedLinesEx(selectedRect, 0.1f, 10, 4.0f, YELLOW);
 
     int cursorX = (int)(selectedRect.x - MeasureText(">", nameSize) - sw * 0.015f);
     int cursorY = (int)(selectedRect.y + (selectedRect.height - nameSize) * 0.5f);
@@ -141,10 +138,8 @@ void CharacterSelectState::Draw() {
     DrawLine(0, barY, (int)sw, barY, Color{ 100, 80, 120, 255 });
     int barFontSize = (int)(sh * 0.025f);
     int spacing = (int)(sw * 0.08f);
-    float x = sw - spacing * 3;
+    float x = sw - spacing * 2.5f;
 
-    UIUtils::DrawKeyPrompt("L/R", "SWITCH", x, barY + 5, barFontSize, spacing);
-    UIUtils::DrawKeyPrompt("ENTER", "SELECT", x, barY + 5, barFontSize, spacing);
     UIUtils::DrawKeyPrompt("ESC", "BACK", x, barY + 5, barFontSize, spacing);
 }
 

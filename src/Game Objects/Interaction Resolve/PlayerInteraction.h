@@ -10,4 +10,5 @@ public:
     void Visit(Goomba& g) override;
     void Visit(Player& p) override;
     void Visit(KoopaShell& k) override;
+    void Visit(Mushroom& m) override;
 };

@@ -56,20 +56,23 @@ void MainMenuState::UpdateExitPrompt(float sw, float sh, Vector2 mouse, bool cli
         exitChoice = !exitChoice;
     }
 
-    bool confirm = IsKeyPressed(KEY_ENTER) || IsKeyPressed(KEY_SPACE) || clicked;
+    if (mouse.x != lastMousePos.x || mouse.y != lastMousePos.y) {
+        lastMousePos = mouse;
+        float optY = sh * 0.45f, optW = sw * 0.1f, optH = sh * 0.06f;
+        if (CheckCollisionPointRec(mouse, { sw * 0.35f, optY, optW, optH })) exitChoice = 0;
+        else if (CheckCollisionPointRec(mouse, { sw * 0.55f, optY, optW, optH })) exitChoice = 1;
+    }
+
+    bool confirm = IsKeyPressed(KEY_ENTER) || IsKeyPressed(KEY_SPACE) || (clicked && (
+        CheckCollisionPointRec(mouse, { sw * 0.35f, sh * 0.45f, sw * 0.1f, sh * 0.06f }) ||
+        CheckCollisionPointRec(mouse, { sw * 0.55f, sh * 0.45f, sw * 0.1f, sh * 0.06f })
+    ));
+
     if (confirm) {
         if (exitChoice == 0) Global::shouldExit = true;
         else { showExitPrompt = false; exitChoice = 0; }
     }
     if (IsKeyPressed(KEY_ESCAPE)) { showExitPrompt = false; exitChoice = 0; }
-
-    if (clicked) {
-        float optY = sh * 0.45f, optW = sw * 0.1f, optH = sh * 0.06f;
-        if (CheckCollisionPointRec(mouse, { sw * 0.35f, optY, optW, optH })) Global::shouldExit = true;
-        else if (CheckCollisionPointRec(mouse, { sw * 0.55f, optY, optW, optH })) {
-            showExitPrompt = false; exitChoice = 0;
-        }
-    }
 }
 
 void MainMenuState::UpdateMenuSelection(float sw, float sh, Vector2 mouse) {
@@ -110,6 +113,7 @@ void MainMenuState::Draw() {
     ClearBackground(Color{ 60, 40, 80, 255 });
     
     UIUtils::DrawMenuBackground(sw, sh);
+    UIUtils::DrawMenuHUD(sw, sh);
     DrawMenuEntries(sw, sh);
     if (showExitPrompt) DrawExitPromptDialog(sw, sh);
 }
@@ -140,7 +144,7 @@ void MainMenuState::DrawExitPromptDialog(float sw, float sh) const {
     DrawRectangleLinesEx({ boxX, boxY, boxW, boxH }, 2, Color{ 180, 160, 200, 255 });
 
     int promptFontSize = (int)(sh * 0.045f);
-    UIUtils::DrawCenteredText("QUIT GAME?", (int)(boxY + sh * 0.03f), promptFontSize, WHITE, (int)sw);
+    UIUtils::DrawCenteredTitle("QUIT GAME?", (int)(boxY + sh * 0.03f), promptFontSize, WHITE, (int)sw);
 
     int optFontSize = (int)(sh * 0.035f);
     float optY = boxY + boxH * 0.55f;
