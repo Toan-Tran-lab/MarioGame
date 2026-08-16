@@ -1,5 +1,6 @@
 #include "GameCamera.h"
 #include "Global/Global.h"
+#include <cmath>
 // ========== Constructor ==========
 GameCamera::GameCamera()
     : camera{0}, mapPixelWidth(0), mapPixelHeight(0), maxTargetX(0) {}
@@ -24,9 +25,9 @@ void GameCamera::Update(float targetX, float targetY) {
     camera.zoom   = (float)GetScreenHeight() / Global::BASE_HEIGHT;
     camera.offset = { GetScreenWidth() / 2.0f, GetScreenHeight() / 2.0f };
 
-    // Camera theo dõi target (trung tâm player)
-    camera.target.x = targetX;
-    camera.target.y = targetY;
+    // Camera theo dõi target (trung tâm player) - rounded to prevent sub-pixel blur
+    camera.target.x = roundf(targetX);
+    camera.target.y = roundf(targetY);
 
     // Forward-only: camera chỉ cuộn sang phải, không bao giờ lùi lại
     // Khi player ở nửa trái màn hình → camera đứng yên

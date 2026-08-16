@@ -28,6 +28,11 @@ void GameplayState::SetCharacter(int characterId) {
     }
 }
 
+void GameplayState::SetSandboxMode(const std::vector<std::vector<SandboxCellData>>& grid) {
+    isSandboxMode_ = true;
+    sandboxGrid_ = grid;
+}
+
 void GameplayState::SetLoadedData(Vector2 pos, int loadedScore, float loadedTime) {
     player_->SetPosition(pos);
     score = loadedScore;
@@ -43,14 +48,25 @@ SaveData GameplayState::GetSaveData() const {
     data.playerY = player_->GetPosition().y;
     data.score = score;
     data.timeLeft = timeLeft;
+
+    data.isSandboxMode = isSandboxMode_;
+    if (isSandboxMode_) {
+        data.sandboxGrid = sandboxGrid_;
+    }
     return data;
 }
 
 void GameplayState::Initialize() {
-    // Load the tilemap based on current level
-    std::string ldtkPath = "assets/maps/maps.ldtk";
-    if (!tileMap.LoadFromLdtk(ldtkPath, currentLevel.GetLdtkLevelId())) {
-        std::cerr << "Failed to load tilemap for level: " << currentLevel.GetLdtkLevelId() << std::endl;
+    // Load the tilemap based on sandbox mode or level selection
+    if (isSandboxMode_) {
+        if (!tileMap.LoadFromSandbox(sandboxGrid_)) {
+            std::cerr << "Failed to load custom sandbox map" << std::endl;
+        }
+    } else {
+        std::string ldtkPath = "assets/maps/maps.ldtk";
+        if (!tileMap.LoadFromLdtk(ldtkPath, currentLevel.GetLdtkLevelId())) {
+            std::cerr << "Failed to load tilemap for level: " << currentLevel.GetLdtkLevelId() << std::endl;
+        }
     }
 
     // Load player animations/textures
@@ -90,6 +106,10 @@ void GameplayState::Initialize() {
     // UI
     TextureManager::Load("gameover_img", "assets/textures/gameover.png");
 
+    // Load Goomba and Coin textures
+    TextureManager::Load("goomba_texture", "assets/textures/enemies-3.png");
+    TextureManager::Load("coin", "assets/textures/coin.png");
+
     // Initialize player
     if (player_->GetPosition().x == 0 && player_->GetPosition().y == 0) {
         Vector2 spawn = tileMap.GetPlayerSpawn();
@@ -107,11 +127,37 @@ void GameplayState::Initialize() {
     mapCollisionRects = tileMap.GetCollisionRects();
     player_->SetCollisionBlocks(&mapCollisionRects);
 
-    // Initialize enemy
-    goomba_.SetPosition({ 500, 400 });
-    goomba_.SetSize({ Global::TILE_SIZE * Global::GAME_SCALE, Global::TILE_SIZE * Global::GAME_SCALE });
-    goomba_.SetPlayerBody(&player_->GetPhysicsBody());
-    goomba_.SetCollisionBlocks(&mapCollisionRects);
+    // Initialize enemies and coins
+    goombas_.clear();
+    coins_.clear();
+
+    if (isSandboxMode_) {
+        // Spawn Goombas and Coins based on Sandbox coordinates
+        for (int r = 0; r < tileMap.GetMapHeight(); ++r) {
+            for (int c = 0; c < tileMap.GetMapWidth(); ++c) {
+                if (c >= (int)sandboxGrid_[r].size()) continue;
+                const auto& cell = sandboxGrid_[r][c];
+                if (cell.type == 3) {
+                    auto g = std::make_unique<Goomba>();
+                    g->SetPosition({ (float)(c * tileMap.GetTileSize()), (float)(r * tileMap.GetTileSize()) });
+                    g->SetSize({ Global::TILE_SIZE * Global::GAME_SCALE, Global::TILE_SIZE * Global::GAME_SCALE });
+                    g->SetPlayerBody(&player_->GetPhysicsBody());
+                    g->SetCollisionBlocks(&mapCollisionRects);
+                    goombas_.push_back(std::move(g));
+                } else if (cell.type == 4) {
+                    coins_.push_back({ { (float)(c * tileMap.GetTileSize()), (float)(r * tileMap.GetTileSize()) }, true });
+                }
+            }
+        }
+    } else {
+        // Normal level Goomba spawn
+        auto g = std::make_unique<Goomba>();
+        g->SetPosition({ 500, 400 });
+        g->SetSize({ Global::TILE_SIZE * Global::GAME_SCALE, Global::TILE_SIZE * Global::GAME_SCALE });
+        g->SetPlayerBody(&player_->GetPhysicsBody());
+        g->SetCollisionBlocks(&mapCollisionRects);
+        goombas_.push_back(std::move(g));
+    }
 
     // Initialize mushroom
     mushroom_.SetPosition({ 300, 400 });
@@ -122,15 +168,16 @@ void GameplayState::Initialize() {
     view.Init((float)tileMap.GetPixelWidth(), (float)tileMap.GetPixelHeight());
 
     // Auto-save logic
-    // We can just save current state.
-    SaveData data;
-    data.levelId = currentLevel.GetLevelNumber();
-    data.playerX = player_->GetPosition().x;
-    data.playerY = player_->GetPosition().y;
-    data.score = score;
-    data.timeLeft = timeLeft;
-    SaveManager::SaveGame("auto_save", data);
-    Global::hasSaveGame = true;
+    if (!isSandboxMode_) {
+        SaveData data;
+        data.levelId = currentLevel.GetLevelNumber();
+        data.playerX = player_->GetPosition().x;
+        data.playerY = player_->GetPosition().y;
+        data.score = score;
+        data.timeLeft = timeLeft;
+        SaveManager::SaveGame("auto_save", data);
+        Global::hasSaveGame = true;
+    }
 }
 
 void GameplayState::Update(float deltaTime) {
@@ -154,22 +201,38 @@ void GameplayState::Update(float deltaTime) {
 
     player_->Update(deltaTime);
 
-    // Update the goomba (chase AI + physics + collisions)
-    if (goomba_.IsActive()) {
-        goomba_.Update(deltaTime);
+    // Update Goombas
+    for (auto& g : goombas_) {
+        if (g->IsActive()) {
+            g->Update(deltaTime);
+        }
     }
 
     if (mushroom_.IsActive()) {
         mushroom_.Update(deltaTime);
     }
 
-    // Entity interaction: player vs goomba/mushroom
+    // Entity interaction: player vs goombas/mushroom
     if (!player_->IsDead()) {
-        if (goomba_.IsActive() && player_->Overlaps(goomba_)) {
-            player_->InteractWith(goomba_);
+        for (auto& g : goombas_) {
+            if (g->IsActive() && player_->Overlaps(*g)) {
+                player_->InteractWith(*g);
+            }
         }
         if (mushroom_.IsActive() && player_->Overlaps(mushroom_)) {
             player_->InteractWith(mushroom_);
+        }
+    }
+
+    // Update and collect Coins
+    for (auto& coin : coins_) {
+        if (coin.active) {
+            Rectangle pRect = player_->GetPhysicsBody().GetRect();
+            Rectangle cRect = { coin.position.x, coin.position.y, 48.0f, 48.0f };
+            if (CheckCollisionRecs(pRect, cRect)) {
+                coin.active = false;
+                score += 100;
+            }
         }
     }
 
@@ -194,8 +257,20 @@ void GameplayState::Draw() {
     // view.DrawBlock(0, 0, 16, 16, RED);
 
     player_->Draw();
-    if (goomba_.IsActive()) {
-        goomba_.Draw();
+    for (auto& g : goombas_) {
+        if (g->IsActive()) {
+            g->Draw();
+        }
+    }
+    for (auto& coin : coins_) {
+        if (coin.active) {
+            if (TextureManager::Has("coin")) {
+                Texture2D& tex = TextureManager::Get("coin");
+                Rectangle src = { 0, 0, (float)tex.width, (float)tex.height };
+                Rectangle dest = { coin.position.x + 48.0f * 0.15f, coin.position.y + 48.0f * 0.15f, 48.0f * 0.7f, 48.0f * 0.7f };
+                DrawTexturePro(tex, src, dest, {0,0}, 0.0f, WHITE);
+            }
+        }
     }
     if (mushroom_.IsActive()) {
         mushroom_.Draw();
@@ -238,4 +313,7 @@ void GameplayState::Draw() {
 
 }
 
-void GameplayState::Cleanup() {}
+void GameplayState::Cleanup() {
+    goombas_.clear();
+    coins_.clear();
+}

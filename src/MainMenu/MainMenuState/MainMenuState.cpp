@@ -3,6 +3,7 @@
 #include "MainMenu/SettingsState/SettingsState.h"
 #include "MainMenu/CharacterSelectState/CharacterSelectState.h"
 #include "MainMenu/SaveLoadState/SaveLoadState.h"
+#include "MainMenu/SandboxState/SandboxState.h"
 #include "Global/Global.h"
 #include "TextureManager/TextureManager.h"
 #include "ui/UIUtils.h"
@@ -10,7 +11,7 @@
 #include <memory>
 
 void MainMenuState::Initialize() {
-    entries = { {"NEW GAME", true}, {"CONTINUE", false}, {"SETTING", true} };
+    entries = { {"NEW GAME", true}, {"CONTINUE", false}, {"SANDBOX", true}, {"SETTING", true} };
     selectedIndex = 0;
     timeAccum = 0.0f;
     showExitPrompt = false;
@@ -21,9 +22,9 @@ void MainMenuState::Initialize() {
 }
 
 Rectangle MainMenuState::GetItemRect(int index, float sw, float sh) const {
-    float itemW = sw * 0.3f, itemH = sh * 0.06f;
+    float itemW = sw * 0.3f, itemH = sh * 0.05f;
     float itemX = (sw - itemW) * 0.5f;
-    return { itemX, sh * 0.55f + index * (itemH + sh * 0.03f), itemW, itemH };
+    return { itemX, sh * 0.50f + index * (itemH + sh * 0.025f), itemW, itemH };
 }
 
 void MainMenuState::Update(float deltaTime) {
@@ -105,7 +106,8 @@ void MainMenuState::HandleMenuAction() {
                 Global::gameStateManager->PushState(std::make_unique<SaveLoadState>(SaveLoadState::Mode::Load));
             }
             break;
-        case 2: Global::gameStateManager->PushState(std::make_unique<SettingsState>()); break;
+        case 2: Global::gameStateManager->PushState(std::make_unique<SandboxState>()); break;
+        case 3: Global::gameStateManager->PushState(std::make_unique<SettingsState>()); break;
     }
 }
 

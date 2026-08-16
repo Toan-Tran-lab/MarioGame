@@ -1,6 +1,8 @@
 #pragma once
 #include "raylib.h"
+#include "world/TileMap.h"
 #include <string>
+#include <vector>
 
 struct SaveData {
     int levelId = 1;
@@ -9,6 +11,9 @@ struct SaveData {
     int score = 0;
     float timeLeft = 300.0f;
     std::string timestamp; // For UI display
+
+    bool isSandboxMode = false;
+    std::vector<std::vector<SandboxCellData>> sandboxGrid;
 };
 
 class SaveManager {

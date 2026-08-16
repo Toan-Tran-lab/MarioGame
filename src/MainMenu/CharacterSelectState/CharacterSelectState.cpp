@@ -14,6 +14,11 @@ void CharacterSelectState::SetLevel(const Level& level) {
     selectedLevel = level;
 }
 
+void CharacterSelectState::SetSandboxMode(const std::vector<std::vector<SandboxCellData>>& grid) {
+    isSandboxMode_ = true;
+    sandboxGrid_ = grid;
+}
+
 void CharacterSelectState::Initialize() {
     timeAccum = 0.0f;
     selectedCharacter = 0;
@@ -35,7 +40,11 @@ void CharacterSelectState::Update(float deltaTime) {
 
     if (IsKeyPressed(Global::keys.select) || IsKeyPressed(KEY_ENTER)) {
         auto gameplay = std::make_unique<GameplayState>();
-        gameplay->SetLevel(selectedLevel);
+        if (isSandboxMode_) {
+            gameplay->SetSandboxMode(sandboxGrid_);
+        } else {
+            gameplay->SetLevel(selectedLevel);
+        }
         gameplay->SetCharacter(selectedCharacter);
         Global::gameStateManager->PushState(std::move(gameplay));
     }
@@ -64,7 +73,11 @@ void CharacterSelectState::Update(float deltaTime) {
     if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
         if (CheckCollisionPointRec(mousePos, marioRect) || CheckCollisionPointRec(mousePos, luigiRect)) {
             auto gameplay = std::make_unique<GameplayState>();
-            gameplay->SetLevel(selectedLevel);
+            if (isSandboxMode_) {
+                gameplay->SetSandboxMode(sandboxGrid_);
+            } else {
+                gameplay->SetLevel(selectedLevel);
+            }
             gameplay->SetCharacter(selectedCharacter);
             Global::gameStateManager->PushState(std::move(gameplay));
         }

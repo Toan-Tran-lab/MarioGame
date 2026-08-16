@@ -12,6 +12,14 @@ struct LdtkTile {
     int f;       // flip flags: 0=none, 1=flipX, 2=flipY, 3=both
 };
 
+// Data structure representing a cell imported from Sandbox mode
+struct SandboxCellData {
+    int type; // 0 = empty, 1 = tile, 2 = player, 3 = goomba, 4 = coin
+    std::string texKey;
+    Rectangle srcRect;
+    bool isSolid;
+};
+
 // A complete tile layer from LDtk
 struct TileLayer {
     std::string identifier;       // e.g. "Terrain_1", "Terrain_2"
@@ -40,11 +48,6 @@ private:
     float borderTop;
     float borderBottom;
 
-    RenderTexture2D mapTarget;
-    bool isTargetBuilt;
-
-    void BuildMapTexture();
-
 public:
     TileMap();
     ~TileMap();
@@ -63,6 +66,9 @@ public:
     // Load a level from an LDtk project file
     // levelId: identifier of the level to load (e.g. "Level_0")
     bool LoadFromLdtk(const std::string& filePath, const std::string& levelId = "Level_0");
+
+    // Load a custom level from Sandbox editor cells
+    bool LoadFromSandbox(const std::vector<std::vector<SandboxCellData>>& sandboxGrid);
 
     // Setters
     void SetTileSize(int size);

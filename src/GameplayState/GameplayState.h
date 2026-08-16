@@ -19,11 +19,19 @@ private:
     View view;
     Level currentLevel;
 
-    Goomba goomba_;
+    std::vector<std::unique_ptr<Goomba>> goombas_;
+    struct GameplayCoin {
+        Vector2 position;
+        bool active;
+    };
+    std::vector<GameplayCoin> coins_;
     Mushroom mushroom_;
 
     std::unique_ptr<Player> player_;
     std::vector<Rectangle> mapCollisionRects;
+
+    bool isSandboxMode_ = false;
+    std::vector<std::vector<SandboxCellData>> sandboxGrid_;
 
     // HUD & Game Data
     int score = 0;
@@ -36,6 +44,7 @@ public:
     
     void SetLevel(const Level& level);
     void SetCharacter(int characterId);
+    void SetSandboxMode(const std::vector<std::vector<SandboxCellData>>& grid);
     // Use this to override initial data when loading from a save file
     void SetLoadedData(Vector2 pos, int loadedScore, float loadedTime);
     SaveData GetSaveData() const;

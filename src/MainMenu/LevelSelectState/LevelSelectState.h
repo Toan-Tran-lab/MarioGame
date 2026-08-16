@@ -7,7 +7,9 @@
 class LevelSelectState : public IGameState {
 private:
     std::vector<Button> levelButtons;
+    Button customMapButton;
     Button backButton;
+    bool hasCustomMap = false;
     int selectedIndex = 0;
     float timeAccum = 0.0f;
     Vector2 lastMousePos = { -1.0f, -1.0f };

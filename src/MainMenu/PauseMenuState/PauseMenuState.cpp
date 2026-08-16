@@ -13,14 +13,15 @@ void PauseMenuState::Initialize() {
         {"RESUME", true},
         {"SAVE GAME", true},
         {"SETTINGS", true},
+        {"QUIT LEVEL", true},
         {"EXIT TO MENU", true}
     };
 }
 
 Rectangle PauseMenuState::GetItemRect(int index, float sw, float sh) const {
-    float itemW = sw * 0.3f, itemH = sh * 0.06f;
+    float itemW = sw * 0.3f, itemH = sh * 0.055f;
     float itemX = (sw - itemW) * 0.5f;
-    return { itemX, sh * 0.4f + index * (itemH + sh * 0.03f), itemW, itemH };
+    return { itemX, sh * 0.35f + index * (itemH + sh * 0.02f), itemW, itemH };
 }
 
 void PauseMenuState::Update(float deltaTime) {
@@ -61,7 +62,11 @@ void PauseMenuState::Update(float deltaTime) {
                     case 2: // SETTINGS
                         Global::gameStateManager->PushState(std::make_unique<SettingsState>());
                         return;
-                    case 3: // EXIT TO MENU
+                    case 3: // QUIT LEVEL (Pop PauseMenuState and GameplayState to return to selector)
+                        Global::gameStateManager->PopState();
+                        Global::gameStateManager->PopState();
+                        return;
+                    case 4: // EXIT TO MENU
                         Global::gameStateManager->PopToMainMenu();
                         return;
                 }
@@ -75,7 +80,11 @@ void PauseMenuState::Update(float deltaTime) {
             case 0: Global::gameStateManager->PopState(); return;
             case 1: Global::gameStateManager->PushState(std::make_unique<SaveLoadState>(SaveLoadState::Mode::Save, parentState)); return;
             case 2: Global::gameStateManager->PushState(std::make_unique<SettingsState>()); return;
-            case 3: Global::gameStateManager->PopToMainMenu(); return;
+            case 3: // QUIT LEVEL
+                Global::gameStateManager->PopState();
+                Global::gameStateManager->PopState();
+                return;
+            case 4: Global::gameStateManager->PopToMainMenu(); return;
         }
     }
 

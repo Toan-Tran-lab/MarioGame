@@ -79,7 +79,11 @@ void SaveLoadState::Update(float deltaTime) {
                         SaveData data;
                         if (SaveManager::LoadGame(slots[i].filename, data)) {
                             auto gs = std::make_unique<GameplayState>();
-                            gs->SetLevel(Level::GetLevel(data.levelId));
+                            if (data.isSandboxMode) {
+                                gs->SetSandboxMode(data.sandboxGrid);
+                            } else {
+                                gs->SetLevel(Level::GetLevel(data.levelId));
+                            }
                             gs->SetLoadedData({data.playerX, data.playerY}, data.score, data.timeLeft);
                             Global::gameStateManager->PopToMainMenu(); // clear stack
                             Global::gameStateManager->PushState(std::move(gs));
@@ -103,7 +107,11 @@ void SaveLoadState::Update(float deltaTime) {
                 SaveData data;
                 if (SaveManager::LoadGame(slots[selectedIndex].filename, data)) {
                     auto gs = std::make_unique<GameplayState>();
-                    gs->SetLevel(Level::GetLevel(data.levelId));
+                    if (data.isSandboxMode) {
+                        gs->SetSandboxMode(data.sandboxGrid);
+                    } else {
+                        gs->SetLevel(Level::GetLevel(data.levelId));
+                    }
                     gs->SetLoadedData({data.playerX, data.playerY}, data.score, data.timeLeft);
                     Global::gameStateManager->PopToMainMenu();
                     Global::gameStateManager->PushState(std::move(gs));

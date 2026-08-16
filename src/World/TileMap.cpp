@@ -6,15 +6,9 @@
 // ========== Constructor ==========
 TileMap::TileMap()
     : mapWidth(0), mapHeight(0), gridSize(16), tileSize(48), bgColor(SKYBLUE), playerSpawn({0,0}),
-      borderLeft(0.0f), borderRight(0.0f), borderTop(0.0f), borderBottom(0.0f), isTargetBuilt(false) {
-    mapTarget.id = 0;
-}
+      borderLeft(0.0f), borderRight(0.0f), borderTop(0.0f), borderBottom(0.0f) {}
 
-TileMap::~TileMap() {
-    if (mapTarget.id != 0) {
-        UnloadRenderTexture(mapTarget);
-    }
-}
+TileMap::~TileMap() {}
 
 // ========== Load from LDtk ==========
 bool TileMap::LoadFromLdtk(const std::string& filePath, const std::string& levelId) {
@@ -251,8 +245,6 @@ bool TileMap::LoadFromLdtk(const std::string& filePath, const std::string& level
         borderRight = (float)GetPixelWidth();
         borderBottom = (float)GetPixelHeight();
                  
-        BuildMapTexture();
-                 
         return true;
 
     } catch (const nlohmann::json::exception& e) {
@@ -339,28 +331,35 @@ Vector2 TileMap::TileToWorld(int col, int row) const {
     return { (float)(col * tileSize), (float)(row * tileSize) };
 }
 
-void TileMap::BuildMapTexture() {
-    if (mapWidth <= 0 || mapHeight <= 0) return;
+// ========== Draw ==========
+void TileMap::Draw(float cameraX, float cameraY, float cameraZoom) {
+    // 100% Dynamic drawing with viewport culling (prevents VRAM overhead and works on all map sizes!)
+    float sw = (float)GetScreenWidth();
+    float sh = (float)GetScreenHeight();
 
-    if (mapTarget.id != 0) {
-        UnloadRenderTexture(mapTarget);
-    }
-    
-    mapTarget = LoadRenderTexture(GetPixelWidth(), GetPixelHeight());
-    
-    BeginTextureMode(mapTarget);
-    ClearBackground(bgColor);
+    // Calculate screen boundaries in world space to draw only visible tiles
+    float left = cameraX;
+    float right = cameraX + sw / cameraZoom;
+    float top = cameraY;
+    float bottom = cameraY + sh / cameraZoom;
 
     float scale = (float)tileSize / (float)gridSize;
 
     for (const auto& layer : layers) {
+        if (!TextureManager::Has(layer.textureKey)) continue;
         Texture2D& tex = TextureManager::Get(layer.textureKey);
         int layerGridSize = layer.gridSize;
+        float drawSize = layerGridSize * scale;
 
         for (const auto& tile : layer.tiles) {
             float drawX = tile.px[0] * scale;
             float drawY = tile.px[1] * scale;
-            float drawSize = layerGridSize * scale;
+
+            // Viewport culling check
+            if (drawX + drawSize < left || drawX > right ||
+                drawY + drawSize < top || drawY > bottom) {
+                continue; // Skip out-of-bounds tiles
+            }
 
             float srcW = (float)layerGridSize;
             float srcH = (float)layerGridSize;
@@ -374,18 +373,66 @@ void TileMap::BuildMapTexture() {
             DrawTexturePro(tex, srcRect, destRect, {0, 0}, 0.0f, WHITE);
         }
     }
-    
-    EndTextureMode();
-    isTargetBuilt = true;
-    
-    TraceLog(LOG_INFO, "TILEMAP: Built map render target (%dx%d)", mapTarget.texture.width, mapTarget.texture.height);
 }
 
-// ========== Draw ==========
-void TileMap::Draw(float cameraX, float cameraY, float cameraZoom) {
-    if (!isTargetBuilt) return;
-    
-    // The negative height flips it right-side up (OpenGL requirement for RenderTextures)
-    Rectangle source = { 0.0f, 0.0f, (float)mapTarget.texture.width, -(float)mapTarget.texture.height };
-    DrawTextureRec(mapTarget.texture, source, { 0.0f, 0.0f }, WHITE);
+bool TileMap::LoadFromSandbox(const std::vector<std::vector<SandboxCellData>>& sandboxGrid) {
+    if (sandboxGrid.empty() || sandboxGrid[0].empty()) return false;
+
+    mapHeight = sandboxGrid.size();
+    mapWidth = sandboxGrid[0].size();
+    gridSize = 16;
+    tileSize = 48;
+    bgColor = Color{ 40, 20, 60, 255 }; // dark background for Sandbox custom level
+
+    borderLeft = 0.0f;
+    borderRight = (float)(mapWidth * tileSize);
+    borderTop = 0.0f;
+    borderBottom = (float)(mapHeight * tileSize);
+
+    layers.clear();
+    collisionGrid.clear();
+    collisionGrid.resize(mapHeight, std::vector<int>(mapWidth, 0));
+
+    playerSpawn = { 100.0f, (float)((mapHeight - 3) * tileSize) }; // Default spawn if Player Start is not set
+
+    // Group sandbox cells by their texture keys to build virtual TileLayers
+    std::unordered_map<std::string, TileLayer> layerMap;
+
+    for (int r = 0; r < mapHeight; ++r) {
+        for (int c = 0; c < mapWidth; ++c) {
+            const auto& cell = sandboxGrid[r][c];
+            if (cell.type == 1) { // Tile brush
+                if (layerMap.find(cell.texKey) == layerMap.end()) {
+                    TileLayer tl;
+                    tl.identifier = cell.texKey;
+                    tl.textureKey = cell.texKey;
+                    tl.gridSize = 16;
+                    layerMap[cell.texKey] = tl;
+                }
+                
+                LdtkTile tile;
+                tile.px[0] = c * 16;
+                tile.px[1] = r * 16;
+                tile.src[0] = (int)cell.srcRect.x;
+                tile.src[1] = (int)cell.srcRect.y;
+                tile.f = 0;
+                
+                layerMap[cell.texKey].tiles.push_back(tile);
+
+                if (cell.isSolid) {
+                    collisionGrid[r][c] = 1;
+                }
+            } else if (cell.type == 2) {
+                // Player Spawn (type 2)
+                playerSpawn = { (float)(c * tileSize), (float)(r * tileSize) };
+            }
+        }
+    }
+
+    // Move layer instances to our layers list
+    for (auto& pair : layerMap) {
+        layers.push_back(pair.second);
+    }
+
+    return true;
 }
