@@ -1,8 +1,8 @@
 #pragma once
 #include "core/core.h"
 #include "Button/Button.h"
-#include "Game Objects/Derived Objects/Playable Characters/Player/Mario.h"
-#include "Game Objects/Derived Objects/Enemies/Goomba/Goomba.h"
+#include "Game_Objects/Derived_Objects/Playable_Characters/Specific/Mario/Mario.h"
+#include "Game_Objects/Derived_Objects/Enemies/Goomba/Goomba.h"
 #include "World/BlockGrid.h"
 #include <vector>
 #include <memory>

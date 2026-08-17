@@ -1,5 +1,5 @@
 #include "Player.h"
-#include "Game Objects/Interaction Resolve/PlayerInteraction.h"
+#include "Game_Objects/Interaction_Resolve/PlayerInteraction.h"
 #include "PlayerState.h"
 #include "physics/InputManager.h"
 #include "physics/PhysicsEngine.h"

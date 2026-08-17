@@ -1,9 +1,9 @@
 #pragma once
-#include "Player.h"
+#include "Game_Objects/Derived_Objects/Playable_Characters/Player/Player.h"
 
-class Luigi : public Player {
+class Mario : public Player {
 public:
-    Luigi() = default;
+    Mario() = default;
     
     const Animation* GetPoseAnimation() const override;
     const Animation* GetWalkAnimation() const override;

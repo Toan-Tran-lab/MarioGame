@@ -1,5 +1,5 @@
 #include "Mushroom.h"
-#include "Game Objects/Interaction Resolve/Visitor.h"
+#include "Game_Objects/Interaction_Resolve/Visitor.h"
 #include "physics/PhysicsEngine.h"
 #include "physics/CollisionSystem.h"
 #include "World/BlockGrid.h"

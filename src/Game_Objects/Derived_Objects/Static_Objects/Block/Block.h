@@ -1,5 +1,5 @@
 #pragma once
-#include "Game Objects/Core Header FIles/BaseGameObjects.h"
+#include "Game_Objects/Core_Header/BaseGameObjects.h"
 
 class Block : public GameObject {
 protected:

@@ -1,9 +1,9 @@
 #include "PlayerInteraction.h"
-#include "Game Objects/Derived Objects/Enemies/Goomba/Goomba.h"
-#include "Game Objects/Derived Objects/Enemies/KoopaShell/KoopaShell.h"
-#include "Game Objects/Derived Objects/Playable Characters/Player/Player.h"
-#include "Game Objects/Derived Objects/Items/Mushroom.h"
-#include "Game Objects/Derived Objects/Playable Characters/Player/PlayerState.h"
+#include "Game_Objects/Derived_Objects/Enemies/Goomba/Goomba.h"
+#include "Game_Objects/Derived_Objects/Enemies/KoopaShell/KoopaShell.h"
+#include "Game_Objects/Derived_Objects/Playable_Characters/Player/Player.h"
+#include "Game_Objects/Derived_Objects/Items/Mushroom/Mushroom.h"
+#include "Game_Objects/Derived_Objects/Playable_Characters/Player/PlayerState.h"
 #include <cmath>
 
 namespace {

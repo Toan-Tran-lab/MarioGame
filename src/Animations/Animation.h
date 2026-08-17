@@ -1,6 +1,6 @@
 #pragma once
 #include "raylib.h"
-#include "Game Objects/Core Header Files/BaseGameObjects.h"
+#include "Game_Objects/Core_Header/BaseGameObjects.h"
 #include <string>
 #include <vector>
 
@@ -24,7 +24,7 @@ struct Animation {
     }
 };
 
-// Extrinsic state class to be stored inside Game Objects
+// Extrinsic state class to be stored inside Game_Objects
 class AnimationState {
 private:
     const Animation* currentAnim = nullptr;

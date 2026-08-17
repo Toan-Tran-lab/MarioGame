@@ -7,8 +7,8 @@
 #include "physics/ProximityAI.h"
 #include "SaveManager/SaveManager.h"
 #include "MainMenu/PauseMenuState/PauseMenuState.h"
-#include "Game Objects/Derived Objects/Playable Characters/Player/Mario.h"
-#include "Game Objects/Derived Objects/Playable Characters/Player/Luigi.h"
+#include "Game_Objects/Derived_Objects/Playable_Characters/Specific/Mario/Mario.h"
+#include "Game_Objects/Derived_Objects/Playable_Characters/Specific/Luigi/Luigi.h"
 #include <iostream>
 #include <algorithm>
 

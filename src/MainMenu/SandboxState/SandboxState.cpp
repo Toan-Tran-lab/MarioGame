@@ -2,7 +2,7 @@
 #include "Global/Global.h"
 #include "TextureManager/TextureManager.h"
 #include "ui/UIUtils.h"
-#include "Game Objects/Derived Objects/Enemies/Goomba/Goomba.h"
+#include "Game_Objects/Derived_Objects/Enemies/Goomba/Goomba.h"
 #include "GameplayState/GameplayState.h"
 #include <cmath>
 #include <fstream>
