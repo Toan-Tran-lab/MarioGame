@@ -136,7 +136,7 @@ void TransformingState::UpdateState(Player& player, float dt) {
         // At 4 blinks, it should naturally revert to the target form (opposite of what we started with)
         PlayerState* next = nextState_;
         nextState_ = nullptr; // Take ownership so it doesn't get deleted
-        player.SetState(next); 
+        player.SetState(next); //Last command. DO NOT ATTEMP ANY ACTION IN THIS FUNCTION AFTER
     }
 }
 

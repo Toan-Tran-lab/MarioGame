@@ -5,6 +5,7 @@
 #include <vector>
 
 class PlayerState;
+class BlockGrid;
 enum class PowerupType;
 
 class Player : public Character {
@@ -22,21 +23,32 @@ public:
     Player();
     ~Player();
 
+    //Attribute Details
+    virtual float GetMoveSpeedMultiplier() const { return 1.0f; }
+    virtual float GetJumpForce()           const { return -450.0f; }
+    virtual float GetGravityMultiplier()   const { return 1.0f; }
+    virtual float GetSkidDecel() const { return 0.0f; }
+
+    //Display Details
     void SetState(PlayerState* Temp);
     void TakeDamage();
     void TakePowerup(PowerupType type);
     void SetCollisionGrid(const BlockGrid* grid);
     void SetAnimation(const Animation* newAnim);
 
+    //Block Hitting Details
     bool CanHitBlock() const { return canHitBlock_; }
     void SetCanHitBlock(bool can) { canHitBlock_ = can; }
 
+    //Dead Details
     bool IsDead() const;
     void SetDead(bool dead);
 
+    //Default State Details
     bool IsSmall() const;
     void SetIsSmall(bool small);
 
+    //Sitting Details
     bool IsSitting() const;
     void SetSitting(bool sitting);
 

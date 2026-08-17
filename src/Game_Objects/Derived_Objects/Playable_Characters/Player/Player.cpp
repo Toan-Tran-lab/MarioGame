@@ -7,7 +7,9 @@
 #include "World/BlockGrid.h"
 #include <cmath>
 
-Player::Player() : state(new SmallState()) {}
+Player::Player() : state(nullptr) {
+    SetState(new SmallState());
+}
 
 Player::~Player() {
     if (state != nullptr) delete state;
@@ -109,7 +111,22 @@ void Player::Update(float dt) {
         SetSitting(false);
     }
 
+    bool wantsJump = input.jumpPressed && IsGrounded();
+
     physics::PhysicsEngine::ApplyPhysics(physicsBody_, input, dt);
+
+    //Character specific
+    if (wantsJump) {
+        physicsBody_.velocity.y = GetJumpForce(); // override engine's default jump impulse
+    }
+
+    // Floatier fall for Luigi, etc. — only touch it if already falling
+    if (physicsBody_.velocity.y > 0.0f) {
+        physicsBody_.velocity.y *= GetGravityMultiplier(); // e.g. 0.9f = floatier
+    }
+
+    // Scale horizontal speed after engine computes it
+    physicsBody_.velocity.x *= GetMoveSpeedMultiplier();
 
     float curVelY = physicsBody_.velocity.y;
     if (IsGrounded() || (prevVelY_ >= 0.0f && curVelY < 0.0f)) {
@@ -119,6 +136,18 @@ void Player::Update(float dt) {
 
     if (collisionGrid_) {
         physics::CollisionSystem::ResolveMapCollisions(physicsBody_, *collisionGrid_);
+    }
+
+    bool reversing = (input.moveLeft  && physicsBody_.velocity.x > 0.0f) ||
+                  (input.moveRight && physicsBody_.velocity.x < 0.0f);
+
+    if (reversing && GetSkidDecel() > 0.0f) {
+        float decel = GetSkidDecel() * dt;
+        if (physicsBody_.velocity.x > 0.0f) {
+            physicsBody_.velocity.x = std::max(0.0f, physicsBody_.velocity.x - decel);
+        } else {
+            physicsBody_.velocity.x = std::min(0.0f, physicsBody_.velocity.x + decel);
+        }
     }
 
     SyncPhysics();

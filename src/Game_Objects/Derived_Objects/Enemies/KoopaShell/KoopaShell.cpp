@@ -73,9 +73,9 @@ void KoopaShell::Update(float dt) {
             physics::ProximityAI::UpdateAI(physicsBody_, *playerBody_, kDetectionRadius, dt, input, *collisionGrid_);
         }
     } else if (state_ == KoopaShellState::Sliding) {
-        // Continue sliding in the current direction.
-        input.moveLeft = (physicsBody_.velocity.x < 0.0f);
-        input.moveRight = (physicsBody_.velocity.x > 0.0f);
+        // Bypass speed caps/friction
+        input.ignorePhysics = true;
+        physicsBody_.velocity.x = (physicsBody_.velocity.x >= 0.0f) ? kSlideSpeed : -kSlideSpeed;
         
         // Spin animation update
         spinTimer_ += dt;
