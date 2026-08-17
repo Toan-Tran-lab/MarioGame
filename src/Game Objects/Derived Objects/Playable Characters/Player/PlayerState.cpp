@@ -141,6 +141,11 @@ void TransformingState::UpdateState(Player& player, float dt) {
 }
 
 void TransformingState::OnHit(Player& player) {
+    // If transforming from Super to Mini, player is invincible
+    if (!isGrowing_) {
+        return;
+    }
+
     // "đang biến hình thì sẽ tính là đã lớn rồi nên chỉ quay lại dạng mini"
     // Whether growing or shrinking, if hit, abort transformation and go to small state
     if (nextState_) {
