@@ -35,6 +35,7 @@ public:
 
     KoopaShellState GetState() const { return state_; }
 
+    void InteractWith(Character& other) override;
     void AcceptInteract(CharacterVisitor& other) override;
     void Update(float dt) override;
     void Draw() override;

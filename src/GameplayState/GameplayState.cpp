@@ -359,9 +359,10 @@ void GameplayState::Update(float deltaTime) {
         if (k->IsActive() && k->GetState() == KoopaShellState::Sliding) {
             for (auto& g : goombas_) {
                 if (g->IsActive() && !g->IsDying() && k->Overlaps(*g)) {
-                    g->Stomp();
-                    score += 100; // Bonus points for shell kill
-                }
+                bool wasDying = g->IsDying();
+                k->InteractWith(*g);
+                if (!wasDying && g->IsDying()) score += 100;
+            }
             }
         }
     }

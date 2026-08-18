@@ -1,6 +1,6 @@
 #include <cmath>
 #include "KoopaShell.h"
-#include "Game_Objects/Interaction_Resolve/Visitor.h"
+#include "Game_Objects/Interaction_Resolve/KoopaShellInteraction.h"
 #include "World/BlockGrid.h"
 #include "TextureManager/TextureManager.h"
 #include "Global/Global.h"
@@ -70,6 +70,12 @@ void KoopaShell::Kick(int dir) {
         spinTimer_ = 0.0f;
         spinFrame_ = 0;
     }
+}
+
+void KoopaShell::InteractWith(Character& other) {
+    if (state_ != KoopaShellState::Sliding) return; // only slides initiate
+    ShellInteraction visitor(*this);
+    other.AcceptInteract(visitor);
 }
 
 void KoopaShell::AcceptInteract(CharacterVisitor& other) {
