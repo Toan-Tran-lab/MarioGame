@@ -1,15 +1,11 @@
 #include <cmath>
 #include "KoopaShell.h"
 #include "Game_Objects/Interaction_Resolve/Visitor.h"
-#include "physics/ProximityAI.h"
-#include "physics/PhysicsEngine.h"
-#include "physics/CollisionSystem.h"
 #include "World/BlockGrid.h"
 #include "TextureManager/TextureManager.h"
 #include "Global/Global.h"
 
 namespace {
-constexpr float kDetectionRadius = 300.0f; // pixels: how close the player must get before it starts chasing
 constexpr float kFrameDuration   = 0.15f;  // seconds per walk frame
 constexpr float kSlideSpeed      = 300.0f; // pixels per second when sliding
 constexpr float kSpinDuration    = 0.10f;  // seconds per spin frame
@@ -24,12 +20,33 @@ KoopaShell::KoopaShell() {
 
 KoopaShell::~KoopaShell() {}
 
-void KoopaShell::SetPlayerBody(const physics::PhysicsBody* player) {
-    playerBody_ = player;
+void KoopaShell::UpdateBehavior(float dt, physics::InputState& input) {
+    if (state_ == KoopaShellState::Walking) {
+        GroundEnemy::UpdateBehavior(dt, input); // default chase
+    } else if (state_ == KoopaShellState::Sliding) {
+        input.ignorePhysics = true;
+        physicsBody_.velocity.x = (physicsBody_.velocity.x >= 0.0f) ? kSlideSpeed : -kSlideSpeed;
+        spinTimer_ += dt;
+        if (spinTimer_ >= kSpinDuration) {
+            spinTimer_ = 0.0f;
+            spinFrame_ = (spinFrame_ + 1) % 4;
+        }
+    }
+    // Hiding: leave input default — physics (gravity) still runs, matches original.
 }
 
-void KoopaShell::SetCollisionGrid(const BlockGrid* grid) {
-    collisionGrid_ = grid;
+void KoopaShell::PostCollision(float prevVelX) {
+    if (state_ == KoopaShellState::Sliding &&
+        std::abs(physicsBody_.velocity.x) < 1.0f && std::abs(prevVelX) > 1.0f) {
+        physicsBody_.velocity.x = -prevVelX; // bounced off a wall
+    }
+}
+
+void KoopaShell::UpdateFacingAndAnim(float dt) {
+    if (state_ == KoopaShellState::Walking) {
+        GroundEnemy::UpdateFacingAndAnim(dt); // default facing + anim
+    }
+    // Hiding/Sliding: no facing/anim change — spin frame is handled separately in Draw().
 }
 
 void KoopaShell::Stomp() {
@@ -55,61 +72,15 @@ void KoopaShell::Kick(int dir) {
     }
 }
 
-void KoopaShell::InteractWith(Character& other) {
-    // Interactions are player-initiated. 
-    (void)other;
-}
-
 void KoopaShell::AcceptInteract(CharacterVisitor& other) {
     other.Visit(*this);
 }
 
 void KoopaShell::Update(float dt) {
-    SyncPhysicsBody();
-
-    physics::InputState input;
-    if (state_ == KoopaShellState::Walking) {
-        if (playerBody_ && collisionGrid_) {
-            physics::ProximityAI::UpdateAI(physicsBody_, *playerBody_, kDetectionRadius, dt, input, *collisionGrid_);
-        }
-    } else if (state_ == KoopaShellState::Sliding) {
-        // Bypass speed caps/friction
-        input.ignorePhysics = true;
-        physicsBody_.velocity.x = (physicsBody_.velocity.x >= 0.0f) ? kSlideSpeed : -kSlideSpeed;
-        
-        // Spin animation update
-        spinTimer_ += dt;
-        if (spinTimer_ >= kSpinDuration) {
-            spinTimer_ = 0.0f;
-            spinFrame_ = (spinFrame_ + 1) % 4; // 4 spin frames: 0, 2, 3, 4 (indexed as 0,1,2,3 for simplicity later)
-        }
-    } else if (state_ == KoopaShellState::Hiding) {
+    if (state_ == KoopaShellState::Hiding) {
         hidingTimer_ += dt;
     }
-
-    physics::PhysicsEngine::ApplyPhysics(physicsBody_, input, dt);
-
-    if (collisionGrid_) {
-        float prevVelX = physicsBody_.velocity.x;
-        physics::CollisionSystem::ResolveMapCollisions(physicsBody_, *collisionGrid_);
-        
-        if (state_ == KoopaShellState::Sliding) {
-            // If horizontal velocity changed significantly, it means we hit a wall
-            if (std::abs(physicsBody_.velocity.x) < 1.0f && std::abs(prevVelX) > 1.0f) {
-                physicsBody_.velocity.x = -prevVelX; // Bounce!
-            }
-        }
-    }
-
-    SyncPhysics();
-
-    if (state_ == KoopaShellState::Walking) {
-        // Face the direction it is moving
-        if (physicsBody_.velocity.x > 0.0f) facing_ = FacingDirection::Right;
-        else if (physicsBody_.velocity.x < 0.0f) facing_ = FacingDirection::Left;
-
-        animState.Update(dt);
-    }
+    GroundEnemy::Update(dt);
 }
 
 void KoopaShell::Draw() {

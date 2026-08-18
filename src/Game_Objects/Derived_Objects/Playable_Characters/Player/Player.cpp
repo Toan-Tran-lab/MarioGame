@@ -111,6 +111,11 @@ void Player::Update(float dt) {
         SetSitting(false);
     }
 
+    const float speedMult = GetMoveSpeedMultiplier();
+    if (speedMult != 0.0f && speedMult != 1.0f) {
+        physicsBody_.velocity.x /= speedMult; // undo last frame's scaling before the engine sees it
+    }
+
     bool wantsJump = input.jumpPressed && IsGrounded();
 
     physics::PhysicsEngine::ApplyPhysics(physicsBody_, input, dt);
