@@ -1,6 +1,7 @@
 #include "PlayerInteraction.h"
 #include "Game_Objects/Derived_Objects/Enemies/Goomba/Goomba.h"
 #include "Game_Objects/Derived_Objects/Enemies/KoopaShell/KoopaShell.h"
+#include "Game_Objects/Derived_Objects/Enemies/BuzzyBeetle/BuzzyBeetle.h"
 #include "Game_Objects/Derived_Objects/Playable_Characters/Player/Player.h"
 #include "Game_Objects/Derived_Objects/Items/Mushroom/Mushroom.h"
 #include "Game_Objects/Derived_Objects/Playable_Characters/Player/PlayerState.h"
@@ -11,6 +12,8 @@ namespace {
 constexpr float kStompTolerance = 16.0f;
 // Upward launch velocity applied to the player when they stomp an enemy
 constexpr float kStompBounceVelocity = -350.0f;
+// Distinct upward launch velocity applied to the player when they stomp a Buzzy Beetle
+constexpr float kBeetleBounceVelocity = -420.0f;
 }
 
 void PlayerInteraction::Visit(Goomba& g) {
@@ -122,3 +125,19 @@ void PlayerInteraction::Visit(Mushroom& m) {
     }
 }
 
+void PlayerInteraction::Visit(BuzzyBeetle& b) {
+    const float playerBottom = self.GetPosition().y + self.GetSize().y;
+    const float beetleTop = b.GetPosition().y;
+    const bool falling = self.GetVelocity().y > 0.0f;
+    const bool aboveBeetle = (playerBottom <= beetleTop + kStompTolerance);
+
+    if (aboveBeetle && falling) {
+        // Immune: no damage to the beetle, just a slightly higher bounce.
+        Vector2 vel = self.GetVelocity();
+        vel.y = kBeetleBounceVelocity;
+        self.SetVelocity(vel);
+    } else {
+        // Side/bottom contact: regular enemy logic, player takes damage.
+        self.TakeDamage();
+    }
+}

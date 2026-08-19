@@ -113,6 +113,8 @@ void GameplayState::Initialize() {
     TextureManager::Load("goomba_dead",    "assets/textures/Goomba/dead/enemies.png");
     TextureManager::Load("koopa_walk",     "assets/textures/Koopa/walk/enemies.png");
     TextureManager::Load("koopa_hide",     "assets/textures/Koopa/hide/enemies.png");
+    TextureManager::Load("buzzy_walk",    "assets/textures/BuzzyBeetle/walk/enemies.png");
+    TextureManager::Load("buzzy_flipped", "assets/textures/BuzzyBeetle/flipped/enemies.png");
     TextureManager::Load("coin", "assets/textures/coin/coin.png");
     TextureManager::Load("mushroom", "assets/textures/Items/items.png");
     TextureManager::Load("luckyblock", "assets/textures/Luckyblock/luckyblock.png");
@@ -135,6 +137,7 @@ void GameplayState::Initialize() {
     // Initialize enemies and coins
     goombas_.clear();
     koopas_.clear();
+    buzzyBeetles_.clear();
     coins_.clear();
 
     if (isSandboxMode_) {
@@ -155,6 +158,21 @@ void GameplayState::Initialize() {
                     c_coin->SetPosition({ (float)(c * tileMap.GetTileSize()), (float)(r * tileMap.GetTileSize()) });
                     c_coin->SetSize({ 48.0f, 48.0f });
                     coins_.push_back(std::move(c_coin));
+                } else if (cell.type == 5) {
+                    auto k = std::make_unique<KoopaShell>();
+                    // Normal KoopaShell size is 16x24, same adjustment as the normal-level spawn path.
+                    k->SetPosition({ (float)(c * tileMap.GetTileSize()), (float)(r * tileMap.GetTileSize()) - 8.0f * Global::GAME_SCALE });
+                    k->SetSize({ 16.0f * Global::GAME_SCALE, 24.0f * Global::GAME_SCALE });
+                    k->SetPlayerBody(&player_->GetPhysicsBody());
+                    k->SetCollisionGrid(&tileMap.GetBlockGrid());
+                    koopas_.push_back(std::move(k));
+                } else if (cell.type == 6) {
+                    auto b = std::make_unique<BuzzyBeetle>();
+                    b->SetPosition({ (float)(c * tileMap.GetTileSize()), (float)(r * tileMap.GetTileSize()) });
+                    b->SetSize({ Global::TILE_SIZE * Global::GAME_SCALE, Global::TILE_SIZE * Global::GAME_SCALE });
+                    b->SetPlayerBody(&player_->GetPhysicsBody());
+                    b->SetCollisionGrid(&tileMap.GetBlockGrid());
+                    buzzyBeetles_.push_back(std::move(b));
                 }
             }
         }
@@ -178,6 +196,13 @@ void GameplayState::Initialize() {
                 k->SetPlayerBody(&player_->GetPhysicsBody());
                 k->SetCollisionGrid(&tileMap.GetBlockGrid());
                 koopas_.push_back(std::move(k));
+            } else if (ent.id == "BuzzyBeetle") {
+                auto b = std::make_unique<BuzzyBeetle>();
+                b->SetPosition(ent.position);
+                b->SetSize({ Global::TILE_SIZE * Global::GAME_SCALE, Global::TILE_SIZE * Global::GAME_SCALE });
+                b->SetPlayerBody(&player_->GetPhysicsBody());
+                b->SetCollisionGrid(&tileMap.GetBlockGrid());
+                buzzyBeetles_.push_back(std::move(b));
             } else if (ent.id == "Coin") {
                 auto c_coin = std::make_unique<Coin>();
                 c_coin->SetPosition(ent.position);
@@ -249,6 +274,13 @@ void GameplayState::Update(float deltaTime) {
     for (auto& k : koopas_) {
         if (k->IsActive()) {
             k->Update(deltaTime);
+        }
+    }
+
+    // Update Buzzy Beetle
+    for (auto& b : buzzyBeetles_) {
+        if (b->IsActive()) {
+            b->Update(deltaTime);
         }
     }
 
@@ -367,6 +399,31 @@ void GameplayState::Update(float deltaTime) {
         }
     }
 
+    // Entity interaction: Koopa vs Koopa
+    for (size_t i = 0; i < koopas_.size(); ++i) {
+        auto& kA = koopas_[i];
+        if (!kA->IsActive() || kA->GetState() != KoopaShellState::Sliding) continue;
+        for (size_t j = i + 1; j < koopas_.size(); ++j) {
+            auto& kB = koopas_[j];
+            if (!kB->IsActive()) continue;
+            if (kA->Overlaps(*kB)) {
+                kA->InteractWith(*kB);
+            }
+        }
+    }
+
+    for (auto& k : koopas_) {
+        if (k->IsActive() && k->GetState() == KoopaShellState::Sliding) {
+            for (auto& b : buzzyBeetles_) {
+                if (b->IsActive() && !b->IsDefeated() && k->Overlaps(*b)) {
+                    bool wasDefeated = b->IsDefeated();
+                    k->InteractWith(*b);
+                    if (!wasDefeated && b->IsDefeated()) score += 100;
+                }
+            }
+        }
+    }
+
     // Update and collect Coins
     for (auto& coin : coins_) {
         if (coin->IsActive()) {
@@ -410,6 +467,11 @@ void GameplayState::Draw() {
     for (auto& k : koopas_) {
         if (k->IsActive()) {
             k->Draw();
+        }
+    }
+    for (auto& b : buzzyBeetles_) {
+        if (b->IsActive()) {
+            b->Draw();
         }
     }
     for (auto& coin : coins_) {
@@ -464,5 +526,7 @@ void GameplayState::Draw() {
 
 void GameplayState::Cleanup() {
     goombas_.clear();
+    koopas_.clear();
+    buzzyBeetles_.clear();
     coins_.clear();
 }

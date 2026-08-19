@@ -1,6 +1,7 @@
 #include "KoopaShellInteraction.h"
 #include "Game_Objects/Derived_Objects/Enemies/Goomba/Goomba.h"
 #include "Game_Objects/Derived_Objects/Enemies/KoopaShell/KoopaShell.h"
+#include "Game_Objects/Derived_Objects/Enemies/BuzzyBeetle/BuzzyBeetle.h"
 #include "Game_Objects/Derived_Objects/Playable_Characters/Player/Player.h"
 #include "Game_Objects/Derived_Objects/Items/Mushroom/Mushroom.h"
 
@@ -37,4 +38,10 @@ void ShellInteraction::Visit(Player& p) {
 
 void ShellInteraction::Visit(Mushroom& m) {
     (void)m; // shells don't interact with items
+}
+
+void ShellInteraction::Visit(BuzzyBeetle& b) {
+    if (self.GetState() == KoopaShellState::Sliding && !b.IsDefeated()) {
+        b.Defeat();
+    }
 }

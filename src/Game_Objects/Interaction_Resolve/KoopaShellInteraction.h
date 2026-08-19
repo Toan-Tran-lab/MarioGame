@@ -13,4 +13,5 @@ public:
     void Visit(Player& p) override;
     void Visit(KoopaShell& k) override;
     void Visit(Mushroom& m) override;
+    void Visit(BuzzyBeetle& b) override;
 };
