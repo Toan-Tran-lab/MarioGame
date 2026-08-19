@@ -1,3 +1,4 @@
+
 #include "GameplayState.h"
 #include "raylib.h"
 #include "TextureManager/TextureManager.h"
@@ -7,6 +8,7 @@
 #include "physics/ProximityAI.h"
 #include "SaveManager/SaveManager.h"
 #include "MainMenu/PauseMenuState/PauseMenuState.h"
+#include "GameplayState/LevelCompleteState/LevelCompleteState.h"
 #include "Game_Objects/Derived_Objects/Playable_Characters/Specific/Mario/Mario.h"
 #include "Game_Objects/Derived_Objects/Playable_Characters/Specific/Luigi/Luigi.h"
 #include <iostream>
@@ -22,6 +24,7 @@ void GameplayState::SetLevel(const Level& level) {
 }
 
 void GameplayState::SetCharacter(int characterId) {
+    characterId_ = characterId;
     if (characterId == 1) {
         player_ = std::make_unique<Luigi>();
     } else {
@@ -214,9 +217,21 @@ void GameplayState::Initialize() {
                 int col = (int)(ent.position.x / tileMap.GetTileSize());
                 int row = (int)(ent.position.y / tileMap.GetTileSize());
                 tileMap.GetBlockGrid().SetBlock(col, row, std::move(block));
+            } else if (ent.id == "FlagPole") {
+                flagpole_.AddPoleSegment(ent.position);
+            } else if (ent.id == "Flag") {
+                flagpole_.SetFlagPosition(ent.position);
             }
         }
     }
+
+    // Finalize flagpole: insert solid blocks and prepare for gameplay
+    if (flagpole_.HasPole()) {
+        flagpole_.InsertSolidBlocks(tileMap.GetBlockGrid(), tileMap.GetTileSize());
+        flagpole_.Finalize();
+    }
+    levelCompleteTriggered_ = false;
+    levelCompletePushed_ = false;
 
     // Now pass the block grid to the player
     player_->SetCollisionGrid(&tileMap.GetBlockGrid());
@@ -248,9 +263,34 @@ void GameplayState::Update(float deltaTime) {
         Global::gameStateManager->PushState(std::make_unique<PauseMenuState>(this));
     }
 
-    if (isGameOver || isGameWon) {
-        if (IsKeyPressed(KEY_ENTER)) {
-            Global::gameStateManager->PopState(); // Or go to Game Over screen
+    if (isGameOver || levelCompleteTriggered_) {
+        if (isGameOver && !levelCompletePushed_ && IsKeyPressed(KEY_ENTER)) {
+            Global::gameStateManager->PopState();
+        }
+        
+        // While flag is descending, keep updating it and slide Mario down
+        if (levelCompleteTriggered_ && flagpole_.HasPole() && !levelCompletePushed_) {
+            if (!flagpole_.IsComplete()) {
+                flagpole_.Update(deltaTime);
+                // Sync Mario's Y with the flag so they slide together
+                float marioX = flagpole_.GetPoleX() - player_->GetSize().x;
+                float marioY = flagpole_.GetFlagY();
+                player_->SetPosition({ marioX, marioY });
+                player_->GetPhysicsBody().position = { marioX, marioY };
+                player_->GetPhysicsBody().velocity = { 0.0f, 0.0f };
+            } else {
+                // Flag finished descending — push level complete screen
+                Global::gameStateManager->PushState(
+                    std::make_unique<LevelCompleteState>(
+                        this,
+                        currentLevel.GetLevelNumber(),
+                        characterId_,
+                        score,
+                        timeLeft
+                    )
+                );
+                levelCompletePushed_ = true;
+            }
         }
         return;
     }
@@ -444,6 +484,21 @@ void GameplayState::Update(float deltaTime) {
         }
     }
 
+    // Flagpole collision — trigger flag descent and level complete
+    if (!player_->IsDead() && flagpole_.HasPole() && !levelCompleteTriggered_) {
+        Rectangle pRect = player_->GetPhysicsBody().GetRect();
+        if (CheckCollisionRecs(pRect, flagpole_.GetTriggerBounds())) {
+            levelCompleteTriggered_ = true;
+            // Pass Mario's Y so the flag starts exactly where Mario hit the pole
+            flagpole_.Trigger(pRect.y);
+            // Snap Mario to the pole and freeze him
+            float marioX = flagpole_.GetPoleX() - player_->GetSize().x;
+            player_->SetPosition({ marioX, pRect.y });
+            player_->GetPhysicsBody().position = { marioX, pRect.y };
+            player_->GetPhysicsBody().velocity = { 0.0f, 0.0f };
+        }
+    }
+
     view.Update(player_->GetPosition().x, player_->GetPosition().y);
 }
 
@@ -487,6 +542,8 @@ void GameplayState::Draw() {
         d.Draw();
     }
 
+    flagpole_.Draw();
+
     view.EndDraw();
 
     // Draw HUD
@@ -529,4 +586,5 @@ void GameplayState::Cleanup() {
     koopas_.clear();
     buzzyBeetles_.clear();
     coins_.clear();
+    flagpole_ = Flagpole();
 }

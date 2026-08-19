@@ -48,7 +48,7 @@ int main() {
         
         // Update Enemy AI to generate inputs
         InputState enemyInput;
-        ProximityAI::UpdateAI(enemy, player, 300.0f, dt, enemyInput, blocks);
+        // ProximityAI::UpdateAI(enemy, player, 300.0f, dt, enemyInput, blocks);
 
         // Apply Enemy Physics using the generated AI inputs
         PhysicsEngine::ApplyPhysics(enemy, enemyInput, dt);

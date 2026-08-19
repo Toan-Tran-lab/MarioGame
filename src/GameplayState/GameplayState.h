@@ -14,6 +14,7 @@
 #include "Game_Objects/Derived_Objects/Static_Objects/Debris/Debris.h"
 #include "Game_Objects/Derived_Objects/Items/Coin/Coin.h"
 #include "Game_Objects/Derived_Objects/Items/Mushroom/Mushroom.h"
+#include "Game_Objects/Derived_Objects/Static_Objects/Flagpole/Flagpole.h"
 
 #include "SaveManager/SaveManager.h"
 #include <vector>
@@ -30,18 +31,21 @@ private:
     std::vector<std::unique_ptr<BuzzyBeetle>> buzzyBeetles_;
     std::vector<std::unique_ptr<Coin>> coins_;
     std::vector<DebrisPiece> debrisList_;
+    Flagpole flagpole_;
     Mushroom mushroom_;
 
     std::unique_ptr<Player> player_;
 
     bool isSandboxMode_ = false;
     std::vector<std::vector<SandboxCellData>> sandboxGrid_;
+    int characterId_ = 0;
+    bool levelCompleteTriggered_ = false;
+    bool levelCompletePushed_ = false;
 
     // HUD & Game Data
     int score = 0;
     float timeLeft = 300.0f; // 300 seconds default
     bool isGameOver = false;
-    bool isGameWon = false;
 
 public:
     GameplayState();
