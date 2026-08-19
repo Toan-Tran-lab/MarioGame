@@ -2,7 +2,7 @@
 #include "Global/Global.h"
 #include "TextureManager/TextureManager.h"
 #include "ui/UIUtils.h"
-#include "Game Objects/Derived Objects/Enemies/Goomba/Goomba.h"
+#include "Game_Objects/Derived_Objects/Enemies/Goomba/Goomba.h"
 #include "GameplayState/GameplayState.h"
 #include <cmath>
 #include <fstream>
@@ -100,6 +100,8 @@ void SandboxState::Initialize() {
     
     // Load Goomba and Coin textures
     TextureManager::Load("goomba_texture", "assets/textures/enemies-3.png");
+    TextureManager::Load("koopa_walk", "assets/textures/Koopa/walk/enemies.png");
+    TextureManager::Load("buzzy_walk", "assets/textures/BuzzyBeetle/walk/enemies.png");
     TextureManager::Load("coin", "assets/textures/coin.png");
 
     // Setup Palette items: Eraser (type 0) and Selected Brush (type 1)
@@ -210,6 +212,38 @@ void SandboxState::Update(float deltaTime) {
             }
         }
 
+        // Update Koopas                                                        // <-- add block
+        for (auto& k : playtestKoopas_) {
+            if (k->IsActive()) {
+                k->Update(deltaTime);
+                if (!testPlayer_->IsDead() && testPlayer_->Overlaps(*k)) {
+                    testPlayer_->InteractWith(*k);
+                }
+                if (k->IsActive() && k->GetState() == KoopaShellState::Sliding) {
+                    for (auto& b : playtestBuzzyBeetles_) {
+                        if (b->IsActive() && !b->IsDefeated() && k->Overlaps(*b)) {
+                            k->InteractWith(*b);
+                        }
+                    }
+                    for (auto& g : playtestGoombas_) {
+                        if (g->IsActive() && !g->IsDying() && k->Overlaps(*g)) {
+                            k->InteractWith(*g);
+                        }
+                    }
+                }
+            }
+        }
+
+        // Update BuzzyBeetles                                                  // <-- add block
+        for (auto& b : playtestBuzzyBeetles_) {
+            if (b->IsActive()) {
+                b->Update(deltaTime);
+                if (!testPlayer_->IsDead() && !b->IsDefeated() && testPlayer_->Overlaps(*b)) {
+                    testPlayer_->InteractWith(*b);
+                }
+            }
+        }
+
         // Update Coins
         for (auto& coin : playtestCoins_) {
             if (coin.active) {
@@ -226,6 +260,8 @@ void SandboxState::Update(float deltaTime) {
             isPlaying_ = false;
             testPlayer_.reset();
             playtestGoombas_.clear();
+            playtestKoopas_.clear();
+            playtestBuzzyBeetles_.clear();
             playtestCoins_.clear();
             // Reset camera back to standard editor layout
             editorCam_.offset = { 0, 0 };
@@ -364,6 +400,10 @@ void SandboxState::Update(float deltaTime) {
                     } else if (mouse.y >= 210 && mouse.y <= 260) {
                         selectedTool_ = 4; // Coin Spawner
                         lastSelectedTool_ = 4;
+                    } else if (mouse.y >= 280 && mouse.y <= 330) {
+                        selectedTool_ = 5; lastSelectedTool_ = 5;   // KoopaShell
+                    } else if (mouse.y >= 350 && mouse.y <= 400) {
+                        selectedTool_ = 6; lastSelectedTool_ = 6;   // BuzzyBeetle
                     }
                 }
             }
@@ -551,6 +591,12 @@ void SandboxState::Draw() {
                 g->Draw();
             }
         }
+        for (auto& k : playtestKoopas_) {
+            if (k->IsActive()) k->Draw();
+        }
+        for (auto& b : playtestBuzzyBeetles_) {
+            if (b->IsActive()) b->Draw();
+        }
         // Draw active Coins
         for (auto& coin : playtestCoins_) {
             if (coin.active) {
@@ -731,6 +777,26 @@ void SandboxState::Draw() {
                 DrawTexturePro(tex, { 0, 0, (float)tex.width, (float)tex.height }, { 30, 220, 30, 30 }, { 0, 0 }, 0.0f, WHITE);
             }
             DrawText("Coin Collect", 75, 225, 16, WHITE);
+
+            // 4. BuzzyBeetle spawner
+            Rectangle bRect = { 20, 280, 200, 50 };
+            DrawRectangleRec(bRect, (lastSelectedTool_ == 5) ? Color{ 80, 50, 50, 255 } : Color{ 40, 35, 45, 255 });
+            DrawRectangleLinesEx(bRect, 1.5f, (lastSelectedTool_ == 5) ? GOLD : Color{ 80, 60, 100, 255 });
+            if (TextureManager::Has("buzzy_walk")) {
+                Texture2D& tex = TextureManager::Get("buzzy_walk");
+                DrawTexturePro(tex, { 0, 0, 16, 16 }, { 30, 290, 30, 30 }, { 0, 0 }, 0.0f, WHITE);
+            }
+            DrawText("Buzzy Beetle Spawn", 75, 295, 16, WHITE);
+
+            // 5. KoopaShell spawner
+            Rectangle kRect = { 20, 350, 200, 50 };
+            DrawRectangleRec(kRect, (lastSelectedTool_ == 6) ? Color{ 80, 50, 50, 255 } : Color{ 40, 35, 45, 255 });
+            DrawRectangleLinesEx(kRect, 1.5f, (lastSelectedTool_ == 6) ? GOLD : Color{ 80, 60, 100, 255 });
+            if (TextureManager::Has("koopa_walk")) {
+                Texture2D& tex = TextureManager::Get("koopa_walk");
+                DrawTexturePro(tex, { 0, 0, 16, 24 }, { 30, 360, 24, 36 }, { 0, 0 }, 0.0f, WHITE);
+            }
+            DrawText("Koopa Spawn", 75, 365, 16, WHITE);
         }
     }
 
@@ -798,6 +864,24 @@ void SandboxState::DrawBlockPreview(int type, float x, float y, float alpha) {
             DrawTexturePro(tex, src, dest, {0,0}, 0.0f, Fade(WHITE, alpha));
         }
     }
+    else if (type == 5) {                                                    // <-- add
+        // KoopaShell spawner preview
+        if (TextureManager::Has("koopa_walk")) {
+            Texture2D& tex = TextureManager::Get("koopa_walk");
+            Rectangle src = { 0, 0, 16, 24 };
+            Rectangle dest = { x, y, cellSize_, cellSize_ * 1.5f };
+            DrawTexturePro(tex, src, dest, {0,0}, 0.0f, Fade(WHITE, alpha));
+        }
+    }
+    else if (type == 6) {                                                    // <-- add
+        // BuzzyBeetle spawner preview
+        if (TextureManager::Has("buzzy_walk")) {
+            Texture2D& tex = TextureManager::Get("buzzy_walk");
+            Rectangle src = { 0, 0, 16, 16 };
+            Rectangle dest = { x, y, cellSize_, cellSize_ };
+            DrawTexturePro(tex, src, dest, {0,0}, 0.0f, Fade(WHITE, alpha));
+        }
+    }
 }
 
 void SandboxState::Cleanup() {
@@ -805,5 +889,7 @@ void SandboxState::Cleanup() {
     palette_.clear();
     testPlayer_.reset();
     playtestGoombas_.clear();
+    playtestKoopas_.clear();
+    playtestBuzzyBeetles_.clear();
     playtestCoins_.clear();
 }

@@ -1,8 +1,10 @@
 #pragma once
 #include "core/core.h"
 #include "Button/Button.h"
-#include "Game Objects/Derived Objects/Playable Characters/Player/Mario.h"
-#include "Game Objects/Derived Objects/Enemies/Goomba/Goomba.h"
+#include "Game_Objects/Derived_Objects/Playable_Characters/Specific/Mario/Mario.h"
+#include "Game_Objects/Derived_Objects/Enemies/Goomba/Goomba.h"
+#include "Game_Objects/Derived_Objects/Enemies/KoopaShell/KoopaShell.h"
+#include "Game_Objects/Derived_Objects/Enemies/BuzzyBeetle/BuzzyBeetle.h"
 #include "World/BlockGrid.h"
 #include <vector>
 #include <memory>
@@ -14,7 +16,7 @@ private:
     float cellSize_;
     std::vector<std::vector<SandboxCellData>> grid_;
     
-    int selectedTool_; // 0 = Eraser, 1 = Dirt, 2 = Brick, 3 = Coin, 4 = Goomba
+    int selectedTool_; // 0 = Eraser, 1 = Dirt, 2 = Brick, 3 = Coin, 4 = Goomba, 5 = KoopaShell, 6 = BuzzyBeetle
     float timeAccum_;
 
     struct PaletteItem {
@@ -58,6 +60,8 @@ private:
 
     // Playtest entities
     std::vector<std::unique_ptr<Goomba>> playtestGoombas_;
+    std::vector<std::unique_ptr<KoopaShell>> playtestKoopas_;
+    std::vector<std::unique_ptr<BuzzyBeetle>> playtestBuzzyBeetles_;
     struct PlaytestCoin {
         Vector2 position;
         bool active;

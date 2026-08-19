@@ -7,8 +7,8 @@
 #include "physics/ProximityAI.h"
 #include "SaveManager/SaveManager.h"
 #include "MainMenu/PauseMenuState/PauseMenuState.h"
-#include "Game Objects/Derived Objects/Playable Characters/Player/Mario.h"
-#include "Game Objects/Derived Objects/Playable Characters/Player/Luigi.h"
+#include "Game_Objects/Derived_Objects/Playable_Characters/Specific/Mario/Mario.h"
+#include "Game_Objects/Derived_Objects/Playable_Characters/Specific/Luigi/Luigi.h"
 #include <iostream>
 #include <algorithm>
 
@@ -64,8 +64,6 @@ void GameplayState::Initialize() {
     TextureManager::Load("luigi_walk", "assets/textures/Luigi/walk/luigi.png");
     TextureManager::Load("luigi_jump", "assets/textures/Luigi/jump/luigi.png");
     TextureManager::Load("luigi_slide", "assets/textures/Luigi/slide/luigi.png");
-<<<<<<< HEAD
-=======
     TextureManager::Load("luigi_sit", "assets/textures/Luigi/sit/luigi.png");
 
     // Luigi Mini
@@ -88,10 +86,11 @@ void GameplayState::Initialize() {
     TextureManager::Load("goomba_dead",    "assets/textures/Goomba/dead/enemies.png");
     TextureManager::Load("koopa_walk",     "assets/textures/Koopa/walk/enemies.png");
     TextureManager::Load("koopa_hide",     "assets/textures/Koopa/hide/enemies.png");
+    TextureManager::Load("buzzy_walk",    "assets/textures/BuzzyBeetle/walk/enemies.png");
+    TextureManager::Load("buzzy_flipped", "assets/textures/BuzzyBeetle/flipped/enemies.png");
     TextureManager::Load("coin", "assets/textures/coin/coin.png");
     TextureManager::Load("mushroom", "assets/textures/Items/items.png");
     TextureManager::Load("luckyblock", "assets/textures/Luckyblock/luckyblock.png");
->>>>>>> c82ad2234b5ca71bdccf2f742362e3fad6a65b7c
 
     // Initialize player
     if (player_->GetPosition().x == 0 && player_->GetPosition().y == 0) {
@@ -105,18 +104,10 @@ void GameplayState::Initialize() {
     
     // (We will append Luckyblock rects after they are initialized below)
 
-<<<<<<< HEAD
-    // Initialize enemy
-    goomba_.SetPosition({ 500, 400 });
-    goomba_.SetSize({ 32, 32 });
-    goomba_.SetPlayerBody(&player_->GetPhysicsBody());
-    goomba_.SetCollisionBlocks(&mapCollisionRects);
-
-
-=======
     // Initialize enemies and coins
     goombas_.clear();
     koopas_.clear();
+    buzzyBeetles_.clear();
     coins_.clear();
 
     if (isSandboxMode_) {
@@ -137,6 +128,21 @@ void GameplayState::Initialize() {
                     c_coin->SetPosition({ (float)(c * tileMap.GetTileSize()), (float)(r * tileMap.GetTileSize()) });
                     c_coin->SetSize({ 48.0f, 48.0f });
                     coins_.push_back(std::move(c_coin));
+                } else if (cell.type == 5) {
+                    auto k = std::make_unique<KoopaShell>();
+                    // Normal KoopaShell size is 16x24, same adjustment as the normal-level spawn path.
+                    k->SetPosition({ (float)(c * tileMap.GetTileSize()), (float)(r * tileMap.GetTileSize()) - 8.0f * Global::GAME_SCALE });
+                    k->SetSize({ 16.0f * Global::GAME_SCALE, 24.0f * Global::GAME_SCALE });
+                    k->SetPlayerBody(&player_->GetPhysicsBody());
+                    k->SetCollisionGrid(&tileMap.GetBlockGrid());
+                    koopas_.push_back(std::move(k));
+                } else if (cell.type == 6) {
+                    auto b = std::make_unique<BuzzyBeetle>();
+                    b->SetPosition({ (float)(c * tileMap.GetTileSize()), (float)(r * tileMap.GetTileSize()) });
+                    b->SetSize({ Global::TILE_SIZE * Global::GAME_SCALE, Global::TILE_SIZE * Global::GAME_SCALE });
+                    b->SetPlayerBody(&player_->GetPhysicsBody());
+                    b->SetCollisionGrid(&tileMap.GetBlockGrid());
+                    buzzyBeetles_.push_back(std::move(b));
                 }
             }
         }
@@ -160,6 +166,13 @@ void GameplayState::Initialize() {
                 k->SetPlayerBody(&player_->GetPhysicsBody());
                 k->SetCollisionGrid(&tileMap.GetBlockGrid());
                 koopas_.push_back(std::move(k));
+            } else if (ent.id == "BuzzyBeetle") {
+                auto b = std::make_unique<BuzzyBeetle>();
+                b->SetPosition(ent.position);
+                b->SetSize({ Global::TILE_SIZE * Global::GAME_SCALE, Global::TILE_SIZE * Global::GAME_SCALE });
+                b->SetPlayerBody(&player_->GetPhysicsBody());
+                b->SetCollisionGrid(&tileMap.GetBlockGrid());
+                buzzyBeetles_.push_back(std::move(b));
             } else if (ent.id == "Coin") {
                 auto c_coin = std::make_unique<Coin>();
                 c_coin->SetPosition(ent.position);
@@ -181,7 +194,6 @@ void GameplayState::Initialize() {
     // Initialize mushroom
     mushroom_.SetPosition({ 300, 400 });
     mushroom_.SetCollisionGrid(&tileMap.GetBlockGrid());
->>>>>>> c82ad2234b5ca71bdccf2f742362e3fad6a65b7c
 
     // Initialize camera
     view = View(16.0f, (float)tileMap.GetTileSize());
@@ -220,23 +232,24 @@ void GameplayState::Update(float deltaTime) {
 
     player_->Update(deltaTime);
 
-<<<<<<< HEAD
-    // Update the goomba (chase AI + physics + collisions)
-    if (goomba_.IsActive()) {
-        goomba_.Update(deltaTime);
-=======
     // Update Goombas (including dying ones — they run their own timer)
     for (auto& g : goombas_) {
         if (g->IsActive()) {
             g->Update(deltaTime);
         }
->>>>>>> c82ad2234b5ca71bdccf2f742362e3fad6a65b7c
     }
     
     // Update Koopas
     for (auto& k : koopas_) {
         if (k->IsActive()) {
             k->Update(deltaTime);
+        }
+    }
+
+    // Update Buzzy Beetle
+    for (auto& b : buzzyBeetles_) {
+        if (b->IsActive()) {
+            b->Update(deltaTime);
         }
     }
 
@@ -316,9 +329,6 @@ void GameplayState::Update(float deltaTime) {
         player_->InteractWith(goomba_);
     }
 
-<<<<<<< HEAD
-    // Handle player death (respawn at spawn point)
-=======
     // Entity interaction: player vs goombas/koopas/mushroom
     if (!player_->IsDead()) {
         for (auto& g : goombas_) {
@@ -353,8 +363,34 @@ void GameplayState::Update(float deltaTime) {
         if (k->IsActive() && k->GetState() == KoopaShellState::Sliding) {
             for (auto& g : goombas_) {
                 if (g->IsActive() && !g->IsDying() && k->Overlaps(*g)) {
-                    g->Stomp();
-                    score += 100; // Bonus points for shell kill
+                bool wasDying = g->IsDying();
+                k->InteractWith(*g);
+                if (!wasDying && g->IsDying()) score += 100;
+            }
+            }
+        }
+    }
+
+    // Entity interaction: Koopa vs Koopa
+    for (size_t i = 0; i < koopas_.size(); ++i) {
+        auto& kA = koopas_[i];
+        if (!kA->IsActive() || kA->GetState() != KoopaShellState::Sliding) continue;
+        for (size_t j = i + 1; j < koopas_.size(); ++j) {
+            auto& kB = koopas_[j];
+            if (!kB->IsActive()) continue;
+            if (kA->Overlaps(*kB)) {
+                kA->InteractWith(*kB);
+            }
+        }
+    }
+
+    for (auto& k : koopas_) {
+        if (k->IsActive() && k->GetState() == KoopaShellState::Sliding) {
+            for (auto& b : buzzyBeetles_) {
+                if (b->IsActive() && !b->IsDefeated() && k->Overlaps(*b)) {
+                    bool wasDefeated = b->IsDefeated();
+                    k->InteractWith(*b);
+                    if (!wasDefeated && b->IsDefeated()) score += 100;
                 }
             }
         }
@@ -374,7 +410,6 @@ void GameplayState::Update(float deltaTime) {
     }
 
     // Handle player death (Game Over when falling off map)
->>>>>>> c82ad2234b5ca71bdccf2f742362e3fad6a65b7c
     if (player_->IsDead()) {
         player_->SetDead(false);
         Vector2 spawn = tileMap.GetPlayerSpawn();
@@ -397,13 +432,6 @@ void GameplayState::Draw() {
     tileMap.GetBlockGrid().Draw();
 
     player_->Draw();
-<<<<<<< HEAD
-    if (goomba_.IsActive()) {
-        goomba_.Draw();
-    }
-
-
-=======
     for (auto& g : goombas_) {
         // Draw alive AND dying goombas (dying ones show squish + "+100" popup)
         if (g->IsActive()) {
@@ -413,6 +441,11 @@ void GameplayState::Draw() {
     for (auto& k : koopas_) {
         if (k->IsActive()) {
             k->Draw();
+        }
+    }
+    for (auto& b : buzzyBeetles_) {
+        if (b->IsActive()) {
+            b->Draw();
         }
     }
     for (auto& coin : coins_) {
@@ -427,7 +460,6 @@ void GameplayState::Draw() {
     for (const auto& d : debrisList_) {
         d.Draw();
     }
->>>>>>> c82ad2234b5ca71bdccf2f742362e3fad6a65b7c
 
     view.EndDraw();
 
@@ -459,4 +491,9 @@ void GameplayState::Draw() {
 
 }
 
-void GameplayState::Cleanup() {}
+void GameplayState::Cleanup() {
+    goombas_.clear();
+    koopas_.clear();
+    buzzyBeetles_.clear();
+    coins_.clear();
+}

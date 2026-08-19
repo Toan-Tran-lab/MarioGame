@@ -18,7 +18,7 @@ struct LdtkTile {
 
 // Data structure representing a cell imported from Sandbox mode
 struct SandboxCellData {
-    int type; // 0 = empty, 1 = tile, 2 = player, 3 = goomba, 4 = coin
+    int type; // 0 = empty, 1 = tile, 2 = player, 3 = goomba, 4 = coin, 5 = koopa shell, 6 = buzzy beetle
     std::string texKey;
     Rectangle srcRect;
     bool isSolid;

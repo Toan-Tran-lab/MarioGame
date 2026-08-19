@@ -1,7 +1,7 @@
 #pragma once
 #include <vector>
 #include <memory>
-#include "Game Objects/Derived Objects/Static Objects/Block.h"
+#include "Game_Objects/Derived_Objects/Static_Objects/Block/Block.h"
 
 class BlockGrid {
 private:
