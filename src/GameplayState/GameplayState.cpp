@@ -143,6 +143,8 @@ void GameplayState::Initialize() {
     buzzyBeetles_.clear();
     coins_.clear();
     flyingBridges_.clear();
+    goalPipes_.clear();
+    fires_.clear();
 
     if (isSandboxMode_) {
         // Spawn Goombas and Coins based on Sandbox coordinates
@@ -224,6 +226,14 @@ void GameplayState::Initialize() {
                 bridge->SetPatrolBounds(tileMap.GetBorderLeft(), tileMap.GetBorderRight());
                 bridge->SetBlockGrid(&tileMap.GetBlockGrid());
                 flyingBridges_.push_back(std::move(bridge));
+            } else if (ent.id == "GoalPipe") {
+                auto pipe = std::make_unique<GoalPipe>();
+                pipe->SetPosition(ent.position);
+                goalPipes_.push_back(std::move(pipe));
+            } else if (ent.id == "Fire") {
+                auto fire = std::make_unique<Fire>();
+                fire->SetPosition(ent.position);
+                fires_.push_back(std::move(fire));
             } else if (ent.id == "FlagPole") {
                 flagpole_.AddPoleSegment(ent.position);
             } else if (ent.id == "Flag") {
@@ -275,28 +285,47 @@ void GameplayState::Update(float deltaTime) {
             Global::gameStateManager->PopState();
         }
         
-        // While flag is descending, keep updating it and slide Mario down
-        if (levelCompleteTriggered_ && flagpole_.HasPole() && !levelCompletePushed_) {
-            if (!flagpole_.IsComplete()) {
-                flagpole_.Update(deltaTime);
-                // Sync Mario's Y with the flag so they slide together
-                float marioX = flagpole_.GetPoleX() - player_->GetSize().x;
-                float marioY = flagpole_.GetFlagY();
-                player_->SetPosition({ marioX, marioY });
-                player_->GetPhysicsBody().position = { marioX, marioY };
-                player_->GetPhysicsBody().velocity = { 0.0f, 0.0f };
-            } else {
-                // Flag finished descending — push level complete screen
-                Global::gameStateManager->PushState(
-                    std::make_unique<LevelCompleteState>(
-                        this,
-                        currentLevel.GetLevelNumber(),
-                        characterId_,
-                        score,
-                        timeLeft
-                    )
-                );
-                levelCompletePushed_ = true;
+        // Handle level complete animations
+        if (levelCompleteTriggered_ && !levelCompletePushed_) {
+            bool pipeAnimating = false;
+            for (auto& pipe : goalPipes_) {
+                if (pipe->IsTriggered()) {
+                    pipeAnimating = true;
+                    if (!pipe->IsAnimationComplete()) {
+                        pipe->Update(deltaTime);
+                        player_->SetPosition(pipe->GetPlayerAnimPos());
+                        player_->GetPhysicsBody().position = pipe->GetPlayerAnimPos();
+                        player_->GetPhysicsBody().velocity = { 0.0f, 0.0f };
+                    } else {
+                        Global::gameStateManager->PushState(
+                            std::make_unique<LevelCompleteState>(
+                                this, currentLevel.GetLevelNumber(), characterId_, score, timeLeft
+                            )
+                        );
+                        levelCompletePushed_ = true;
+                    }
+                    break;
+                }
+            }
+
+            if (!pipeAnimating && flagpole_.HasPole()) {
+                if (!flagpole_.IsComplete()) {
+                    flagpole_.Update(deltaTime);
+                    // Sync Mario's Y with the flag so they slide together
+                    float marioX = flagpole_.GetPoleX() - player_->GetSize().x;
+                    float marioY = flagpole_.GetFlagY();
+                    player_->SetPosition({ marioX, marioY });
+                    player_->GetPhysicsBody().position = { marioX, marioY };
+                    player_->GetPhysicsBody().velocity = { 0.0f, 0.0f };
+                } else {
+                    // Flag finished descending — push level complete screen
+                    Global::gameStateManager->PushState(
+                        std::make_unique<LevelCompleteState>(
+                            this, currentLevel.GetLevelNumber(), characterId_, score, timeLeft
+                        )
+                    );
+                    levelCompletePushed_ = true;
+                }
             }
         }
         return;
@@ -309,6 +338,20 @@ void GameplayState::Update(float deltaTime) {
     }
 
     player_->Update(deltaTime);
+
+    // Forward-only function: do not allow Mario to go left past the camera view
+    if (!player_->IsDead()) {
+        float leftBound = view.GetWorldLeft();
+        if (player_->GetPosition().x < leftBound) {
+            Vector2 pos = player_->GetPosition();
+            pos.x = leftBound;
+            player_->SetPosition(pos);
+            player_->GetPhysicsBody().position.x = leftBound;
+            if (player_->GetPhysicsBody().velocity.x < 0.0f) {
+                player_->GetPhysicsBody().velocity.x = 0.0f;
+            }
+        }
+    }
 
     // Update Goombas (including dying ones — they run their own timer)
     for (auto& g : goombas_) {
@@ -425,6 +468,24 @@ void GameplayState::Update(float deltaTime) {
 
     // Entity interaction: player vs goombas/koopas/mushroom
     if (!player_->IsDead()) {
+        if (!levelCompleteTriggered_) {
+            for (auto& pipe : goalPipes_) {
+                if (CheckCollisionRecs(player_->GetRect(), pipe->GetRect())) {
+                    levelCompleteTriggered_ = true;
+                    pipe->Trigger(player_->GetPosition());
+                    break;
+                }
+            }
+        }
+
+        // Fire collision
+        for (auto& fire : fires_) {
+            if (CheckCollisionRecs(player_->GetRect(), fire->GetRect())) {
+                player_->SetDead(true);
+                break;
+            }
+        }
+
         for (auto& g : goombas_) {
             // Only interact with alive, non-dying goombas
             if (g->IsActive() && !g->IsDying() && player_->Overlaps(*g)) {
@@ -503,9 +564,13 @@ void GameplayState::Update(float deltaTime) {
         }
     }
 
-    // Handle player death (Game Over when falling off map)
-    if (player_->IsDead()) {
-        if (player_->GetPosition().y > tileMap.GetBorderBottom() + 100) {
+    // Handle player death when falling off map
+    if (player_->GetPosition().y > tileMap.GetBorderBottom()) {
+        if (!player_->IsDead()) {
+            player_->SetDead(true);
+            // Player will automatically perform a death jump upwards
+        } else if (player_->GetPosition().y > tileMap.GetBorderBottom() + 100.0f) {
+            // Wait until the player falls significantly below the border after the jump
             isGameOver = true;
         }
     }
@@ -538,7 +603,22 @@ void GameplayState::Draw() {
     // Draw interactive blocks
     tileMap.GetBlockGrid().Draw();
 
+    bool isPipeScissor = false;
+    for (auto& pipe : goalPipes_) {
+        if (pipe->IsTriggered()) {
+            isPipeScissor = true;
+            Vector2 screenPos = GetWorldToScreen2D({ pipe->GetRect().x, 0 }, view.GetRawCamera());
+            BeginScissorMode(0, 0, (int)screenPos.x, GetScreenHeight());
+            break;
+        }
+    }
+
     player_->Draw();
+
+    if (isPipeScissor) {
+        EndScissorMode();
+    }
+
     for (auto& g : goombas_) {
         // Draw alive AND dying goombas (dying ones show squish + "+100" popup)
         if (g->IsActive()) {
@@ -564,6 +644,9 @@ void GameplayState::Draw() {
         if (bridge->IsActive()) {
             bridge->Draw();
         }
+    }
+    for (auto& pipe : goalPipes_) {
+        pipe->Draw();
     }
     if (mushroom_.IsActive()) {
         mushroom_.Draw();
@@ -618,5 +701,7 @@ void GameplayState::Cleanup() {
     buzzyBeetles_.clear();
     coins_.clear();
     flyingBridges_.clear();
+    goalPipes_.clear();
+    fires_.clear();
     flagpole_ = Flagpole();
 }

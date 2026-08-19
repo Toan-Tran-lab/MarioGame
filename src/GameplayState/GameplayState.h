@@ -16,6 +16,8 @@
 #include "Game_Objects/Derived_Objects/Items/Mushroom/Mushroom.h"
 #include "Game_Objects/Derived_Objects/Static_Objects/Flagpole/Flagpole.h"
 #include "Game_Objects/Derived_Objects/Static_Objects/FlyingBridge/FlyingBridge.h"
+#include "Game_Objects/Derived_Objects/Static_Objects/GoalPipe/GoalPipe.h"
+#include "Game_Objects/Derived_Objects/Static_Objects/Fire/Fire.h"
 
 #include "SaveManager/SaveManager.h"
 #include <vector>
@@ -34,6 +36,8 @@ private:
     std::vector<DebrisPiece> debrisList_;
     Flagpole flagpole_;
     std::vector<std::unique_ptr<FlyingBridge>> flyingBridges_;
+    std::vector<std::unique_ptr<GoalPipe>> goalPipes_;
+    std::vector<std::unique_ptr<Fire>> fires_;
     Mushroom mushroom_;
 
     std::unique_ptr<Player> player_;
