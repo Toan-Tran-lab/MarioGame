@@ -116,6 +116,10 @@ void Player::Update(float dt) {
         physicsBody_.velocity.x /= speedMult; // undo last frame's scaling before the engine sees it
     }
 
+    if (physicsBody_.velocity.y > 0.0f) {
+        physicsBody_.velocity.y *= GetGravityMultiplier();
+    }
+
     bool wantsJump = input.jumpPressed && IsGrounded();
 
     physics::PhysicsEngine::ApplyPhysics(physicsBody_, input, dt);
