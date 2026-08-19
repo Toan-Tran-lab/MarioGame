@@ -137,11 +137,12 @@ void GameplayState::Initialize() {
     
     // (We will append Luckyblock rects after they are initialized below)
 
-    // Initialize enemies and coins
+    // Initialize enemies, coins, and moving platforms
     goombas_.clear();
     koopas_.clear();
     buzzyBeetles_.clear();
     coins_.clear();
+    flyingBridges_.clear();
 
     if (isSandboxMode_) {
         // Spawn Goombas and Coins based on Sandbox coordinates
@@ -217,6 +218,12 @@ void GameplayState::Initialize() {
                 int col = (int)(ent.position.x / tileMap.GetTileSize());
                 int row = (int)(ent.position.y / tileMap.GetTileSize());
                 tileMap.GetBlockGrid().SetBlock(col, row, std::move(block));
+            } else if (ent.id == "FlyingBridge") {
+                auto bridge = std::make_unique<FlyingBridge>();
+                bridge->SetPosition(ent.position);
+                bridge->SetPatrolBounds(tileMap.GetBorderLeft(), tileMap.GetBorderRight());
+                bridge->SetBlockGrid(&tileMap.GetBlockGrid());
+                flyingBridges_.push_back(std::move(bridge));
             } else if (ent.id == "FlagPole") {
                 flagpole_.AddPoleSegment(ent.position);
             } else if (ent.id == "Flag") {
@@ -322,6 +329,25 @@ void GameplayState::Update(float deltaTime) {
         if (b->IsActive()) {
             b->Update(deltaTime);
         }
+    }
+
+    // Update flying bridges
+    for (auto& bridge : flyingBridges_) {
+        if (bridge->IsActive()) {
+            bridge->Update(deltaTime);
+        }
+    }
+
+    // Resolve player-vs-flying-bridge platform collision
+    if (!player_->IsDead()) {
+        for (auto& bridge : flyingBridges_) {
+            if (bridge->IsActive()) {
+                physics::CollisionSystem::ResolvePlatformCollision(
+                    player_->GetPhysicsBody(), bridge->GetRect(), bridge->GetVelocityX(), deltaTime);
+            }
+        }
+        // Crucial: sync the modified physics body position back to the player's GameObject state!
+        player_->SyncPhysics();
     }
 
     // Update block grid
@@ -534,6 +560,11 @@ void GameplayState::Draw() {
             coin->Draw();
         }
     }
+    for (auto& bridge : flyingBridges_) {
+        if (bridge->IsActive()) {
+            bridge->Draw();
+        }
+    }
     if (mushroom_.IsActive()) {
         mushroom_.Draw();
     }
@@ -586,5 +617,6 @@ void GameplayState::Cleanup() {
     koopas_.clear();
     buzzyBeetles_.clear();
     coins_.clear();
+    flyingBridges_.clear();
     flagpole_ = Flagpole();
 }

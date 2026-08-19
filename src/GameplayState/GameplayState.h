@@ -15,6 +15,7 @@
 #include "Game_Objects/Derived_Objects/Items/Coin/Coin.h"
 #include "Game_Objects/Derived_Objects/Items/Mushroom/Mushroom.h"
 #include "Game_Objects/Derived_Objects/Static_Objects/Flagpole/Flagpole.h"
+#include "Game_Objects/Derived_Objects/Static_Objects/FlyingBridge/FlyingBridge.h"
 
 #include "SaveManager/SaveManager.h"
 #include <vector>
@@ -32,6 +33,7 @@ private:
     std::vector<std::unique_ptr<Coin>> coins_;
     std::vector<DebrisPiece> debrisList_;
     Flagpole flagpole_;
+    std::vector<std::unique_ptr<FlyingBridge>> flyingBridges_;
     Mushroom mushroom_;
 
     std::unique_ptr<Player> player_;

@@ -21,6 +21,11 @@ namespace physics {
 
         // Grid-based collision resolution using BlockGrid
         static void ResolveMapCollisions(PhysicsBody& body, const BlockGrid& blockGrid);
+
+        // Resolve collision between a physics body and a moving platform.
+        // Only resolves as a floor if the body is landing from above.
+        // Applies platformVelX to the body so the rider moves with the platform.
+        static void ResolvePlatformCollision(PhysicsBody& body, const Rectangle& platform, float platformVelX, float dt);
     };
 
 } // namespace physics
