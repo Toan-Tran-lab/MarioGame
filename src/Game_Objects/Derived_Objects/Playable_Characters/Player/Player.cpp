@@ -116,8 +116,9 @@ void Player::Update(float dt) {
         physicsBody_.velocity.x /= speedMult; // undo last frame's scaling before the engine sees it
     }
 
-    if (physicsBody_.velocity.y > 0.0f) {
-        physicsBody_.velocity.y *= GetGravityMultiplier();
+    const float gravMult = GetGravityMultiplier();
+    if (gravMult != 0.0f && gravMult != 1.0f && physicsBody_.velocity.y > 0.0f) {
+        physicsBody_.velocity.y /= gravMult;
     }
 
     bool wantsJump = input.jumpPressed && IsGrounded();
