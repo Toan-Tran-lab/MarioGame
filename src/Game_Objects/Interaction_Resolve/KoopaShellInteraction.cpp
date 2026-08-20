@@ -45,3 +45,5 @@ void ShellInteraction::Visit(BuzzyBeetle& b) {
         b.Defeat();
     }
 }
+
+void ShellInteraction::Visit(Boss& b) {}
