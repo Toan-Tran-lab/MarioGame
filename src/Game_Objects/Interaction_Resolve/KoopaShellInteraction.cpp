@@ -49,6 +49,6 @@ void ShellInteraction::Visit(BuzzyBeetle& b) {
 
 void ShellInteraction::Visit(Boss& b) {
     if (self.GetState() != KoopaShellState::Sliding || b.IsDead()) return;
-    b.TakeDamage(b.GetShellDamage());\
+    b.TakeDamage(b.GetShellDamage());
     self.SetActive(false);
 }

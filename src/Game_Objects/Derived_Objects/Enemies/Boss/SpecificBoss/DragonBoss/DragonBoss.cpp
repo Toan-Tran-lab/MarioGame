@@ -37,16 +37,34 @@ void DragonBoss::OnDamaged() {
     if (bucket < lastHpBucket_) {
         lastHpBucket_ = bucket;
         pendingItemScatter_ = true;
-        if (IsEnraged() && !enrageTriggered_) {
-            enrageTriggered_ = true;
-            OnEnrageTriggered();
-        }
     }
+    if (GetHp() <= 0) {
+        pendingCoinBurst_ = true;
+        pendingItemScatter_ = false; // death takes priority over a simultaneous quarter-crossing
+    }
+    if (IsEnraged() && !enrageTriggered_ && !isDead_) {
+        enrageTriggered_ = true;
+        OnEnrageTriggered();
+    }
+}
+
+void DragonBoss::OnSpawnComplete() {
+    SetStompBouncePosition({ GetPosition().x - 60.0f, GetPosition().y + GetSize().y - 40.0f });
+}
+
+BossState* DragonBoss::CreateIdleState() {
+    return new IdleState();
 }
 
 bool DragonBoss::ConsumeItemScatterRequest() {
     bool v = pendingItemScatter_;
     pendingItemScatter_ = false;
+    return v;
+}
+
+bool DragonBoss::ConsumeCoinBurstRequest() {
+    bool v = pendingCoinBurst_;
+    pendingCoinBurst_ = false;
     return v;
 }
 
@@ -79,6 +97,16 @@ void DragonBoss::DrawBoss() {
         if (spawning->ShowWarningLine()) {
             DrawLine((int)(position_.x + size_.x / 2.0f), 0,
                      (int)(position_.x + size_.x / 2.0f), (int)GetPosition().y + 400, Fade(RED, 0.7f));
+        }
+    }
+
+    if (auto* slam = dynamic_cast<ArmSlamState*>(GetState())) { 
+        if (slam->IsBursting()) {
+            Vector2 t = slam->GetTargetPos();
+            float progress = slam->GetBurstProgress();
+            float radius = 40.0f * progress; // matches ArmSlamState::kBurstRadius
+            DrawCircle((int)t.x, (int)t.y, radius, Fade(ORANGE, 1.0f - progress * 0.5f));
+            DrawCircleLines((int)t.x, (int)t.y, radius, RED);
         }
     }
 }

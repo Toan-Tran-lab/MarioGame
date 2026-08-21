@@ -3,6 +3,7 @@
 #include "Game_Objects/Derived_Objects/Enemies/KoopaShell/KoopaShell.h"
 #include "Game_Objects/Derived_Objects/Enemies/BuzzyBeetle/BuzzyBeetle.h"
 #include "Game_Objects/Derived_Objects/Enemies/Boss/BossEnemy/Boss.h"
+#include "Game_Objects/Derived_Objects/Enemies/Boss/BossEnemy/BossState.h"
 #include "Game_Objects/Derived_Objects/Playable_Characters/Player/Player.h"
 #include "Game_Objects/Derived_Objects/Items/Mushroom/Mushroom.h"
 #include "Game_Objects/Derived_Objects/Playable_Characters/Player/PlayerState.h"
@@ -145,6 +146,7 @@ void PlayerInteraction::Visit(BuzzyBeetle& b) {
 
 void PlayerInteraction::Visit(Boss& b) {
     if (b.IsDead()) return;
+
     const float playerBottom = self.GetPosition().y + self.GetSize().y;
     const float bossTop = b.GetPosition().y;
     const bool falling = self.GetVelocity().y > 0.0f;
@@ -152,11 +154,14 @@ void PlayerInteraction::Visit(Boss& b) {
 
     if (aboveBoss && falling) {
         if (b.TakeDamage(b.GetStompDamage())) {
+            if (BossState* state = b.GetState()) {
+                state->OnStomped(b); // only IdleState reacts (flinch); attack states ignore it
+            }
+            self.SetPosition(b.GetStompBouncePosition());
+            self.SyncPhysicsBody();
             Vector2 vel = self.GetVelocity();
-            vel.y = kStompBounceVelocity;
+            vel.y = 0.0f; // clear fall speed so they don't immediately re-collide
             self.SetVelocity(vel);
-        } else {
-            self.TakeDamage();
         }
     } else {
         self.TakeDamage();

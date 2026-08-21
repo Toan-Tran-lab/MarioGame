@@ -21,11 +21,43 @@ float DistanceToPlayer(const Boss& boss, const Player& player) {
 // --- IdleState ---
 
 void IdleState::Enter(Boss& boss) {
-    attackTimer_ = 0.0f;
+    auto& dragon = static_cast<DragonBoss&>(boss);
+    attackTimer_ = kAttackInterval * (dragon.IsEnraged() ? DragonBoss::kEnrageMultiplier : 1.0f);
     proximityTimer_ = 0.0f;
 }
 
-void IdleState::UpdateState(Boss& boss, float dt) {}
+void IdleState::OnStomped(Boss& boss) {
+    if (attackTimer_ < kFlinchCooldown) {
+        attackTimer_ = kFlinchCooldown; // extend, never shorten
+    }
+}
+
+void IdleState::UpdateState(Boss& boss, float dt) {
+    auto& dragon = static_cast<DragonBoss&>(boss);
+    Player* player = dragon.GetPlayer();
+
+    if (player) {
+        if (DistanceToPlayer(boss, *player) <= kProximityRadius) {
+            proximityTimer_ += dt;
+            if (proximityTimer_ >= kProximityTrigger) {
+                boss.SetState(new ProximityAOEState());
+                return; // NOTE: SetState deletes 'this' — nothing may follow
+            }
+        } else {
+            proximityTimer_ = 0.0f;
+        }
+    }
+
+    attackTimer_ -= dt;
+    if (attackTimer_ <= 0.0f) {
+        DragonAttackType next = dragon.NextAttack();
+        boss.SetState(next == DragonAttackType::Flamethrower
+                           ? static_cast<BossState*>(new ChargingFlameState())
+                           : static_cast<BossState*>(new AimingStompState()));
+        return; // NOTE: SetState deletes 'this' — nothing may follow
+    }
+}
+
 
 // --- AimingStompState ---
 
@@ -37,89 +69,55 @@ void AimingStompState::Enter(Boss& boss) {
 
 void AimingStompState::UpdateState(Boss& boss, float dt) {
     auto& dragon = static_cast<DragonBoss&>(boss);
-
-    // The aim marker follows the player live until the timer expires.
     if (dragon.GetPlayer()) targetPos_ = dragon.GetPlayer()->GetPosition();
 
     timer_ += dt;
     float duration = kAimDuration * (dragon.IsEnraged() ? DragonBoss::kEnrageMultiplier : 1.0f);
     if (timer_ >= duration) {
-        boss.SetState(new StompJumpState(targetPos_));
-        return; // NOTE: SetState deletes 'this' — nothing may follow
+        boss.SetState(new ArmSlamState(targetPos_)); // was: new StompJumpState(targetPos_)
+        return;
     }
 }
 
-// --- StompJumpState ---
-
-void StompJumpState::Enter(Boss& boss) {
-    startPos_ = boss.GetPosition();
+// --- ArmSlamState ---
+void ArmSlamState::Enter(Boss& boss) {
     phase_ = Phase::Delay;
     timer_ = 0.0f;
+    damageApplied_ = false;
 }
 
-void StompJumpState::UpdateState(Boss& boss, float dt) {
+void ArmSlamState::UpdateState(Boss& boss, float dt) {
     auto& dragon = static_cast<DragonBoss&>(boss);
     timer_ += dt;
 
     switch (phase_) {
         case Phase::Delay:
-            if (timer_ >= kDelayBeforeStomp) {
-                phase_ = Phase::Jumping;
+            if (timer_ >= kDelayBeforeSlam) {
+                phase_ = Phase::Bursting;
                 timer_ = 0.0f;
             }
             break;
 
-        case Phase::Jumping: {
-            float t = std::min(timer_ / kJumpDuration, 1.0f);
-            Vector2 newPos = {
-                startPos_.x + (targetPos_.x - startPos_.x) * t,
-                startPos_.y + (targetPos_.y - startPos_.y) * t
-            };
-            boss.SetPosition(newPos);
-            boss.SyncPhysicsBody();
-
-            // Damage-on-path: direct overlap check, not a visitor (per design decision).
-            Player* player = dragon.GetPlayer();
-            if (player && boss.Overlaps(*player)) {
-                player->TakeDamage();
+        case Phase::Bursting: {
+            if (!damageApplied_) {
+                Player* player = dragon.GetPlayer();
+                if (player) {
+                    Vector2 pCenter = { player->GetPosition().x + player->GetSize().x / 2.0f,
+                                         player->GetPosition().y + player->GetSize().y / 2.0f };
+                    float dx = pCenter.x - targetPos_.x;
+                    float dy = pCenter.y - targetPos_.y;
+                    if (std::sqrt(dx * dx + dy * dy) <= kBurstRadius) {
+                        player->TakeDamage();
+                    }
+                }
+                damageApplied_ = true; // fires once, hit or miss
             }
-
-            if (t >= 1.0f) {
-                phase_ = Phase::Landed;
-                timer_ = 0.0f;
+            if (timer_ >= kBurstDuration) {
+                boss.EnterIdleState(); // no back-dash — boss never left home
+                return;
             }
             break;
         }
-
-        case Phase::Landed:
-            boss.SetState(new BackDashState());
-            return; // NOTE: SetState deletes 'this' — nothing may follow
-    }
-}
-
-// --- BackDashState ---
-
-void BackDashState::Enter(Boss& boss) {
-    startPos_ = boss.GetPosition();
-    timer_ = 0.0f;
-}
-
-void BackDashState::UpdateState(Boss& boss, float dt) {
-    auto& dragon = static_cast<DragonBoss&>(boss);
-    timer_ += dt;
-    float t = std::min(timer_ / kDashDuration, 1.0f);
-
-    Vector2 home = dragon.GetHomePosition();
-    Vector2 newPos = {
-        startPos_.x + (home.x - startPos_.x) * t,
-        startPos_.y + (home.y - startPos_.y) * t
-    };
-    boss.SetPosition(newPos);
-    boss.SyncPhysicsBody();
-
-    if (t >= 1.0f) {
-        boss.SetState(new IdleState());
-        return; // NOTE: SetState deletes 'this' — nothing may follow
     }
 }
 

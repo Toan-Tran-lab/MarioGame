@@ -11,6 +11,26 @@
 #include "Game_Objects/Derived_Objects/Playable_Characters/Specific/Luigi/Luigi.h"
 #include <iostream>
 #include <algorithm>
+#include <cmath>
+
+namespace {
+bool RectOverlapsSolidBlock(const Rectangle& rect, const BlockGrid& grid) {
+    int tileSize = grid.GetTileSize();
+    if (tileSize <= 0) return false;
+
+    int startCol = (int)(rect.x / tileSize);
+    int endCol   = (int)((rect.x + rect.width) / tileSize);
+    int startRow = (int)(rect.y / tileSize);
+    int endRow   = (int)((rect.y + rect.height) / tileSize);
+
+    for (int row = startRow; row <= endRow; ++row) {
+        for (int col = startCol; col <= endCol; ++col) {
+            if (grid.IsSolidAt(col, row)) return true;
+        }
+    }
+    return false;
+}
+}
 
 GameplayState::GameplayState() {
     currentLevel = Level::GetLevel(1);
@@ -138,6 +158,8 @@ void GameplayState::Initialize() {
     goombas_.clear();
     koopas_.clear();
     buzzyBeetles_.clear();
+    dragonBoss_.reset();
+    fireballs_.clear();
     coins_.clear();
 
     if (isSandboxMode_) {
@@ -216,10 +238,10 @@ void GameplayState::Initialize() {
                 tileMap.GetBlockGrid().SetBlock(col, row, std::move(block));
             } else if (ent.id == "DragonBoss") {
                 dragonBoss_ = std::make_unique<DragonBoss>();
+                dragonBoss_->SetSize({ 256.0f * Global::GAME_SCALE, 256.0f * Global::GAME_SCALE }); // placeholder — tune once art exists
                 dragonBoss_->SetPosition(ent.position);
-                dragonBoss_->SetSize({ /* dragon's tile dimensions * Global::GAME_SCALE */ });
                 dragonBoss_->SetPlayerRef(player_.get());
-                dragonBoss_->BeginSpawn(); // starts SpawnState — must come after SetPosition + SetPlayerRef
+                dragonBoss_->BeginSpawn();
             }
         }
     }
@@ -292,7 +314,41 @@ void GameplayState::Update(float deltaTime) {
 
     if (dragonBoss_ && dragonBoss_->IsActive()) {
         dragonBoss_->Update(deltaTime);
+
+        if (dragonBoss_->ConsumeItemScatterRequest()) {
+            Vector2 origin = dragonBoss_->GetPosition();
+
+            // A few coins...
+            for (int i = 0; i < 4; ++i) {
+                auto c_coin = std::make_unique<Coin>();
+                c_coin->SetPosition({ origin.x + (i - 1.5f) * 24.0f, origin.y - 20.0f });
+                c_coin->SetPopping(true, -280.0f - i * 20.0f); // slight stagger for a scatter feel
+                coins_.push_back(std::move(c_coin));
+            }
+            // ...plus one power-up, reusing the existing Mushroom spawn pattern.
+            mushroom_.SetPosition({ origin.x, origin.y - 40.0f });
+            mushroom_.SetActive(true);
+        }
+
+        if (dragonBoss_->ConsumeCoinBurstRequest()) {
+            Vector2 origin = dragonBoss_->GetPosition();
+            int count = dragonBoss_->GetDeathCoinCount();
+            for (int i = 0; i < count; ++i) {
+                auto c_coin = std::make_unique<Coin>();
+                float angleOffset = (i - count / 2.0f) * 15.0f; // spread horizontally
+                c_coin->SetPosition({ origin.x + angleOffset, origin.y - 20.0f });
+                c_coin->SetPopping(true, -300.0f - (float)(i % 5) * 30.0f);
+                coins_.push_back(std::move(c_coin));
+            }
+        }
+
+        Vector2 fbOrigin;
+        if (dragonBoss_->ConsumeFireballRequest(fbOrigin)) {
+            fireballs_.push_back(std::make_unique<Fireball>(fbOrigin, -1.0f));
+        }
     }
+
+    
 
     // Update block grid
     tileMap.GetBlockGrid().Update(deltaTime);
@@ -394,7 +450,7 @@ void GameplayState::Update(float deltaTime) {
         if (mushroom_.IsActive() && player_->Overlaps(mushroom_)) {
             player_->InteractWith(mushroom_);
         }
-        if (dragonBoss_ && dragonBoss_->IsActive() && player_->Overlaps(*dragonBoss_)) {
+        if (dragonBoss_ && dragonBoss_->IsActive() && !dragonBoss_->IsDead() && player_->Overlaps(*dragonBoss_)) {
             bool wasDead = dragonBoss_->IsDead();
             player_->InteractWith(*dragonBoss_);
             if (!wasDead && dragonBoss_->IsDead()) score += 1000; // boss kill bonus, tune as desired
@@ -458,6 +514,75 @@ void GameplayState::Update(float deltaTime) {
         }
     }
 
+    for (auto& fb : fireballs_) {
+        if (!fb->IsActive()) continue;
+        fb->Update(deltaTime);
+        if (fb->IsExploded()) continue; // already resolving its explosion visual, skip collision checks
+
+        Rectangle fbRect = fb->GetRect();
+        bool justExploded = false;
+
+        // 1. Map geometry
+        if (RectOverlapsSolidBlock(fbRect, tileMap.GetBlockGrid())) {
+            fb->OnHitSolid();
+            justExploded = true;
+        }
+
+        // 2. Koopa shells
+        if (!justExploded) {
+            for (auto& k : koopas_) {
+                if (k->IsActive() && CheckCollisionRecs(fbRect, k->GetRect())) {
+                    fb->OnHitShell(*k);
+                    justExploded = true;
+                    break;
+                }
+            }
+        }
+
+        // 3. Ground enemies (Goomba/BuzzyBeetle — both derive from GroundEnemy)
+        if (!justExploded) {
+            for (auto& g : goombas_) {
+                if (g->IsActive() && !g->IsDying() && CheckCollisionRecs(fbRect, g->GetRect())) {
+                    fb->OnHitEnemy(*g);
+                    justExploded = true;
+                    break;
+                }
+            }
+        }
+        if (!justExploded) {
+            for (auto& b : buzzyBeetles_) {
+                if (b->IsActive() && !b->IsDefeated() && CheckCollisionRecs(fbRect, b->GetRect())) {
+                    fb->OnHitEnemy(*b);
+                    justExploded = true;
+                    break;
+                }
+            }
+        }
+
+        // 4. Direct player contact
+        bool hitPlayerDirectly = false;
+        if (!justExploded && !player_->IsDead() && CheckCollisionRecs(fbRect, player_->GetRect())) {
+            hitPlayerDirectly = true;
+            if (fb->CanHurtPlayer(*player_)) {
+                player_->TakeDamage();
+            }
+            fb->Explode();
+            justExploded = true;
+        }
+
+        // 5. AOE — only if something ELSE triggered the explosion (avoid double-hit same frame)
+        if (justExploded && !hitPlayerDirectly && fb->GetAOERadius() > 0.0f && !player_->IsDead()) {
+            float dx = player_->GetPosition().x - fb->GetPosition().x;
+            float dy = player_->GetPosition().y - fb->GetPosition().y;
+            if (std::sqrt(dx * dx + dy * dy) <= fb->GetAOERadius() && fb->CanHurtPlayer(*player_)) {
+                player_->TakeDamage();
+            }
+        }
+    }
+
+    // Cleanup dead fireballs
+    fireballs_.erase(std::remove_if(fireballs_.begin(), fireballs_.end(),[](const std::unique_ptr<Fireball>& fb) { return !fb->IsActive(); }), fireballs_.end());
+
     // Handle player death (Game Over when falling off map)
     if (player_->IsDead()) {
         if (player_->GetPosition().y > tileMap.GetBorderBottom() + 100) {
@@ -494,6 +619,12 @@ void GameplayState::Draw() {
         if (b->IsActive()) {
             b->Draw();
         }
+    }
+    if (dragonBoss_ && dragonBoss_->IsActive()) {
+        dragonBoss_->Draw();
+    }
+    for (auto& fb : fireballs_) {
+        if (fb->IsActive()) fb->Draw();
     }
     for (auto& coin : coins_) {
         if (coin->IsActive()) {
@@ -549,5 +680,7 @@ void GameplayState::Cleanup() {
     goombas_.clear();
     koopas_.clear();
     buzzyBeetles_.clear();
+    dragonBoss_.reset();
+    fireballs_.clear();
     coins_.clear();
 }

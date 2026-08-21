@@ -20,8 +20,8 @@ void DeadState::UpdateState(Boss& boss, float dt) {
 // --- SpawnState ---
 
 void SpawnState::Enter(Boss& boss) {
-    finalPos_ = boss.GetPosition(); // caller must SetPosition to the resting spot BEFORE calling BeginSpawn()
-    startPos_ = { finalPos_.x, finalPos_.y + kRiseOffsetY };
+    finalPos_ = boss.GetPosition();
+    startPos_ = { finalPos_.x + kSlideOffsetX, finalPos_.y }; // enter from the right, same Y
     boss.SetPosition(startPos_);
     boss.SyncPhysicsBody();
     phase_ = Phase::Warning;
@@ -61,13 +61,13 @@ void SpawnState::UpdateState(Boss& boss, float dt) {
 
     if (phase_ == Phase::Warning) {
         if (timer_ >= kWarningDuration) {
-            phase_ = Phase::Rising;
+            phase_ = Phase::Sliding;
             timer_ = 0.0f;
         }
         return;
     }
 
-    float t = std::min(timer_ / kRiseDuration, 1.0f);
+    float t = std::min(timer_ / kSlideDuration, 1.0f);
     Vector2 newPos = {
         startPos_.x + (finalPos_.x - startPos_.x) * t,
         startPos_.y + (finalPos_.y - startPos_.y) * t
@@ -79,6 +79,6 @@ void SpawnState::UpdateState(Boss& boss, float dt) {
         boss.OnSpawnComplete();
         EnsurePlayerSafeDistance(boss);
         boss.EnterIdleState();
-        return; // NOTE: EnterIdleState -> SetState deletes 'this' — nothing may follow
+        return;
     }
 }

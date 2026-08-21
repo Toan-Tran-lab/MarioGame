@@ -10,6 +10,7 @@ public:
     virtual void Exit(Boss& boss) {}
     virtual void UpdateState(Boss& boss, float dt) = 0;
     virtual bool IsAttackable() const { return true; } // false during e.g. spawn
+    virtual void OnStomped(Boss& boss) {}
 };
 
 class DeadState : public BossState {
@@ -24,15 +25,15 @@ public:
 
 class SpawnState : public BossState {
 private:
-    enum class Phase { Warning, Rising };
+    enum class Phase { Warning, Sliding };
     Phase phase_ = Phase::Warning;
     float timer_ = 0.0f;
     Vector2 startPos_{};
     Vector2 finalPos_{};
 
     static constexpr float kWarningDuration = 3.0f;
-    static constexpr float kRiseDuration = 1.0f;
-    static constexpr float kRiseOffsetY = 300.0f;
+    static constexpr float kSlideDuration = 1.0f;
+    static constexpr float kSlideOffsetX = 400.0f;
     static constexpr float kPushForce = 60.0f;
     static constexpr float kPushRange = 150.0f;
     static constexpr float kMinSafeDistance = 100.0f;

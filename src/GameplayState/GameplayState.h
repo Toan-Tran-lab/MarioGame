@@ -10,6 +10,7 @@
 #include "Game_Objects/Derived_Objects/Enemies/KoopaShell/KoopaShell.h"
 #include "Game_Objects/Derived_Objects/Enemies/BuzzyBeetle/BuzzyBeetle.h"
 #include "Game_Objects/Derived_Objects/Enemies/Boss/SpecificBoss/DragonBoss/DragonBoss.h"
+#include "Game_Objects/Derived_Objects/Projectiles/Fireball/Fireball.h"
 #include "Game_Objects/Derived_Objects/Static_Objects/Block/Block.h"
 #include "Game_Objects/Derived_Objects/Static_Objects/Luckyblock/Luckyblock.h"
 #include "Game_Objects/Derived_Objects/Static_Objects/Debris/Debris.h"
@@ -30,6 +31,7 @@ private:
     std::vector<std::unique_ptr<KoopaShell>> koopas_;
     std::vector<std::unique_ptr<BuzzyBeetle>> buzzyBeetles_;
     std::unique_ptr<DragonBoss> dragonBoss_;
+    std::vector<std::unique_ptr<Fireball>> fireballs_;
     std::vector<std::unique_ptr<Coin>> coins_;
     std::vector<DebrisPiece> debrisList_;
     Mushroom mushroom_;
