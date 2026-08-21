@@ -16,6 +16,7 @@ constexpr float kStompTolerance = 16.0f;
 constexpr float kStompBounceVelocity = -350.0f;
 // Distinct upward launch velocity applied to the player when they stomp a Buzzy Beetle
 constexpr float kBeetleBounceVelocity = -420.0f;
+constexpr float kBossKnockbackSpeed = 250.0f;
 }
 
 void PlayerInteraction::Visit(Goomba& g) {
@@ -157,10 +158,12 @@ void PlayerInteraction::Visit(Boss& b) {
             if (BossState* state = b.GetState()) {
                 state->OnStomped(b); // only IdleState reacts (flinch); attack states ignore it
             }
-            self.SetPosition(b.GetStompBouncePosition());
-            self.SyncPhysicsBody();
+            float bossCenterX = b.GetPosition().x + b.GetSize().x / 2.0f;
+            float playerCenterX = self.GetPosition().x + self.GetSize().x / 2.0f;
+            float dir = (playerCenterX < bossCenterX) ? -1.0f : 1.0f;
             Vector2 vel = self.GetVelocity();
-            vel.y = 0.0f; // clear fall speed so they don't immediately re-collide
+            vel.y = kStompBounceVelocity;
+            vel.x = dir * kBossKnockbackSpeed;
             self.SetVelocity(vel);
         }
     } else {

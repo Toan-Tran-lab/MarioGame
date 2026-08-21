@@ -315,6 +315,8 @@ void GameplayState::Update(float deltaTime) {
     if (dragonBoss_ && dragonBoss_->IsActive()) {
         dragonBoss_->Update(deltaTime);
 
+        if (dragonBoss_->ConsumeEnrageTriggerRequest()) {} //placeholder
+
         if (dragonBoss_->ConsumeItemScatterRequest()) {
             Vector2 origin = dragonBoss_->GetPosition();
 

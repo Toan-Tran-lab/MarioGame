@@ -11,8 +11,6 @@ protected:
     AnimationState animState;
     Player* playerRef_ = nullptr;
 
-    Vector2 stompBouncePos_{};
-
     int hp_;
     int maxHp_;
 
@@ -36,9 +34,6 @@ public:
 
     void SetPlayerRef(Player* player) { playerRef_ = player; }
     Player* GetPlayer() const { return playerRef_; }
-
-    void SetStompBouncePosition(const Vector2& pos) { stompBouncePos_ = pos; }
-    const Vector2& GetStompBouncePosition() const { return stompBouncePos_; }
 
     virtual void OnSpawnComplete() {}
 

@@ -12,6 +12,7 @@ private:
     int lastHpBucket_ = 4;       // 4 buckets of 25% each (4=full ... 1=1-25%)
     bool enrageTriggered_ = false;
 
+    bool pendingEnrageSignal_ = false;
     bool pendingItemScatter_ = false;
     bool pendingFireballSpawn_ = false;
     Vector2 pendingFireballOrigin_{};
@@ -38,19 +39,18 @@ public:
     int GetStompDamage() const override { return kStompDamage; }
     int GetShellDamage() const override { return kShellDamage; }
 
-    bool ConsumeItemScatterRequest();
-
     void RequestFireball(Vector2 origin);
     bool ConsumeFireballRequest(Vector2& outOrigin);
 
-    virtual void OnEnrageTriggered() {} // reserved for later — special attack/terrain change
+    virtual void OnEnrageTriggered();
 
     static constexpr int kDeathCoinCount = 20; // tune to taste
+    bool ConsumeEnrageTriggerRequest();
+    bool ConsumeItemScatterRequest();
     bool ConsumeCoinBurstRequest();
     int GetDeathCoinCount() const { return kDeathCoinCount; }
 protected:
     void OnDamaged() override;
-    void OnSpawnComplete() override;
     BossState* CreateIdleState() override;
 
     void DrawBoss() override;

@@ -48,12 +48,14 @@ void DragonBoss::OnDamaged() {
     }
 }
 
-void DragonBoss::OnSpawnComplete() {
-    SetStompBouncePosition({ GetPosition().x - 60.0f, GetPosition().y + GetSize().y - 40.0f });
-}
-
 BossState* DragonBoss::CreateIdleState() {
     return new IdleState();
+}
+
+bool DragonBoss::ConsumeEnrageTriggerRequest() {
+    bool v = pendingEnrageSignal_;
+    pendingEnrageSignal_ = false;
+    return v;
 }
 
 bool DragonBoss::ConsumeItemScatterRequest() {
@@ -78,6 +80,10 @@ bool DragonBoss::ConsumeFireballRequest(Vector2& outOrigin) {
     pendingFireballSpawn_ = false;
     outOrigin = pendingFireballOrigin_;
     return true;
+}
+
+void DragonBoss::OnEnrageTriggered() {
+    pendingEnrageSignal_ = true;
 }
 
 void DragonBoss::DrawBoss() {
