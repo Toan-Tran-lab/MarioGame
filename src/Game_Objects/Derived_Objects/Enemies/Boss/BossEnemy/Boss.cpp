@@ -1,9 +1,6 @@
 #include "Boss.h"
 #include "BossState.h"
-#include "Game_Objects/Interaction_Resolve/PlayerInteraction.h"
-#include "physics/PhysicsEngine.h"
-#include "physics/CollisionSystem.h"
-#include "World/BlockGrid.h"
+#include "Game_Objects/Interaction_Resolve/Visitor.h"
 
 Boss::Boss(int maxHp) : hp_(maxHp), maxHp_(maxHp) {}
 
@@ -20,14 +17,17 @@ void Boss::SetState(BossState* next) {
 
 bool Boss::TakeDamage(int amount) {
     if (isDead_ || IsInvulnerable()) return false;
+    if (state_ && !state_->IsAttackable()) return false;
 
     hp_ -= amount;
     invulnTimer_ = kInvulnDuration;
+    OnDamaged();
 
     if (hp_ <= 0) {
         hp_ = 0;
         isDead_ = true;
         physicsBody_.velocity = { 0.0f, 0.0f };
+        SetState(new DeadState());
     }
     return true;
 }
@@ -41,14 +41,7 @@ void Boss::Update(float dt) {
         invulnTimer_ -= dt;
         if (invulnTimer_ < 0.0f) invulnTimer_ = 0.0f;
     }
-
-    if (isDead_) {
-        animState.Update(dt);
-        return;
-    }
-
     if (state_) state_->UpdateState(*this, dt);
-
     animState.Update(dt);
 }
 
@@ -60,7 +53,6 @@ void Boss::Draw() {
         float barHeight = 8.0f;
         float barX = position_.x + size_.x / 2.0f - barWidth / 2.0f;
         float barY = position_.y - 20.0f;
-
         float hpRatio = (maxHp_ > 0) ? (float)hp_ / (float)maxHp_ : 0.0f;
 
         DrawRectangle((int)barX, (int)barY, (int)barWidth, (int)barHeight, Color{60, 20, 20, 220});

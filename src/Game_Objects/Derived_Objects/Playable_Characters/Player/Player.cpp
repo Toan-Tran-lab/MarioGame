@@ -54,6 +54,10 @@ void Player::SetSitting(bool sitting) {
     isSitting_ = sitting;
 }
 
+bool Player::IsProjectileImmune() const {
+    return state ? state->IsProjectileImmune() : false;
+}
+
 void Player::SetCollisionGrid(const BlockGrid* grid) {
     collisionGrid_ = grid;
 }

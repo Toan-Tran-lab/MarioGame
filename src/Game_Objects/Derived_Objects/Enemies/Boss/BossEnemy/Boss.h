@@ -17,11 +17,17 @@ protected:
 
     bool isDead_ = false;
 
+    virtual void OnDamaged() {} // hook: fires once per successful hit, before death check
+    virtual void DrawBoss() = 0;
+
+    virtual BossState* CreateIdleState() = 0;
+
 public:
     Boss(int maxHp);
     ~Boss() override;
 
     void SetState(BossState* next);
+    BossState* GetState() const { return state_; }
 
     bool TakeDamage(int amount);
 
@@ -34,7 +40,4 @@ public:
 
     void Update(float dt) override;
     void Draw() override;
-
-protected:
-    virtual void DrawBoss() = 0;
 };

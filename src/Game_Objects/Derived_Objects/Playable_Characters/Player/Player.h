@@ -52,6 +52,8 @@ public:
     bool IsSitting() const;
     void SetSitting(bool sitting);
 
+    bool IsProjectileImmune() const;
+
     // Animation Getters
     virtual const Animation* GetPoseAnimation() const = 0;
     virtual const Animation* GetWalkAnimation() const = 0;
