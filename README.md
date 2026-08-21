@@ -28,3 +28,15 @@ $ cập nhật việc làm của Phạm Trung Duy $
 ## Tính năng đã có
 - Thay đổi kích thước màn hình(resolution) trong mục setting
 $ =================================================== $
+
+## Note trong Game Object
+
+### Tính năng của boss:
+
+-   boss sẽ được buff khi máu xuống dưới 50%, đã có sẵn hàm buff nhưng chưa cài đặt skill đặc biệt và terrain sau buff
+-   để tránh gây lằng nhà lằng nhằng, sửa đi sửa lại, tạm thời hàm buff sẽ không làm gì cả, xóa đi thì chỉnh cũng nhiều nên thôi
+-   buff chỉ số hồi chiêu cho boss thì vẫn có sẵn, nhưng sẽ không có dấu hiệu nhận biết cụ thể, đây là tính năng, không phải bug
+-   boss được build với tư tưởng mặc định là: boss khổng lồ, chỉ hiện nửa thân trên ở bên phải màn hình, animation của boss là tại chỗ và boss có 3 skill:
+        + Stomp: lock-in nhân vật, dậm chân (tay) xuống đất, nổ tại vị trí đã lock-in sau vài giây
+        + Flamethrower: rặn vài giây rồi bắn quả cầu lửa qua trái, quả cầu lửa nổ khi gặp tường/nhân vật/vỏ koopa
+        + AOE tự vệ: nếu người chơi ở quá lâu gần boss, làm quả AOE attack
