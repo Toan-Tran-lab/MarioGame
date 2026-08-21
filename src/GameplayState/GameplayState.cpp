@@ -214,6 +214,12 @@ void GameplayState::Initialize() {
                 int col = (int)(ent.position.x / tileMap.GetTileSize());
                 int row = (int)(ent.position.y / tileMap.GetTileSize());
                 tileMap.GetBlockGrid().SetBlock(col, row, std::move(block));
+            } else if (ent.id == "DragonBoss") {
+                dragonBoss_ = std::make_unique<DragonBoss>();
+                dragonBoss_->SetPosition(ent.position);
+                dragonBoss_->SetSize({ /* dragon's tile dimensions * Global::GAME_SCALE */ });
+                dragonBoss_->SetPlayerRef(player_.get());
+                dragonBoss_->BeginSpawn(); // starts SpawnState — must come after SetPosition + SetPlayerRef
             }
         }
     }
@@ -282,6 +288,10 @@ void GameplayState::Update(float deltaTime) {
         if (b->IsActive()) {
             b->Update(deltaTime);
         }
+    }
+
+    if (dragonBoss_ && dragonBoss_->IsActive()) {
+        dragonBoss_->Update(deltaTime);
     }
 
     // Update block grid
@@ -384,6 +394,11 @@ void GameplayState::Update(float deltaTime) {
         if (mushroom_.IsActive() && player_->Overlaps(mushroom_)) {
             player_->InteractWith(mushroom_);
         }
+        if (dragonBoss_ && dragonBoss_->IsActive() && player_->Overlaps(*dragonBoss_)) {
+            bool wasDead = dragonBoss_->IsDead();
+            player_->InteractWith(*dragonBoss_);
+            if (!wasDead && dragonBoss_->IsDead()) score += 1000; // boss kill bonus, tune as desired
+        }
     }
 
     // Entity interaction: Koopa vs Goomba
@@ -421,6 +436,12 @@ void GameplayState::Update(float deltaTime) {
                     if (!wasDefeated && b->IsDefeated()) score += 100;
                 }
             }
+        }
+        if (k->IsActive() && k->GetState() == KoopaShellState::Sliding &&
+            dragonBoss_ && dragonBoss_->IsActive() && k->Overlaps(*dragonBoss_)) {
+            bool wasDead = dragonBoss_->IsDead();
+            k->InteractWith(*dragonBoss_);
+            if (!wasDead && dragonBoss_->IsDead()) score += 1000;
         }
     }
 

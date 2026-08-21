@@ -7,8 +7,6 @@ enum class DragonAttackType { Stomp, Flamethrower };
 
 class DragonBoss : public Boss {
 private:
-    Player* player_ = nullptr;
-
     Vector2 homePosition_{};
     int attackCycleIndex_ = 0;
 
@@ -30,9 +28,6 @@ public:
     DragonBoss();
     ~DragonBoss() override;
 
-    void SetPlayer(Player* player) { player_ = player; }
-    Player* GetPlayer() const { return player_; }
-
     void SetHomePosition(const Vector2& pos) { homePosition_ = pos; }
     const Vector2& GetHomePosition() const { return homePosition_; }
 
@@ -41,6 +36,9 @@ public:
 
     // Call once, after SetPosition()/SetPlayer(), to start the rise-up sequence.
     void BeginSpawn();
+
+    int GetStompDamage() const override { return kStompDamage; }
+    int GetShellDamage() const override { return kShellDamage; }
 
     bool ConsumeItemScatterRequest();
 
@@ -51,5 +49,7 @@ public:
 
 protected:
     void OnDamaged() override;
+    void OnSpawnComplete() override { homePosition_ = GetPosition(); }
+
     void DrawBoss() override;
 };

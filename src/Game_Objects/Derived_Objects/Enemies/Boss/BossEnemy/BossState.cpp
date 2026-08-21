@@ -1,6 +1,5 @@
 #include "BossState.h"
 #include "Boss.h"
-#include "DragonBoss.h" // needed for the static_cast<DragonBoss&> calls below
 #include "Game_Objects/Derived_Objects/Playable_Characters/Player/Player.h"
 #include <algorithm>
 #include <cmath>
@@ -30,8 +29,7 @@ void SpawnState::Enter(Boss& boss) {
 }
 
 void SpawnState::PushPlayerAway(Boss& boss, float dt) {
-    auto& dragon = static_cast<DragonBoss&>(boss);
-    Player* player = dragon.GetPlayer();
+    Player* player = boss.GetPlayer();
     if (!player) return;
 
     float dx = player->GetPosition().x - boss.GetPosition().x;
@@ -44,8 +42,7 @@ void SpawnState::PushPlayerAway(Boss& boss, float dt) {
 }
 
 void SpawnState::EnsurePlayerSafeDistance(Boss& boss) {
-    auto& dragon = static_cast<DragonBoss&>(boss);
-    Player* player = dragon.GetPlayer();
+    Player* player = boss.GetPlayer();
     if (!player) return;
 
     float dx = player->GetPosition().x - boss.GetPosition().x;
@@ -59,7 +56,6 @@ void SpawnState::EnsurePlayerSafeDistance(Boss& boss) {
 }
 
 void SpawnState::UpdateState(Boss& boss, float dt) {
-    auto& dragon = static_cast<DragonBoss&>(boss);
     PushPlayerAway(boss, dt);
     timer_ += dt;
 
@@ -80,9 +76,9 @@ void SpawnState::UpdateState(Boss& boss, float dt) {
     boss.SyncPhysicsBody();
 
     if (t >= 1.0f) {
-        dragon.SetHomePosition(finalPos_);
+        boss.OnSpawnComplete();
         EnsurePlayerSafeDistance(boss);
-        boss.CreateIdleState();
-        return; // NOTE: SetState deletes 'this' — nothing may follow
+        boss.EnterIdleState();
+        return; // NOTE: EnterIdleState -> SetState deletes 'this' — nothing may follow
     }
 }

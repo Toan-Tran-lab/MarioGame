@@ -3,11 +3,13 @@
 #include "Animations/Animation.h"
 
 class BossState;
+class Player;
 
 class Boss : public Character {
 protected:
     BossState* state_ = nullptr;
     AnimationState animState;
+    Player* playerRef_ = nullptr;
 
     int hp_;
     int maxHp_;
@@ -28,14 +30,23 @@ public:
 
     void SetState(BossState* next);
     BossState* GetState() const { return state_; }
+    void EnterIdleState() { SetState(CreateIdleState()); }
+
+    void SetPlayerRef(Player* player) { playerRef_ = player; }
+    Player* GetPlayer() const { return playerRef_; }
+
+    virtual void OnSpawnComplete() {}
 
     bool TakeDamage(int amount);
+    virtual int GetStompDamage() const { return 1; }
+    virtual int GetShellDamage() const { return 3; }
 
     bool IsInvulnerable() const { return invulnTimer_ > 0.0f; }
     bool IsDead() const { return isDead_; }
     int GetHp() const { return hp_; }
     int GetMaxHp() const { return maxHp_; }
 
+    void InteractWith(Character& other) override { (void)other; }
     void AcceptInteract(CharacterVisitor& other) override;
 
     void Update(float dt) override;
