@@ -52,6 +52,7 @@ private:
     int score = 0;
     float timeLeft = 300.0f; // 300 seconds default
     bool isGameOver = false;
+    bool hasLoadedPosition_ = false; // Set true by SetLoadedData to skip spawn override
 
 public:
     GameplayState();
@@ -61,6 +62,8 @@ public:
     void SetSandboxMode(const std::vector<std::vector<SandboxCellData>>& grid);
     // Use this to override initial data when loading from a save file
     void SetLoadedData(Vector2 pos, int loadedScore, float loadedTime);
+    // Resets HUD/game state so the next level starts fresh
+    void ResetForNewLevel();
     SaveData GetSaveData() const;
 
     void Initialize() override;

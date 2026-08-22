@@ -1,6 +1,9 @@
 #include "LevelCompleteState.h"
 #include "GameplayState/GameplayState.h"
 #include "Global/Global.h"
+#include "Level/Level.h"
+#include "TextureManager/TextureManager.h"
+#include "ui/UIUtils.h"
 #include <cmath>
 #include <string>
 
@@ -9,53 +12,163 @@ LevelCompleteState::LevelCompleteState(GameplayState* parent, int levelId, int c
 }
 
 void LevelCompleteState::Initialize() {
+    UIUtils::InitMenuBackground();
+    TextureManager::Load("title_logo", "assets/textures/group6mario.png");
+    selectedButton = 0;
+}
+
+// Returns the screen rect for button at 'index' (0=NEXT LEVEL, 1=RETURN TO MENU)
+Rectangle LevelCompleteState::GetButtonRect(int index, float sw, float sh) const {
+    float itemW = sw * 0.35f;
+    float itemH = sh * 0.065f;
+    float itemX = (sw - itemW) * 0.5f;
+    float startY = sh * 0.62f;
+    float gap = sh * 0.03f;
+    return { itemX, startY + index * (itemH + gap), itemW, itemH };
 }
 
 void LevelCompleteState::Update(float deltaTime) {
     timeAccum += deltaTime;
+    UIUtils::UpdateMenuBackground(deltaTime);
 
-    // Press ENTER to go back to level select
-    if (IsKeyPressed(KEY_ENTER)) {
+    float sw = (float)GetScreenWidth();
+    float sh = (float)GetScreenHeight();
+    Vector2 mouse = GetMousePosition();
+    bool clicked = IsMouseButtonPressed(MOUSE_LEFT_BUTTON);
+
+    // Keyboard navigation
+    if (IsKeyPressed(KEY_UP) || IsKeyPressed(KEY_DOWN) ||
+        IsKeyPressed(KEY_W) || IsKeyPressed(KEY_S)) {
+        selectedButton = 1 - selectedButton;
+    }
+
+    // Mouse hover
+    if (mouse.x != lastMousePos.x || mouse.y != lastMousePos.y) {
+        lastMousePos = mouse;
+        for (int i = 0; i < 2; i++) {
+            if (CheckCollisionPointRec(mouse, GetButtonRect(i, sw, sh)))
+                selectedButton = i;
+        }
+    }
+
+    // Confirm: ENTER or click on selected button
+    bool confirm = IsKeyPressed(KEY_ENTER) || IsKeyPressed(KEY_SPACE) ||
+        (clicked && CheckCollisionPointRec(mouse, GetButtonRect(selectedButton, sw, sh)));
+
+    if (confirm) {
+        if (selectedButton == 0) {
+            // NEXT LEVEL — reload the parent GameplayState with the next level
+            int nextLevelNumber = levelId + 1;
+            if (nextLevelNumber <= Level::GetTotalLevels() && parentState) {
+                Global::gameStateManager->PopState(); // Pop LevelCompleteState (this)
+                parentState->ResetForNewLevel();
+                parentState->SetLevel(Level::GetLevel(nextLevelNumber));
+                parentState->Cleanup();
+                parentState->Initialize();
+            } else {
+                // No next level — return to main menu
+                Global::gameStateManager->PopState(); // Pop LevelCompleteState
+                Global::gameStateManager->PopState(); // Pop GameplayState
+            }
+        } else {
+            // RETURN TO MENU
+            Global::gameStateManager->PopState(); // Pop LevelCompleteState
+            Global::gameStateManager->PopState(); // Pop GameplayState
+        }
+    }
+
+    // ESC always returns to menu
+    if (IsKeyPressed(KEY_ESCAPE)) {
         Global::gameStateManager->PopState(); // Pop LevelCompleteState
         Global::gameStateManager->PopState(); // Pop GameplayState
     }
 }
 
-void LevelCompleteState::Draw() {
-    // Draw the gameplay behind the level complete screen
-    if (parentState) {
-        parentState->Draw();
-    }
-    
-    // Dark overlay
-    float sw = (float)GetScreenWidth();
-    float sh = (float)GetScreenHeight();
-    DrawRectangle(0, 0, (int)sw, (int)sh, Color{0, 0, 0, 150});
-    
-    // Draw "COURSE CLEAR!" text
-    int titleSize = (int)(sh * 0.1f);
-    int titleW = MeasureText("COURSE CLEAR!", titleSize);
-    DrawText("COURSE CLEAR!", (int)(sw - titleW) / 2, (int)(sh * 0.2f), titleSize, WHITE);
-    
-    // Draw Score
-    int scoreSize = (int)(sh * 0.05f);
-    std::string scoreText = "SCORE: " + std::to_string(score);
-    int scoreW = MeasureText(scoreText.c_str(), scoreSize);
-    DrawText(scoreText.c_str(), (int)(sw - scoreW) / 2, (int)(sh * 0.4f), scoreSize, WHITE);
+void LevelCompleteState::DrawButtons(float sw, float sh) const {
+    const char* labels[2] = { "NEXT LEVEL", "RETURN TO MENU" };
+    int fontSize = (int)(sh * 0.04f);
 
-    // Draw Time
-    std::string timeText = "TIME: " + std::to_string((int)timeLeft);
-    int timeW = MeasureText(timeText.c_str(), scoreSize);
-    DrawText(timeText.c_str(), (int)(sw - timeW) / 2, (int)(sh * 0.5f), scoreSize, WHITE);
+    for (int i = 0; i < 2; i++) {
+        Rectangle r = GetButtonRect(i, sw, sh);
+        bool isSelected = (i == selectedButton);
+        Color textColor = isSelected ? YELLOW : WHITE;
 
-    // Draw Press Enter prompt (blinking)
-    if (fmod(timeAccum, 1.0f) < 0.5f) {
-        std::string promptText = "Press ENTER to continue";
-        int promptSize = (int)(sh * 0.04f);
-        int promptW = MeasureText(promptText.c_str(), promptSize);
-        DrawText(promptText.c_str(), (int)(sw - promptW) / 2, (int)(sh * 0.8f), promptSize, WHITE);
+        // Draw selection arrow
+        if (isSelected) {
+            int iconX = (int)(r.x - MeasureText(">", fontSize) - (int)(sw * 0.015f));
+            int iconY = (int)(r.y + (r.height - fontSize) * 0.5f);
+            UIUtils::DrawBlinkingText(">", iconX, iconY, fontSize, YELLOW, timeAccum);
+        }
+
+        DrawText(labels[i], (int)r.x, (int)(r.y + (r.height - fontSize) * 0.5f), fontSize, textColor);
     }
 }
 
+void LevelCompleteState::Draw() {
+    float sw = (float)GetScreenWidth();
+    float sh = (float)GetScreenHeight();
+
+    // Animated level background (same as main menu)
+    UIUtils::DrawMenuBackground(sw, sh);
+
+    // Panel card
+    float cardW = sw * 0.5f;
+    float cardH = sh * 0.75f;
+    float cardX = (sw - cardW) * 0.5f;
+    float cardY = sh * 0.12f;
+    DrawRectangleRounded({ cardX, cardY, cardW, cardH }, 0.08f, 12, Color{ 30, 18, 45, 220 });
+    DrawRectangleRoundedLines({ cardX, cardY, cardW, cardH }, 0.08f, 12, Color{ 180, 150, 220, 200 });
+
+    // Title: "LEVEL COMPLETE" — styled like the main menu logo
+    // White text with thick red outline using SuperMario256 font
+    const char* titleText = "LEVEL COMPLETE";
+    int titleSize = (int)(sh * 0.072f);
+    Vector2 titleMeasure = MeasureTextEx(Global::titleFont, titleText, (float)titleSize, 1.0f);
+    float titleX = (sw - titleMeasure.x) / 2.0f;
+    float titleY = sh * 0.165f;
+
+    // Thick outline: draw 8 offset copies in dark red/brown
+    int outlineRadius = (int)(titleSize * 0.09f);
+    Color outlineColor = Color{ 140, 20, 20, 255 };
+    for (int ox = -outlineRadius; ox <= outlineRadius; ox += outlineRadius) {
+        for (int oy = -outlineRadius; oy <= outlineRadius; oy += outlineRadius) {
+            if (ox == 0 && oy == 0) continue;
+            DrawTextEx(Global::titleFont, titleText, { titleX + ox, titleY + oy }, (float)titleSize, 1.0f, outlineColor);
+        }
+    }
+    // White fill on top
+    DrawTextEx(Global::titleFont, titleText, { titleX, titleY }, (float)titleSize, 1.0f, WHITE);
+
+    // Divider line
+    DrawLineEx({ cardX + cardW * 0.1f, sh * 0.29f }, { cardX + cardW * 0.9f, sh * 0.29f }, 2.0f, Color{ 180, 150, 220, 120 });
+
+    // Stats
+    int statSize = (int)(sh * 0.04f);
+    int statGap  = (int)(sh * 0.07f);
+    int statY    = (int)(sh * 0.33f);
+
+    std::string levelText = "LEVEL  " + std::to_string(levelId);
+    std::string scoreText = "SCORE  " + std::to_string(score);
+    std::string timeText  = "TIME   " + std::to_string((int)timeLeft);
+
+    UIUtils::DrawCenteredText(levelText.c_str(), statY,             statSize, WHITE,  (int)sw);
+    UIUtils::DrawCenteredText(scoreText.c_str(), statY + statGap,   statSize, WHITE,  (int)sw);
+    UIUtils::DrawCenteredText(timeText.c_str(),  statY + statGap*2, statSize, WHITE,  (int)sw);
+
+    // Divider line
+    DrawLineEx({ cardX + cardW * 0.1f, sh * 0.585f }, { cardX + cardW * 0.9f, sh * 0.585f }, 2.0f, Color{ 180, 150, 220, 120 });
+
+    // Buttons
+    DrawButtons(sw, sh);
+
+    // Key hint bar at the bottom of the card
+    int hintSize = (int)(sh * 0.028f);
+    float hintX = cardX + cardW * 0.1f;
+    float hintY = cardY + cardH - sh * 0.065f;
+    UIUtils::DrawKeyPrompt("ENTER", "Select", hintX, hintY, hintSize, (int)(sw * 0.18f));
+    UIUtils::DrawKeyPrompt("ESC", "Menu",     hintX, hintY, hintSize, 0);
+}
+
 void LevelCompleteState::Cleanup() {
+    UIUtils::CleanupMenuBackground();
 }

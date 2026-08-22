@@ -39,10 +39,18 @@ void GameplayState::SetSandboxMode(const std::vector<std::vector<SandboxCellData
 
 void GameplayState::SetLoadedData(Vector2 pos, int loadedScore, float loadedTime) {
     player_->SetPosition(pos);
+    player_->GetPhysicsBody().position = pos;
     score = loadedScore;
     timeLeft = loadedTime;
-    // We can use a flag or just rely on position.
-    // If the position is not (0,0), we might skip spawn overriding in Initialize.
+    hasLoadedPosition_ = true; // Tell Initialize to skip spawn override
+}
+
+void GameplayState::ResetForNewLevel() {
+    score = 0;
+    timeLeft = 300.0f;
+    isGameOver = false;
+    levelCompleteTriggered_ = false;
+    levelCompletePushed_ = false;
 }
 
 SaveData GameplayState::GetSaveData() const {
@@ -122,12 +130,16 @@ void GameplayState::Initialize() {
     TextureManager::Load("mushroom", "assets/textures/Items/items.png");
     TextureManager::Load("luckyblock", "assets/textures/Luckyblock/luckyblock.png");
 
-    // Initialize player
-    if (player_->GetPosition().x == 0 && player_->GetPosition().y == 0) {
+    // Initialize player — always respawn from level spawn point unless this is a saved-game load
+    if (!hasLoadedPosition_) {
         Vector2 spawn = tileMap.GetPlayerSpawn();
         Vector2 spawnPos = { spawn.x > 0 ? spawn.x : 100, spawn.y > 0 ? spawn.y : 300 };
         player_->SetPosition(spawnPos);
+        player_->GetPhysicsBody().position = spawnPos;
+        player_->GetPhysicsBody().velocity = { 0.0f, 0.0f };
+        player_->SetDead(false);
     }
+    hasLoadedPosition_ = false; // Consume the flag — next init will always respawn
     if (player_->IsSmall()) {
         player_->SetSize({Global::MINI_PLAYER_WIDTH * Global::GAME_SCALE, Global::MINI_PLAYER_HEIGHT * Global::GAME_SCALE}); 
     } else {
