@@ -67,11 +67,16 @@ public:
 
 class ProximityAOEState : public BossState {
 private:
+    enum class Phase { Charging, Active };
+    Phase phase_ = Phase::Charging;
     float timer_ = 0.0f;
     bool damageApplied_ = false;
+    static constexpr float kChargeDuration = 1.0f; // telegraph before it actually fires
     static constexpr float kAOEDuration = 0.3f;
     static constexpr float kAOERadius = 100.0f;
 public:
     void Enter(Boss& boss) override;
     void UpdateState(Boss& boss, float dt) override;
+    bool IsCharging() const { return phase_ == Phase::Charging; }
+    float GetChargeProgress() const { return std::min(timer_ / kChargeDuration, 1.0f); } // for Draw()
 };

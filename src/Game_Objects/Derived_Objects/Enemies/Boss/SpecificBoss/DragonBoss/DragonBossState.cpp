@@ -153,6 +153,7 @@ void CastFlameState::UpdateState(Boss& boss, float dt) {
 // --- ProximityAOEState ---
 
 void ProximityAOEState::Enter(Boss& boss) {
+    phase_ = Phase::Charging;
     timer_ = 0.0f;
     damageApplied_ = false;
 }
@@ -160,6 +161,14 @@ void ProximityAOEState::Enter(Boss& boss) {
 void ProximityAOEState::UpdateState(Boss& boss, float dt) {
     auto& dragon = static_cast<DragonBoss&>(boss);
     timer_ += dt;
+
+    if (phase_ == Phase::Charging) {
+        if (timer_ >= kChargeDuration) {
+            phase_ = Phase::Active;
+            timer_ = 0.0f;
+        }
+        return; // no damage yet — this is the telegraph window
+    }
 
     if (!damageApplied_) {
         Player* player = dragon.GetPlayer();

@@ -40,3 +40,4 @@ $ =================================================== $
         + Stomp: lock-in nhân vật, dậm chân (tay) xuống đất, nổ tại vị trí đã lock-in sau vài giây
         + Flamethrower: rặn vài giây rồi bắn quả cầu lửa qua trái, quả cầu lửa nổ khi gặp tường/nhân vật/vỏ koopa
         + AOE tự vệ: nếu người chơi ở quá lâu gần boss, làm quả AOE attack
+-   Boss bị đạp trong lúc đang idle thì sẽ bị flinch, canh đúng giờ thì sẽ kéo dài được thời gian idle

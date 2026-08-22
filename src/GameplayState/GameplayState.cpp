@@ -42,6 +42,7 @@ void GameplayState::SetLevel(const Level& level) {
 }
 
 void GameplayState::SetCharacter(int characterId) {
+    characterId_ = characterId;
     if (characterId == 1) {
         player_ = std::make_unique<Luigi>();
     } else {
@@ -161,6 +162,7 @@ void GameplayState::Initialize() {
     dragonBoss_.reset();
     fireballs_.clear();
     coins_.clear();
+    princess_.reset();
 
     if (isSandboxMode_) {
         // Spawn Goombas and Coins based on Sandbox coordinates
@@ -242,6 +244,10 @@ void GameplayState::Initialize() {
                 dragonBoss_->SetPosition(ent.position);
                 dragonBoss_->SetPlayerRef(player_.get());
                 dragonBoss_->BeginSpawn();
+            } else if (ent.id == "Princess") {
+                princess_ = std::make_unique<Princess>();
+                princess_->SetPosition(ent.position);
+                princess_->SetSize({ 16.0f * Global::GAME_SCALE, 32.0f * Global::GAME_SCALE }); // tune to art
             }
         }
     }
@@ -314,8 +320,6 @@ void GameplayState::Update(float deltaTime) {
 
     if (dragonBoss_ && dragonBoss_->IsActive()) {
         dragonBoss_->Update(deltaTime);
-
-        if (dragonBoss_->ConsumeEnrageTriggerRequest()) {} //placeholder
 
         if (dragonBoss_->ConsumeItemScatterRequest()) {
             Vector2 origin = dragonBoss_->GetPosition();
@@ -592,6 +596,20 @@ void GameplayState::Update(float deltaTime) {
         }
     }
 
+    if (!isGameWon && !isGameOver && princess_ && !player_->IsDead()) {
+    float dx = (player_->GetPosition().x + player_->GetSize().x / 2.0f) -
+               (princess_->GetPosition().x + princess_->GetSize().x / 2.0f);
+    float dy = (player_->GetPosition().y + player_->GetSize().y / 2.0f) -
+               (princess_->GetPosition().y + princess_->GetSize().y / 2.0f);
+    float dist = std::sqrt(dx * dx + dy * dy);
+
+    if (dist <= princess_->GetInteractionRadius()) {
+        isGameWon = true;
+        Global::gameStateManager->PushState(std::make_unique<LevelCompleteState>(
+            this, currentLevel.GetLevelNumber(), characterId_, score, timeLeft));
+    }
+}
+
     view.Update(player_->GetPosition().x, player_->GetPosition().y);
 }
 
@@ -641,6 +659,8 @@ void GameplayState::Draw() {
         d.Draw();
     }
 
+    if (princess_) princess_->Draw();
+
     view.EndDraw();
 
     // Draw HUD
@@ -685,4 +705,5 @@ void GameplayState::Cleanup() {
     dragonBoss_.reset();
     fireballs_.clear();
     coins_.clear();
+    princess_.reset();
 }

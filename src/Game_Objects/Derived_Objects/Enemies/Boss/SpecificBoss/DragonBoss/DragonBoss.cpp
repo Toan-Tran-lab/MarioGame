@@ -115,4 +115,12 @@ void DragonBoss::DrawBoss() {
             DrawCircleLines((int)t.x, (int)t.y, radius, RED);
         }
     }
+
+    if (auto* aoe = dynamic_cast<ProximityAOEState*>(GetState())) {
+        if (aoe->IsCharging()) {
+            float progress = aoe->GetChargeProgress();
+            Vector2 center = { GetPosition().x + GetSize().x / 2.0f, GetPosition().y + GetSize().y / 2.0f };
+            DrawCircleLines((int)center.x, (int)center.y, 100.0f * progress, Fade(PURPLE, 0.6f)); // kAOERadius
+        }
+    }
 }
