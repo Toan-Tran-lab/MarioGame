@@ -26,7 +26,7 @@ public:
 
     float GetBumpOffsetY() const { return bumpOffsetY_; }
     
-    void SetPosition(const Vector2& pos) {
+    void SetPosition(const Vector2& pos) override {
         position_ = pos;
         basePositionY_ = pos.y;
     }

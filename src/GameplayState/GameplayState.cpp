@@ -384,9 +384,10 @@ void GameplayState::Update(float deltaTime) {
                     // Active Luckyblock (has coin): spawns item/coin and bounces (cannot break on first hit)
                     if (block->Bump()) {
                         auto c_coin = std::make_unique<Coin>();
-                        c_coin->SetPosition({ hitRect.x, hitRect.y - 16.0f * Global::GAME_SCALE });
+                        c_coin->SetPosition({ (float)(col * tileMap.GetTileSize()), hitRect.y - 16.0f * Global::GAME_SCALE });
                         c_coin->SetSize({ 16.0f * Global::GAME_SCALE, 16.0f * Global::GAME_SCALE });
                         c_coin->SetPopping(true, -350.0f);
+                        c_coin->SetAwardsScoreOnCollect(false); // score already granted on the bump itself
                         coins_.push_back(std::move(c_coin));
                         score += 100;
                     }
@@ -515,7 +516,7 @@ void GameplayState::Update(float deltaTime) {
             Rectangle cRect = { coin->GetPosition().x, coin->GetPosition().y, coin->GetSize().x, coin->GetSize().y };
             if (CheckCollisionRecs(pRect, cRect)) {
                 coin->SetActive(false);
-                score += 100;
+                if (coin->AwardsScoreOnCollect()) score += 100;
             }
         }
     }
