@@ -15,8 +15,11 @@
 #include "Game_Objects/Derived_Objects/Static_Objects/Block/Block.h"
 #include "Game_Objects/Derived_Objects/Static_Objects/Luckyblock/Luckyblock.h"
 #include "Game_Objects/Derived_Objects/Static_Objects/Debris/Debris.h"
+#include "Game_Objects/Derived_Objects/Static_Objects/GoalPipe/GoalPipe.h"
+#include "Game_Objects/Derived_Objects/Static_Objects/Fire/Fire.h"
 #include "Game_Objects/Derived_Objects/Items/Coin/Coin.h"
 #include "Game_Objects/Derived_Objects/Items/Mushroom/Mushroom.h"
+#include "Game_Objects/Derived_Objects/Static_Objects/FlyingBridge/FlyingBridge.h"
 
 #include "SaveManager/SaveManager.h"
 #include <vector>
@@ -36,7 +39,10 @@ private:
     std::vector<std::unique_ptr<Coin>> coins_;
     std::vector<DebrisPiece> debrisList_;
     std::unique_ptr<Princess> princess_;
+    std::unique_ptr<GoalPipe> goalPipe_;
     Mushroom mushroom_;
+    std::vector<std::unique_ptr<FlyingBridge>> flyingBridges_;
+    std::vector<std::unique_ptr<Fire>> fires_;
 
     std::unique_ptr<Player> player_;
     int characterId_ = 0;
@@ -49,6 +55,7 @@ private:
     float timeLeft = 300.0f; // 300 seconds default
     bool isGameOver = false;
     bool isGameWon = false;
+    bool hasLoadedPosition_ = false;
 
 public:
     GameplayState();
@@ -58,6 +65,8 @@ public:
     void SetSandboxMode(const std::vector<std::vector<SandboxCellData>>& grid);
     // Use this to override initial data when loading from a save file
     void SetLoadedData(Vector2 pos, int loadedScore, float loadedTime);
+    // Resets HUD/game state so the next level starts fresh
+    void ResetForNewLevel();
     SaveData GetSaveData() const;
 
     void Initialize() override;
