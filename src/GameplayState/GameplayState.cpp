@@ -9,6 +9,7 @@
 #include "MainMenu/PauseMenuState/PauseMenuState.h"
 #include "Game_Objects/Derived_Objects/Playable_Characters/Specific/Mario/Mario.h"
 #include "Game_Objects/Derived_Objects/Playable_Characters/Specific/Luigi/Luigi.h"
+#include "GameplayState/LevelCompleteState/LevelCompleteState.h"
 #include <iostream>
 #include <algorithm>
 #include <cmath>
@@ -53,6 +54,23 @@ void GameplayState::SetCharacter(int characterId) {
 void GameplayState::SetSandboxMode(const std::vector<std::vector<SandboxCellData>>& grid) {
     isSandboxMode_ = true;
     sandboxGrid_ = grid;
+}
+
+void GameplayState::ResetForNewLevel() {
+    // Reset timer and state flags
+    timeLeft = 300.0f;
+    isGameOver = false;
+    isGameWon = false;
+
+    // Reset player's position to (0,0) so that Initialize() knows to pick up the new level's spawn point
+    if (player_) {
+        player_->SetPosition({0, 0});
+        
+        // Also reset physics properties that might cause weird behavior on a new level
+        player_->GetPhysicsBody().velocity = {0, 0};
+        player_->GetPhysicsBody().isGrounded = false;
+        player_->GetPhysicsBody().hitCeiling = false;
+    }
 }
 
 void GameplayState::SetLoadedData(Vector2 pos, int loadedScore, float loadedTime) {
@@ -163,6 +181,8 @@ void GameplayState::Initialize() {
     fireballs_.clear();
     coins_.clear();
     princess_.reset();
+    flyingBridges_.clear();
+
 
     if (isSandboxMode_) {
         // Spawn Goombas and Coins based on Sandbox coordinates
@@ -248,6 +268,19 @@ void GameplayState::Initialize() {
                 princess_ = std::make_unique<Princess>();
                 princess_->SetPosition(ent.position);
                 princess_->SetSize({ 16.0f * Global::GAME_SCALE, 32.0f * Global::GAME_SCALE }); // tune to art
+            } else if (ent.id == "FlyingBridge") {
+                auto bridge = std::make_unique<FlyingBridge>();
+                bridge->SetPosition(ent.position);
+                bridge->SetPatrolBounds(0.0f, (float)tileMap.GetPixelWidth());
+                bridge->SetBlockGrid(&tileMap.GetBlockGrid());
+                flyingBridges_.push_back(std::move(bridge));
+            } else if (ent.id == "GoalPipe") {
+                goalPipe_ = std::make_unique<GoalPipe>();
+                goalPipe_->SetPosition(ent.position);
+            } else if (ent.id == "Fire") {
+                auto fire = std::make_unique<Fire>();
+                fire->SetPosition(ent.position);
+                fires_.push_back(std::move(fire));
             }
         }
     }
@@ -296,6 +329,30 @@ void GameplayState::Update(float deltaTime) {
     }
 
     player_->Update(deltaTime);
+
+    // Update flying bridges and handle one-way platform riding
+    for (auto& bridge : flyingBridges_) {
+        float oldX = bridge->GetPosition().x;
+        bridge->Update(deltaTime);
+        float deltaX = bridge->GetPosition().x - oldX;
+
+        Rectangle pRect = player_->GetPhysicsBody().GetRect();
+        Rectangle bRect = bridge->GetRect();
+
+        bool isFalling = player_->GetPhysicsBody().velocity.y >= 0.0f;
+        if (isFalling && CheckCollisionRecs(pRect, bRect)) {
+            float pBottom = pRect.y + pRect.height;
+            float bTop = bRect.y;
+
+            // Snap only if the player's bottom is near the bridge's top (one-way platform behavior)
+            if (pBottom - bTop < 30.0f) {
+                // Snap player Y and add bridge's X movement to carry the player
+                player_->SetPosition({ pRect.x + deltaX, bTop - pRect.height });
+                player_->GetPhysicsBody().velocity.y = 0.0f;
+                player_->GetPhysicsBody().isGrounded = true;
+            }
+        }
+    }
 
     // Update Goombas (including dying ones — they run their own timer)
     for (auto& g : goombas_) {
@@ -590,6 +647,13 @@ void GameplayState::Update(float deltaTime) {
     // Cleanup dead fireballs
     fireballs_.erase(std::remove_if(fireballs_.begin(), fireballs_.end(),[](const std::unique_ptr<Fireball>& fb) { return !fb->IsActive(); }), fireballs_.end());
 
+    // Check collisions with Fire
+    for (auto& fire : fires_) {
+        if (!player_->IsDead() && CheckCollisionRecs(player_->GetPhysicsBody().GetRect(), fire->GetRect())) {
+            player_->SetDead(true);
+        }
+    }
+
     // Handle player death (Game Over when falling off map)
     if (player_->IsDead()) {
         if (player_->GetPosition().y > tileMap.GetBorderBottom() + 100) {
@@ -598,18 +662,38 @@ void GameplayState::Update(float deltaTime) {
     }
 
     if (!isGameWon && !isGameOver && princess_ && !player_->IsDead()) {
-    float dx = (player_->GetPosition().x + player_->GetSize().x / 2.0f) -
-               (princess_->GetPosition().x + princess_->GetSize().x / 2.0f);
-    float dy = (player_->GetPosition().y + player_->GetSize().y / 2.0f) -
-               (princess_->GetPosition().y + princess_->GetSize().y / 2.0f);
-    float dist = std::sqrt(dx * dx + dy * dy);
+        float dx = (player_->GetPosition().x + player_->GetSize().x / 2.0f) -
+                   (princess_->GetPosition().x + princess_->GetSize().x / 2.0f);
+        float dy = (player_->GetPosition().y + player_->GetSize().y / 2.0f) -
+                   (princess_->GetPosition().y + princess_->GetSize().y / 2.0f);
+        float dist = std::sqrt(dx * dx + dy * dy);
 
-    if (dist <= princess_->GetInteractionRadius()) {
-        isGameWon = true;
-        Global::gameStateManager->PushState(std::make_unique<LevelCompleteState>(
-            this, currentLevel.GetLevelNumber(), characterId_, score, timeLeft));
+        if (dist <= princess_->GetInteractionRadius()) {
+            isGameWon = true;
+            Global::gameStateManager->PushState(std::make_unique<LevelCompleteState>(
+                this, currentLevel.GetLevelNumber(), characterId_, score, timeLeft));
+        }
     }
-}
+
+    // GoalPipe Win Condition
+    if (goalPipe_ && !isGameWon && !isGameOver && !player_->IsDead()) {
+        if (!goalPipe_->IsTriggered()) {
+            // Check if player walks into the goal pipe
+            if (CheckCollisionRecs(player_->GetPhysicsBody().GetRect(), goalPipe_->GetRect())) {
+                goalPipe_->Trigger(player_->GetPosition());
+            }
+        } else {
+            // During slide animation
+            goalPipe_->Update(deltaTime);
+            player_->SetPosition(goalPipe_->GetPlayerAnimPos());
+            
+            if (goalPipe_->IsAnimationComplete()) {
+                isGameWon = true;
+                Global::gameStateManager->PushState(std::make_unique<LevelCompleteState>(
+                    this, currentLevel.GetLevelNumber(), characterId_, score, timeLeft));
+            }
+        }
+    }
 
     view.Update(player_->GetPosition().x, player_->GetPosition().y);
 }
@@ -647,6 +731,9 @@ void GameplayState::Draw() {
     for (auto& fb : fireballs_) {
         if (fb->IsActive()) fb->Draw();
     }
+    for (auto& bridge : flyingBridges_) {
+        bridge->Draw();
+    }
     for (auto& coin : coins_) {
         if (coin->IsActive()) {
             coin->Draw();
@@ -661,6 +748,7 @@ void GameplayState::Draw() {
     }
 
     if (princess_) princess_->Draw();
+    if (goalPipe_) goalPipe_->Draw();
 
     view.EndDraw();
 
@@ -707,4 +795,7 @@ void GameplayState::Cleanup() {
     fireballs_.clear();
     coins_.clear();
     princess_.reset();
+    flyingBridges_.clear();
+    goalPipe_.reset();
+    fires_.clear();
 }
