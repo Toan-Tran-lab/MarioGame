@@ -16,7 +16,7 @@ Mushroom::Mushroom() {
 }
 
 void Mushroom::Update(float dt) {
-    if (!active) return;
+    if (!IsActive()) return;
     
     physics::InputState noInput;
     noInput.ignorePhysics = true; // Let the physics engine know it's a simple entity
@@ -46,7 +46,7 @@ void Mushroom::Update(float dt) {
 }
 
 void Mushroom::Draw() {
-    if (!active) return;
+    if (!IsActive()) return;
     Vector2 drawPos = { position_.x, position_.y };
     animState.Draw(drawPos, facing_, size_);
 }

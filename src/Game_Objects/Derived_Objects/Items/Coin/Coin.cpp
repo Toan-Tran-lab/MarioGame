@@ -13,10 +13,16 @@ void Coin::Update(float dt) {
         position_.y += velocityY_ * dt;
         velocityY_ += gravity * dt;
 
-        // Disappear when it falls back down to its base position
         if (velocityY_ > 0.0f && position_.y >= basePositionY_) {
-            SetActive(false);
+            position_.y = basePositionY_;
+            velocityY_ = 0.0f;
+            isPopping_ = false;
+            hasLanded_ = true;
+            settledTimer_ = 0.0f;
         }
+    } else if (hasLanded_ && awardsScoreOnCollect_) {
+        settledTimer_ += dt;
+        if (settledTimer_ >= 3.0f) SetActive(false);
     }
 }
 

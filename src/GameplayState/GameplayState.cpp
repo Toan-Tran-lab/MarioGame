@@ -1,4 +1,3 @@
-
 #include "GameplayState.h"
 #include "raylib.h"
 #include "TextureManager/TextureManager.h"
@@ -8,11 +7,30 @@
 #include "physics/ProximityAI.h"
 #include "SaveManager/SaveManager.h"
 #include "MainMenu/PauseMenuState/PauseMenuState.h"
-#include "GameplayState/LevelCompleteState/LevelCompleteState.h"
 #include "Game_Objects/Derived_Objects/Playable_Characters/Specific/Mario/Mario.h"
 #include "Game_Objects/Derived_Objects/Playable_Characters/Specific/Luigi/Luigi.h"
 #include <iostream>
 #include <algorithm>
+#include <cmath>
+
+namespace {
+bool RectOverlapsSolidBlock(const Rectangle& rect, const BlockGrid& grid) {
+    int tileSize = grid.GetTileSize();
+    if (tileSize <= 0) return false;
+
+    int startCol = (int)(rect.x / tileSize);
+    int endCol   = (int)((rect.x + rect.width) / tileSize);
+    int startRow = (int)(rect.y / tileSize);
+    int endRow   = (int)((rect.y + rect.height) / tileSize);
+
+    for (int row = startRow; row <= endRow; ++row) {
+        for (int col = startCol; col <= endCol; ++col) {
+            if (grid.IsSolidAt(col, row)) return true;
+        }
+    }
+    return false;
+}
+}
 
 GameplayState::GameplayState() {
     currentLevel = Level::GetLevel(1);
@@ -39,18 +57,10 @@ void GameplayState::SetSandboxMode(const std::vector<std::vector<SandboxCellData
 
 void GameplayState::SetLoadedData(Vector2 pos, int loadedScore, float loadedTime) {
     player_->SetPosition(pos);
-    player_->GetPhysicsBody().position = pos;
     score = loadedScore;
     timeLeft = loadedTime;
-    hasLoadedPosition_ = true; // Tell Initialize to skip spawn override
-}
-
-void GameplayState::ResetForNewLevel() {
-    score = 0;
-    timeLeft = 300.0f;
-    isGameOver = false;
-    levelCompleteTriggered_ = false;
-    levelCompletePushed_ = false;
+    // We can use a flag or just rely on position.
+    // If the position is not (0,0), we might skip spawn overriding in Initialize.
 }
 
 SaveData GameplayState::GetSaveData() const {
@@ -130,16 +140,12 @@ void GameplayState::Initialize() {
     TextureManager::Load("mushroom", "assets/textures/Items/items.png");
     TextureManager::Load("luckyblock", "assets/textures/Luckyblock/luckyblock.png");
 
-    // Initialize player — always respawn from level spawn point unless this is a saved-game load
-    if (!hasLoadedPosition_) {
+    // Initialize player
+    if (player_->GetPosition().x == 0 && player_->GetPosition().y == 0) {
         Vector2 spawn = tileMap.GetPlayerSpawn();
         Vector2 spawnPos = { spawn.x > 0 ? spawn.x : 100, spawn.y > 0 ? spawn.y : 300 };
         player_->SetPosition(spawnPos);
-        player_->GetPhysicsBody().position = spawnPos;
-        player_->GetPhysicsBody().velocity = { 0.0f, 0.0f };
-        player_->SetDead(false);
     }
-    hasLoadedPosition_ = false; // Consume the flag — next init will always respawn
     if (player_->IsSmall()) {
         player_->SetSize({Global::MINI_PLAYER_WIDTH * Global::GAME_SCALE, Global::MINI_PLAYER_HEIGHT * Global::GAME_SCALE}); 
     } else {
@@ -149,14 +155,14 @@ void GameplayState::Initialize() {
     
     // (We will append Luckyblock rects after they are initialized below)
 
-    // Initialize enemies, coins, and moving platforms
+    // Initialize enemies and coins
     goombas_.clear();
     koopas_.clear();
     buzzyBeetles_.clear();
+    dragonBoss_.reset();
+    fireballs_.clear();
     coins_.clear();
-    flyingBridges_.clear();
-    goalPipes_.clear();
-    fires_.clear();
+    princess_.reset();
 
     if (isSandboxMode_) {
         // Spawn Goombas and Coins based on Sandbox coordinates
@@ -232,35 +238,19 @@ void GameplayState::Initialize() {
                 int col = (int)(ent.position.x / tileMap.GetTileSize());
                 int row = (int)(ent.position.y / tileMap.GetTileSize());
                 tileMap.GetBlockGrid().SetBlock(col, row, std::move(block));
-            } else if (ent.id == "FlyingBridge") {
-                auto bridge = std::make_unique<FlyingBridge>();
-                bridge->SetPosition(ent.position);
-                bridge->SetPatrolBounds(tileMap.GetBorderLeft(), tileMap.GetBorderRight());
-                bridge->SetBlockGrid(&tileMap.GetBlockGrid());
-                flyingBridges_.push_back(std::move(bridge));
-            } else if (ent.id == "GoalPipe") {
-                auto pipe = std::make_unique<GoalPipe>();
-                pipe->SetPosition(ent.position);
-                goalPipes_.push_back(std::move(pipe));
-            } else if (ent.id == "Fire") {
-                auto fire = std::make_unique<Fire>();
-                fire->SetPosition(ent.position);
-                fires_.push_back(std::move(fire));
-            } else if (ent.id == "FlagPole") {
-                flagpole_.AddPoleSegment(ent.position);
-            } else if (ent.id == "Flag") {
-                flagpole_.SetFlagPosition(ent.position);
+            } else if (ent.id == "DragonBoss") {
+                dragonBoss_ = std::make_unique<DragonBoss>();
+                dragonBoss_->SetSize({ 256.0f * Global::GAME_SCALE, 256.0f * Global::GAME_SCALE }); // placeholder — tune once art exists
+                dragonBoss_->SetPosition(ent.position);
+                dragonBoss_->SetPlayerRef(player_.get());
+                dragonBoss_->BeginSpawn();
+            } else if (ent.id == "Princess") {
+                princess_ = std::make_unique<Princess>();
+                princess_->SetPosition(ent.position);
+                princess_->SetSize({ 16.0f * Global::GAME_SCALE, 32.0f * Global::GAME_SCALE }); // tune to art
             }
         }
     }
-
-    // Finalize flagpole: insert solid blocks and prepare for gameplay
-    if (flagpole_.HasPole()) {
-        flagpole_.InsertSolidBlocks(tileMap.GetBlockGrid(), tileMap.GetTileSize());
-        flagpole_.Finalize();
-    }
-    levelCompleteTriggered_ = false;
-    levelCompletePushed_ = false;
 
     // Now pass the block grid to the player
     player_->SetCollisionGrid(&tileMap.GetBlockGrid());
@@ -292,53 +282,9 @@ void GameplayState::Update(float deltaTime) {
         Global::gameStateManager->PushState(std::make_unique<PauseMenuState>(this));
     }
 
-    if (isGameOver || levelCompleteTriggered_) {
-        if (isGameOver && !levelCompletePushed_ && IsKeyPressed(KEY_ENTER)) {
-            Global::gameStateManager->PopState();
-        }
-        
-        // Handle level complete animations
-        if (levelCompleteTriggered_ && !levelCompletePushed_) {
-            bool pipeAnimating = false;
-            for (auto& pipe : goalPipes_) {
-                if (pipe->IsTriggered()) {
-                    pipeAnimating = true;
-                    if (!pipe->IsAnimationComplete()) {
-                        pipe->Update(deltaTime);
-                        player_->SetPosition(pipe->GetPlayerAnimPos());
-                        player_->GetPhysicsBody().position = pipe->GetPlayerAnimPos();
-                        player_->GetPhysicsBody().velocity = { 0.0f, 0.0f };
-                    } else {
-                        Global::gameStateManager->PushState(
-                            std::make_unique<LevelCompleteState>(
-                                this, currentLevel.GetLevelNumber(), characterId_, score, timeLeft
-                            )
-                        );
-                        levelCompletePushed_ = true;
-                    }
-                    break;
-                }
-            }
-
-            if (!pipeAnimating && flagpole_.HasPole()) {
-                if (!flagpole_.IsComplete()) {
-                    flagpole_.Update(deltaTime);
-                    // Sync Mario's Y with the flag so they slide together
-                    float marioX = flagpole_.GetPoleX() - player_->GetSize().x;
-                    float marioY = flagpole_.GetFlagY();
-                    player_->SetPosition({ marioX, marioY });
-                    player_->GetPhysicsBody().position = { marioX, marioY };
-                    player_->GetPhysicsBody().velocity = { 0.0f, 0.0f };
-                } else {
-                    // Flag finished descending — push level complete screen
-                    Global::gameStateManager->PushState(
-                        std::make_unique<LevelCompleteState>(
-                            this, currentLevel.GetLevelNumber(), characterId_, score, timeLeft
-                        )
-                    );
-                    levelCompletePushed_ = true;
-                }
-            }
+    if (isGameOver || isGameWon) {
+        if (IsKeyPressed(KEY_ENTER)) {
+            Global::gameStateManager->PopState(); // Or go to Game Over screen
         }
         return;
     }
@@ -350,20 +296,6 @@ void GameplayState::Update(float deltaTime) {
     }
 
     player_->Update(deltaTime);
-
-    // Forward-only function: do not allow Mario to go left past the camera view
-    if (!player_->IsDead()) {
-        float leftBound = view.GetWorldLeft();
-        if (player_->GetPosition().x < leftBound) {
-            Vector2 pos = player_->GetPosition();
-            pos.x = leftBound;
-            player_->SetPosition(pos);
-            player_->GetPhysicsBody().position.x = leftBound;
-            if (player_->GetPhysicsBody().velocity.x < 0.0f) {
-                player_->GetPhysicsBody().velocity.x = 0.0f;
-            }
-        }
-    }
 
     // Update Goombas (including dying ones — they run their own timer)
     for (auto& g : goombas_) {
@@ -386,24 +318,43 @@ void GameplayState::Update(float deltaTime) {
         }
     }
 
-    // Update flying bridges
-    for (auto& bridge : flyingBridges_) {
-        if (bridge->IsActive()) {
-            bridge->Update(deltaTime);
+    if (dragonBoss_ && dragonBoss_->IsActive()) {
+        dragonBoss_->Update(deltaTime);
+
+        if (dragonBoss_->ConsumeItemScatterRequest()) {
+            Vector2 origin = dragonBoss_->GetPosition();
+
+            // A few coins...
+            for (int i = 0; i < 4; ++i) {
+                auto c_coin = std::make_unique<Coin>();
+                c_coin->SetPosition({ origin.x + (i - 1.5f) * 24.0f, origin.y - 20.0f });
+                c_coin->SetPopping(true, -280.0f - i * 20.0f); // slight stagger for a scatter feel
+                coins_.push_back(std::move(c_coin));
+            }
+            // ...plus one power-up, reusing the existing Mushroom spawn pattern.
+            mushroom_.SetPosition({ origin.x, origin.y - 40.0f });
+            mushroom_.SetActive(true);
+        }
+
+        if (dragonBoss_->ConsumeCoinBurstRequest()) {
+            Vector2 origin = dragonBoss_->GetPosition();
+            int count = dragonBoss_->GetDeathCoinCount();
+            for (int i = 0; i < count; ++i) {
+                auto c_coin = std::make_unique<Coin>();
+                float angleOffset = (i - count / 2.0f) * 15.0f; // spread horizontally
+                c_coin->SetPosition({ origin.x + angleOffset, origin.y - 20.0f });
+                c_coin->SetPopping(true, -300.0f - (float)(i % 5) * 30.0f);
+                coins_.push_back(std::move(c_coin));
+            }
+        }
+
+        Vector2 fbOrigin;
+        if (dragonBoss_->ConsumeFireballRequest(fbOrigin)) {
+            fireballs_.push_back(std::make_unique<Fireball>(fbOrigin, -1.0f));
         }
     }
 
-    // Resolve player-vs-flying-bridge platform collision
-    if (!player_->IsDead()) {
-        for (auto& bridge : flyingBridges_) {
-            if (bridge->IsActive()) {
-                physics::CollisionSystem::ResolvePlatformCollision(
-                    player_->GetPhysicsBody(), bridge->GetRect(), bridge->GetVelocityX(), deltaTime);
-            }
-        }
-        // Crucial: sync the modified physics body position back to the player's GameObject state!
-        player_->SyncPhysics();
-    }
+    
 
     // Update block grid
     tileMap.GetBlockGrid().Update(deltaTime);
@@ -433,9 +384,10 @@ void GameplayState::Update(float deltaTime) {
                     // Active Luckyblock (has coin): spawns item/coin and bounces (cannot break on first hit)
                     if (block->Bump()) {
                         auto c_coin = std::make_unique<Coin>();
-                        c_coin->SetPosition({ hitRect.x, hitRect.y - 16.0f * Global::GAME_SCALE });
+                        c_coin->SetPosition({ (float)(col * tileMap.GetTileSize()), hitRect.y - 16.0f * Global::GAME_SCALE });
                         c_coin->SetSize({ 16.0f * Global::GAME_SCALE, 16.0f * Global::GAME_SCALE });
                         c_coin->SetPopping(true, -350.0f);
+                        c_coin->SetAwardsScoreOnCollect(false); // score already granted on the bump itself
                         coins_.push_back(std::move(c_coin));
                         score += 100;
                     }
@@ -480,24 +432,6 @@ void GameplayState::Update(float deltaTime) {
 
     // Entity interaction: player vs goombas/koopas/mushroom
     if (!player_->IsDead()) {
-        if (!levelCompleteTriggered_) {
-            for (auto& pipe : goalPipes_) {
-                if (CheckCollisionRecs(player_->GetRect(), pipe->GetRect())) {
-                    levelCompleteTriggered_ = true;
-                    pipe->Trigger(player_->GetPosition());
-                    break;
-                }
-            }
-        }
-
-        // Fire collision
-        for (auto& fire : fires_) {
-            if (CheckCollisionRecs(player_->GetRect(), fire->GetRect())) {
-                player_->SetDead(true);
-                break;
-            }
-        }
-
         for (auto& g : goombas_) {
             // Only interact with alive, non-dying goombas
             if (g->IsActive() && !g->IsDying() && player_->Overlaps(*g)) {
@@ -522,6 +456,11 @@ void GameplayState::Update(float deltaTime) {
         }
         if (mushroom_.IsActive() && player_->Overlaps(mushroom_)) {
             player_->InteractWith(mushroom_);
+        }
+        if (dragonBoss_ && dragonBoss_->IsActive() && !dragonBoss_->IsDead() && player_->Overlaps(*dragonBoss_)) {
+            bool wasDead = dragonBoss_->IsDead();
+            player_->InteractWith(*dragonBoss_);
+            if (!wasDead && dragonBoss_->IsDead()) score += 1000; // boss kill bonus, tune as desired
         }
     }
 
@@ -561,6 +500,12 @@ void GameplayState::Update(float deltaTime) {
                 }
             }
         }
+        if (k->IsActive() && k->GetState() == KoopaShellState::Sliding &&
+            dragonBoss_ && dragonBoss_->IsActive() && k->Overlaps(*dragonBoss_)) {
+            bool wasDead = dragonBoss_->IsDead();
+            k->InteractWith(*dragonBoss_);
+            if (!wasDead && dragonBoss_->IsDead()) score += 1000;
+        }
     }
 
     // Update and collect Coins
@@ -571,36 +516,100 @@ void GameplayState::Update(float deltaTime) {
             Rectangle cRect = { coin->GetPosition().x, coin->GetPosition().y, coin->GetSize().x, coin->GetSize().y };
             if (CheckCollisionRecs(pRect, cRect)) {
                 coin->SetActive(false);
-                score += 100;
+                if (coin->AwardsScoreOnCollect()) score += 100;
             }
         }
     }
 
-    // Handle player death when falling off map
-    if (player_->GetPosition().y > tileMap.GetBorderBottom()) {
-        if (!player_->IsDead()) {
-            player_->SetDead(true);
-            // Player will automatically perform a death jump upwards
-        } else if (player_->GetPosition().y > tileMap.GetBorderBottom() + 100.0f) {
-            // Wait until the player falls significantly below the border after the jump
+    for (auto& fb : fireballs_) {
+        if (!fb->IsActive()) continue;
+        fb->Update(deltaTime);
+        if (fb->IsExploded()) continue; // already resolving its explosion visual, skip collision checks
+
+        Rectangle fbRect = fb->GetRect();
+        bool justExploded = false;
+
+        // 1. Map geometry
+        if (RectOverlapsSolidBlock(fbRect, tileMap.GetBlockGrid())) {
+            fb->OnHitSolid();
+            justExploded = true;
+        }
+
+        // 2. Koopa shells
+        if (!justExploded) {
+            for (auto& k : koopas_) {
+                if (k->IsActive() && CheckCollisionRecs(fbRect, k->GetRect())) {
+                    fb->OnHitShell(*k);
+                    justExploded = true;
+                    break;
+                }
+            }
+        }
+
+        // 3. Ground enemies (Goomba/BuzzyBeetle — both derive from GroundEnemy)
+        if (!justExploded) {
+            for (auto& g : goombas_) {
+                if (g->IsActive() && !g->IsDying() && CheckCollisionRecs(fbRect, g->GetRect())) {
+                    fb->OnHitEnemy(*g);
+                    justExploded = true;
+                    break;
+                }
+            }
+        }
+        if (!justExploded) {
+            for (auto& b : buzzyBeetles_) {
+                if (b->IsActive() && !b->IsDefeated() && CheckCollisionRecs(fbRect, b->GetRect())) {
+                    fb->OnHitEnemy(*b);
+                    justExploded = true;
+                    break;
+                }
+            }
+        }
+
+        // 4. Direct player contact
+        bool hitPlayerDirectly = false;
+        if (!justExploded && !player_->IsDead() && CheckCollisionRecs(fbRect, player_->GetRect())) {
+            hitPlayerDirectly = true;
+            if (fb->CanHurtPlayer(*player_)) {
+                player_->TakeDamage();
+            }
+            fb->Explode();
+            justExploded = true;
+        }
+
+        // 5. AOE — only if something ELSE triggered the explosion (avoid double-hit same frame)
+        if (justExploded && !hitPlayerDirectly && fb->GetAOERadius() > 0.0f && !player_->IsDead()) {
+            float dx = player_->GetPosition().x - fb->GetPosition().x;
+            float dy = player_->GetPosition().y - fb->GetPosition().y;
+            if (std::sqrt(dx * dx + dy * dy) <= fb->GetAOERadius() && fb->CanHurtPlayer(*player_)) {
+                player_->TakeDamage();
+            }
+        }
+    }
+
+    // Cleanup dead fireballs
+    fireballs_.erase(std::remove_if(fireballs_.begin(), fireballs_.end(),[](const std::unique_ptr<Fireball>& fb) { return !fb->IsActive(); }), fireballs_.end());
+
+    // Handle player death (Game Over when falling off map)
+    if (player_->IsDead()) {
+        if (player_->GetPosition().y > tileMap.GetBorderBottom() + 100) {
             isGameOver = true;
         }
     }
 
-    // Flagpole collision — trigger flag descent and level complete
-    if (!player_->IsDead() && flagpole_.HasPole() && !levelCompleteTriggered_) {
-        Rectangle pRect = player_->GetPhysicsBody().GetRect();
-        if (CheckCollisionRecs(pRect, flagpole_.GetTriggerBounds())) {
-            levelCompleteTriggered_ = true;
-            // Pass Mario's Y so the flag starts exactly where Mario hit the pole
-            flagpole_.Trigger(pRect.y);
-            // Snap Mario to the pole and freeze him
-            float marioX = flagpole_.GetPoleX() - player_->GetSize().x;
-            player_->SetPosition({ marioX, pRect.y });
-            player_->GetPhysicsBody().position = { marioX, pRect.y };
-            player_->GetPhysicsBody().velocity = { 0.0f, 0.0f };
-        }
+    if (!isGameWon && !isGameOver && princess_ && !player_->IsDead()) {
+    float dx = (player_->GetPosition().x + player_->GetSize().x / 2.0f) -
+               (princess_->GetPosition().x + princess_->GetSize().x / 2.0f);
+    float dy = (player_->GetPosition().y + player_->GetSize().y / 2.0f) -
+               (princess_->GetPosition().y + princess_->GetSize().y / 2.0f);
+    float dist = std::sqrt(dx * dx + dy * dy);
+
+    if (dist <= princess_->GetInteractionRadius()) {
+        isGameWon = true;
+        Global::gameStateManager->PushState(std::make_unique<LevelCompleteState>(
+            this, currentLevel.GetLevelNumber(), characterId_, score, timeLeft));
     }
+}
 
     view.Update(player_->GetPosition().x, player_->GetPosition().y);
 }
@@ -615,22 +624,7 @@ void GameplayState::Draw() {
     // Draw interactive blocks
     tileMap.GetBlockGrid().Draw();
 
-    bool isPipeScissor = false;
-    for (auto& pipe : goalPipes_) {
-        if (pipe->IsTriggered()) {
-            isPipeScissor = true;
-            Vector2 screenPos = GetWorldToScreen2D({ pipe->GetRect().x, 0 }, view.GetRawCamera());
-            BeginScissorMode(0, 0, (int)screenPos.x, GetScreenHeight());
-            break;
-        }
-    }
-
     player_->Draw();
-
-    if (isPipeScissor) {
-        EndScissorMode();
-    }
-
     for (auto& g : goombas_) {
         // Draw alive AND dying goombas (dying ones show squish + "+100" popup)
         if (g->IsActive()) {
@@ -647,18 +641,16 @@ void GameplayState::Draw() {
             b->Draw();
         }
     }
+    if (dragonBoss_ && dragonBoss_->IsActive()) {
+        dragonBoss_->Draw();
+    }
+    for (auto& fb : fireballs_) {
+        if (fb->IsActive()) fb->Draw();
+    }
     for (auto& coin : coins_) {
         if (coin->IsActive()) {
             coin->Draw();
         }
-    }
-    for (auto& bridge : flyingBridges_) {
-        if (bridge->IsActive()) {
-            bridge->Draw();
-        }
-    }
-    for (auto& pipe : goalPipes_) {
-        pipe->Draw();
     }
     if (mushroom_.IsActive()) {
         mushroom_.Draw();
@@ -668,7 +660,7 @@ void GameplayState::Draw() {
         d.Draw();
     }
 
-    flagpole_.Draw();
+    if (princess_) princess_->Draw();
 
     view.EndDraw();
 
@@ -711,9 +703,8 @@ void GameplayState::Cleanup() {
     goombas_.clear();
     koopas_.clear();
     buzzyBeetles_.clear();
+    dragonBoss_.reset();
+    fireballs_.clear();
     coins_.clear();
-    flyingBridges_.clear();
-    goalPipes_.clear();
-    fires_.clear();
-    flagpole_ = Flagpole();
+    princess_.reset();
 }

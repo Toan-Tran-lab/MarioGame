@@ -2,6 +2,8 @@
 #include "Game_Objects/Derived_Objects/Enemies/Goomba/Goomba.h"
 #include "Game_Objects/Derived_Objects/Enemies/KoopaShell/KoopaShell.h"
 #include "Game_Objects/Derived_Objects/Enemies/BuzzyBeetle/BuzzyBeetle.h"
+#include "Game_Objects/Derived_Objects/Enemies/Boss/BossEnemy/Boss.h"
+#include "Game_Objects/Derived_Objects/Enemies/Boss/BossEnemy/BossState.h"
 #include "Game_Objects/Derived_Objects/Playable_Characters/Player/Player.h"
 #include "Game_Objects/Derived_Objects/Items/Mushroom/Mushroom.h"
 #include "Game_Objects/Derived_Objects/Playable_Characters/Player/PlayerState.h"
@@ -14,6 +16,7 @@ constexpr float kStompTolerance = 16.0f;
 constexpr float kStompBounceVelocity = -350.0f;
 // Distinct upward launch velocity applied to the player when they stomp a Buzzy Beetle
 constexpr float kBeetleBounceVelocity = -420.0f;
+constexpr float kBossKnockbackSpeed = 250.0f;
 }
 
 void PlayerInteraction::Visit(Goomba& g) {
@@ -138,6 +141,32 @@ void PlayerInteraction::Visit(BuzzyBeetle& b) {
         self.SetVelocity(vel);
     } else {
         // Side/bottom contact: regular enemy logic, player takes damage.
+        self.TakeDamage();
+    }
+}
+
+void PlayerInteraction::Visit(Boss& b) {
+    if (b.IsDead()) return;
+
+    const float playerBottom = self.GetPosition().y + self.GetSize().y;
+    const float bossTop = b.GetPosition().y;
+    const bool falling = self.GetVelocity().y > 0.0f;
+    const bool aboveBoss = (playerBottom <= bossTop + kStompTolerance);
+
+    if (aboveBoss && falling) {
+        if (b.TakeDamage(b.GetStompDamage())) {
+            if (BossState* state = b.GetState()) {
+                state->OnStomped(b); // only IdleState reacts (flinch); attack states ignore it
+            }
+            float bossCenterX = b.GetPosition().x + b.GetSize().x / 2.0f;
+            float playerCenterX = self.GetPosition().x + self.GetSize().x / 2.0f;
+            float dir = (playerCenterX < bossCenterX) ? -1.0f : 1.0f;
+            Vector2 vel = self.GetVelocity();
+            vel.y = kStompBounceVelocity;
+            vel.x = dir * kBossKnockbackSpeed;
+            self.SetVelocity(vel);
+        }
+    } else {
         self.TakeDamage();
     }
 }

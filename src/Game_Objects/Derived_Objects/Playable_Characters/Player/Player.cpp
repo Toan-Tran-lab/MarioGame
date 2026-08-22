@@ -54,6 +54,10 @@ void Player::SetSitting(bool sitting) {
     isSitting_ = sitting;
 }
 
+bool Player::IsProjectileImmune() const {
+    return state ? state->IsProjectileImmune() : false;
+}
+
 void Player::SetCollisionGrid(const BlockGrid* grid) {
     collisionGrid_ = grid;
 }
@@ -114,6 +118,11 @@ void Player::Update(float dt) {
     const float speedMult = GetMoveSpeedMultiplier();
     if (speedMult != 0.0f && speedMult != 1.0f) {
         physicsBody_.velocity.x /= speedMult; // undo last frame's scaling before the engine sees it
+    }
+
+    const float gravMult = GetGravityMultiplier();
+    if (gravMult != 0.0f && gravMult != 1.0f && physicsBody_.velocity.y > 0.0f) {
+        physicsBody_.velocity.y /= gravMult;
     }
 
     bool wantsJump = input.jumpPressed && IsGrounded();

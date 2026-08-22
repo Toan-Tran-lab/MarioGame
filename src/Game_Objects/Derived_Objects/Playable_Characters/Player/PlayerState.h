@@ -16,6 +16,8 @@ public:
     virtual void OnHit(Player& player) = 0;      // took damage
     virtual void OnPowerup(Player& player, PowerupType type) = 0; // collected mushroom/flower
     virtual void UpdateState(Player& player, float dt);
+
+    virtual bool IsProjectileImmune() const { return false; }
 };
 
 class SmallState : public PlayerState {
@@ -30,12 +32,16 @@ public:
     void Enter(Player& player) override;      // swap sprite/hitbox to "big" size
     void OnHit(Player& player) override;      // -> transition back to SmallState
     void OnPowerup(Player& player, PowerupType type) override; // fire flower -> FireState
+
+    bool IsProjectileImmune() const override { return true; }
 };
 
 class FireState : public PlayerState {
 public:
     void OnHit(Player& player) override;      // classic Mario rule: Fire -> Small directly, skips Super
     void OnPowerup(Player& player, PowerupType type) override; // already max state; Star still applies
+
+    bool IsProjectileImmune() const override { return true; }
 };
 
 class StarState : public PlayerState {
@@ -43,6 +49,8 @@ public:
     void Enter(Player& player) override;
     void OnHit(Player& player) override;      // classic Mario rule: Fire -> Small directly, skips Super
     void OnPowerup(Player& player, PowerupType type) override {} // already max state
+
+    bool IsProjectileImmune() const override { return true; }
 };
 
 // --- TransformingState ---

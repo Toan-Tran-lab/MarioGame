@@ -6,7 +6,7 @@ public:
     Mario() = default;
 
     //Attributes Override
-    float GetMoveSpeedMultiplier() const override { return 1.15f; } //Faster Sprinting
+    float GetMoveSpeedMultiplier() const override { return 1.25f; } //Faster Sprinting
     float GetSkidDecel() const override { return 300.0f; }   // Better turning
     
     //Annimation Overrdide

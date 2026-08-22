@@ -1,18 +1,43 @@
 #pragma once
-#include "src/Game_Objects/Core_Header/BaseGameObjects.h"
-#include "src/Game_Objects/Derived_Objects/Enemies/Ground_Enemy/GroundEnemy.h"
-#include "src/Game_Objects/Derived_Objects/Enemies/KoopaShell/KoopaShell.h"
-#include "src/Game_Objects/Derived_Objects/Playable_Characters/Player/Player.h"
+#include "Game_Objects/Core_Header/BaseGameObjects.h"
 
+class KoopaShell;
+class GroundEnemy;
+class Player;
+
+// Lightweight, non-Character moving hazard — deliberately outside the
+// Character/CharacterVisitor hierarchy. A manager (GameplayState) checks
+// overlap against player/shells/enemies/BlockGrid directly each frame and
+// calls these hooks, rather than going through double dispatch.
 class Projectile : public GameObject {
 protected:
     Vector2 velocity_{0.0f, 0.0f};
     bool exploded_ = false;
+    float explodeTimer_ = 0.0f;
+
 public:
-    virtual void OnHitSolid() {}          // touched map geometry
-    virtual void OnHitShell(KoopaShell&) {}
-    virtual void OnHitEnemy(GroundEnemy&) {} // hit any ground enemy (future: other bosses' minions)
-    virtual bool CanHurtPlayer(const Player&) const { return true; } // lets Fireball check invuln states
-    virtual void Explode() { exploded_ = true; }
+    virtual ~Projectile() = default;
+
+    const Vector2& GetVelocity() const { return velocity_; }
+    void SetVelocity(const Vector2& v) { velocity_ = v; }
     bool IsExploded() const { return exploded_; }
+
+    Rectangle GetRect() const { return { position_.x, position_.y, size_.x, size_.y }; }
+
+    virtual void OnHitSolid() { Explode(); }
+    virtual void OnHitShell(KoopaShell&) { Explode(); }
+    virtual void OnHitEnemy(GroundEnemy&) { Explode(); }
+
+    // Lets a projectile check the player's current immunity before hurting them.
+    virtual bool CanHurtPlayer(const Player&) const { return true; }
+
+    // Radius of any AOE effect triggered on explosion. 0 = no AOE.
+    virtual float GetAOERadius() const { return 0.0f; }
+
+    // Marks exploded and halts movement. Guarded against double-firing.
+    virtual void Explode() {
+        if (exploded_) return;
+        exploded_ = true;
+        velocity_ = { 0.0f, 0.0f };
+    }
 };

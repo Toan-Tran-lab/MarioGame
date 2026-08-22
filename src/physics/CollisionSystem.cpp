@@ -162,30 +162,5 @@ namespace physics {
             ResolveMapCollisions(body, solidBlocks);
         }
     }
-    void CollisionSystem::ResolvePlatformCollision(PhysicsBody& body, const Rectangle& platform, float platformVelX, float dt) {
-        Rectangle bodyRect = body.GetRect();
-
-        // Only resolve if the body overlaps the platform horizontally
-        if (bodyRect.x + bodyRect.width <= platform.x || bodyRect.x >= platform.x + platform.width) {
-            return;
-        }
-
-        // Only resolve as a floor: body must be falling or stationary vertically,
-        // and body's feet must be near the top of the platform (within a tolerance).
-        float bodyBottom = bodyRect.y + bodyRect.height;
-        float platTop = platform.y;
-        float tolerance = 12.0f; // pixels of leeway for landing detection
-
-        // Body must be above or at the platform top, and moving downward (or standing)
-        if (body.velocity.y >= 0.0f && bodyBottom >= platTop && bodyBottom <= platTop + tolerance) {
-            // Snap body to top of platform
-            body.position.y = platTop - body.size.y;
-            body.velocity.y = 0.0f;
-            body.isGrounded = true;
-
-            // Carry body with the platform's horizontal movement
-            body.position.x += platformVelX * dt;
-        }
-    }
 
 } // namespace physics

@@ -5,6 +5,7 @@ class KoopaShell;
 class BuzzyBeetle;
 class Player;
 class Mushroom;
+class Boss;
 
 class CharacterVisitor {
 public:
@@ -14,4 +15,5 @@ public:
     virtual void Visit(KoopaShell& k) = 0;
     virtual void Visit(Mushroom& m) = 0;
     virtual void Visit(BuzzyBeetle& b) = 0;
+    virtual void Visit(Boss& b) = 0;
 };
