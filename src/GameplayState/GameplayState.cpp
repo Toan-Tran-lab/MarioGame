@@ -330,6 +330,15 @@ void GameplayState::Update(float deltaTime) {
 
     player_->Update(deltaTime);
 
+    // Forward-only camera constraint (invisible wall on the left)
+    float cameraLeft = view.GetWorldLeft();
+    if (player_->GetPosition().x < cameraLeft) {
+        player_->SetPosition({cameraLeft, player_->GetPosition().y});
+        if (player_->GetPhysicsBody().velocity.x < 0) {
+            player_->GetPhysicsBody().velocity.x = 0.0f;
+        }
+    }
+
     // Update flying bridges and handle one-way platform riding
     for (auto& bridge : flyingBridges_) {
         float oldX = bridge->GetPosition().x;
