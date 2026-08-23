@@ -18,8 +18,8 @@ private:
 
 public:
     GoalPipe() {
-        // Size of the goal pipe (scaled)
-        size_ = { 48.0f, 48.0f };
+        // Size of the goal pipe (scaled) - 2 blocks high to cover both upper and lower pipe tiles
+        size_ = { 48.0f, 96.0f };
     }
 
     Rectangle GetRect() const {
