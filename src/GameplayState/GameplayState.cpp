@@ -181,6 +181,8 @@ void GameplayState::Initialize() {
     fireballs_.clear();
     coins_.clear();
     princess_.reset();
+    goalPipe_.reset();
+    flagpole_.reset();
     flyingBridges_.clear();
 
 
@@ -277,11 +279,21 @@ void GameplayState::Initialize() {
             } else if (ent.id == "GoalPipe") {
                 goalPipe_ = std::make_unique<GoalPipe>();
                 goalPipe_->SetPosition(ent.position);
+            } else if (ent.id == "FlagPole") {
+                if (!flagpole_) flagpole_ = std::make_unique<Flagpole>();
+                flagpole_->AddPoleSegment(ent.position);
+            } else if (ent.id == "Flag") {
+                if (!flagpole_) flagpole_ = std::make_unique<Flagpole>();
+                flagpole_->SetFlagPosition(ent.position);
             } else if (ent.id == "Fire") {
                 auto fire = std::make_unique<Fire>();
                 fire->SetPosition(ent.position);
                 fires_.push_back(std::move(fire));
             }
+        }
+        
+        if (flagpole_) {
+            flagpole_->Finalize();
         }
     }
 
@@ -704,6 +716,28 @@ void GameplayState::Update(float deltaTime) {
         }
     }
 
+    // Flagpole Win Condition
+    if (flagpole_ && !isGameWon && !isGameOver && !player_->IsDead()) {
+        if (!flagpole_->IsSliding() && !flagpole_->IsComplete()) {
+            if (CheckCollisionRecs(player_->GetPhysicsBody().GetRect(), flagpole_->GetTriggerBounds())) {
+                flagpole_->Trigger(player_->GetPosition().y);
+                player_->GetPhysicsBody().velocity = {0,0};
+            }
+        } else if (flagpole_->IsSliding()) {
+            flagpole_->Update(deltaTime);
+            // Lock Mario to the pole x position and flag y position
+            player_->SetPosition({ flagpole_->GetPoleX() - player_->GetSize().x / 2.0f, flagpole_->GetFlagY() });
+            player_->GetPhysicsBody().velocity = {0,0};
+            player_->SetAnimation(player_->GetSlideAnimation());
+
+            if (flagpole_->IsComplete()) {
+                isGameWon = true;
+                Global::gameStateManager->PushState(std::make_unique<LevelCompleteState>(
+                    this, currentLevel.GetLevelNumber(), characterId_, score, timeLeft));
+            }
+        }
+    }
+
     view.Update(player_->GetPosition().x, player_->GetPosition().y);
 }
 
@@ -717,7 +751,18 @@ void GameplayState::Draw() {
     // Draw interactive blocks
     tileMap.GetBlockGrid().Draw();
 
+    bool clipPlayer = goalPipe_ && goalPipe_->IsTriggered();
+    if (clipPlayer) {
+        Vector2 pipeScreenPos = GetWorldToScreen2D(goalPipe_->GetPosition(), view.GetRawCamera());
+        BeginScissorMode(0, 0, (int)pipeScreenPos.x, GetScreenHeight());
+    }
+
     player_->Draw();
+
+    if (clipPlayer) {
+        EndScissorMode();
+    }
+
     for (auto& g : goombas_) {
         // Draw alive AND dying goombas (dying ones show squish + "+100" popup)
         if (g->IsActive()) {
@@ -758,6 +803,7 @@ void GameplayState::Draw() {
 
     if (princess_) princess_->Draw();
     if (goalPipe_) goalPipe_->Draw();
+    if (flagpole_) flagpole_->Draw();
 
     view.EndDraw();
 

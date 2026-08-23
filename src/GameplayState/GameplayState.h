@@ -16,6 +16,7 @@
 #include "Game_Objects/Derived_Objects/Static_Objects/Luckyblock/Luckyblock.h"
 #include "Game_Objects/Derived_Objects/Static_Objects/Debris/Debris.h"
 #include "Game_Objects/Derived_Objects/Static_Objects/GoalPipe/GoalPipe.h"
+#include "Game_Objects/Derived_Objects/Static_Objects/Flagpole/Flagpole.h"
 #include "Game_Objects/Derived_Objects/Static_Objects/Fire/Fire.h"
 #include "Game_Objects/Derived_Objects/Items/Coin/Coin.h"
 #include "Game_Objects/Derived_Objects/Items/Mushroom/Mushroom.h"
@@ -40,6 +41,7 @@ private:
     std::vector<DebrisPiece> debrisList_;
     std::unique_ptr<Princess> princess_;
     std::unique_ptr<GoalPipe> goalPipe_;
+    std::unique_ptr<Flagpole> flagpole_;
     Mushroom mushroom_;
     std::vector<std::unique_ptr<FlyingBridge>> flyingBridges_;
     std::vector<std::unique_ptr<Fire>> fires_;
