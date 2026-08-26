@@ -1,5 +1,7 @@
 #include "FlyingBridge.h"
 #include "World/BlockGrid.h"
+#include "TextureManager/TextureManager.h"
+#include <algorithm>
 
 void FlyingBridge::Update(float dt) {
     // Move horizontally
@@ -59,8 +61,6 @@ void FlyingBridge::Update(float dt) {
         }
     }
 }
-
-#include "TextureManager/TextureManager.h"
 
 void FlyingBridge::Draw() {
     if (!TextureManager::Has("flyingbridge")) {

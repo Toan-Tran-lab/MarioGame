@@ -28,6 +28,7 @@ public:
 
     // Starts the pipe entry animation for the player
     void Trigger(const Vector2& playerPos) {
+        if (isTriggered_) return;
         isTriggered_ = true;
         slideTimer_ = 0.0f;
         // Since it's a horizontal pipe, Mario walks into it directly.
