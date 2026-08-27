@@ -1,5 +1,6 @@
 #include "Animation.h"
 #include "TextureManager/TextureManager.h"
+#include "Global/Global.h"
 #include <cmath>
 
 void AnimationState::Update(float dt) {
@@ -32,5 +33,23 @@ void AnimationState::Draw(const Vector2& position, FacingDirection facing, const
     
     Vector2 drawPos = { position.x, position.y };
     Rectangle destRect = { drawPos.x, drawPos.y, scale.x, scale.y };
+
+    // Snap to screen pixel grid to eliminate jitter against the tilemap
+    if (Global::currentCamera != nullptr) {
+        float cameraZoom = Global::currentCamera->zoom;
+        float cameraX = Global::currentCamera->target.x - (Global::currentCamera->offset.x / cameraZoom);
+        float cameraY = Global::currentCamera->target.y - (Global::currentCamera->offset.y / cameraZoom);
+        
+        float sx0 = std::floor((destRect.x - cameraX) * cameraZoom);
+        float sy0 = std::floor((destRect.y - cameraY) * cameraZoom);
+        float sx1 = std::floor((destRect.x + destRect.width - cameraX) * cameraZoom);
+        float sy1 = std::floor((destRect.y + destRect.height - cameraY) * cameraZoom);
+        
+        destRect.x = sx0 / cameraZoom + cameraX;
+        destRect.y = sy0 / cameraZoom + cameraY;
+        destRect.width = (sx1 - sx0) / cameraZoom;
+        destRect.height = (sy1 - sy0) / cameraZoom;
+    }
+
     DrawTexturePro(TextureManager::Get(currentAnim->textureKey), srcRect, destRect, {0, 0}, 0.0f, WHITE);
 }

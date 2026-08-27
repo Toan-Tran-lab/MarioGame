@@ -1,17 +1,19 @@
 #include "raylib.h"
 #include "Global/Global.h"
+#include "AudioManager/AudioManager.h"
 
 int main() {
     SetConfigFlags(FLAG_VSYNC_HINT); // Enable V-Sync hint to prevent screen tearing and smooth out scrolling
     InitWindow(Global::BASE_WIDTH, Global::BASE_HEIGHT, "Mario Game");
     SetExitKey(0); // Disable ESC auto-exit; our states handle ESC themselves
     ChangeDirectory(GetApplicationDirectory());
-    SetTargetFPS(60);
+    // SetTargetFPS(60);
 
     Global::Init();
 
     while (!WindowShouldClose() && !Global::shouldExit) {
         float dt = GetFrameTime();
+        AudioManager::Update();
         Global::gameStateManager->Update(dt);
 
         BeginDrawing();

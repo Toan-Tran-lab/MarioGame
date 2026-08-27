@@ -5,6 +5,7 @@
 #include "physics/PhysicsEngine.h"
 #include "physics/CollisionSystem.h"
 #include "World/BlockGrid.h"
+#include "AudioManager/AudioManager.h"
 #include <cmath>
 
 Player::Player() : state(nullptr) {
@@ -132,6 +133,8 @@ void Player::Update(float dt) {
     //Character specific
     if (wantsJump) {
         physicsBody_.velocity.y = GetJumpForce(); // override engine's default jump impulse
+        // Play the correct jump sound based on current size
+        AudioManager::PlaySFX(IsSmall() ? AudioKey::JUMP_SMALL : AudioKey::JUMP_SUPER);
     }
 
     // Floatier fall for Luigi, etc. — only touch it if already falling

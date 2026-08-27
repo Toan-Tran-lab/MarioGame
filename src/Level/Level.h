@@ -1,5 +1,6 @@
 #pragma once
 #include <string>
+#include "AudioManager/AudioManager.h"
 
 // Represents a game level with its metadata and LDtk mapping
 class Level {
@@ -15,6 +16,8 @@ public:
     int GetLevelNumber() const;
     const std::string& GetLdtkLevelId() const;
     const std::string& GetDisplayName() const;
+    // Returns the AudioKey constant for this level's BGM
+    const char* GetBGMKey() const;
 
     // Predefined levels
     static Level GetLevel(int number);

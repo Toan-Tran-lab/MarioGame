@@ -21,3 +21,12 @@ Level Level::GetLevel(int number) {
 }
 
 int Level::GetTotalLevels() { return 3; }
+
+const char* Level::GetBGMKey() const {
+    switch (levelNumber) {
+        case 1:  return AudioKey::BGM_LEVEL_1;
+        case 2:  return AudioKey::BGM_LEVEL_2;
+        case 3:  return AudioKey::BGM_LEVEL_3;
+        default: return AudioKey::BGM_LEVEL_1;
+    }
+}

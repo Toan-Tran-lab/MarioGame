@@ -7,6 +7,7 @@
 #include "Game_Objects/Derived_Objects/Playable_Characters/Player/Player.h"
 #include "Game_Objects/Derived_Objects/Items/Mushroom/Mushroom.h"
 #include "Game_Objects/Derived_Objects/Playable_Characters/Player/PlayerState.h"
+#include "AudioManager/AudioManager.h"
 #include <cmath>
 
 namespace {
@@ -29,6 +30,7 @@ void PlayerInteraction::Visit(Goomba& g) {
         // Stomped from above: goomba enters dying state, player bounces off.
         // Score (+100) is added by GameplayState when it detects the state change.
         g.Stomp();
+        AudioManager::PlaySFX(AudioKey::HIT_ENEMY);
 
         Vector2 vel = self.GetVelocity();
         vel.y = kStompBounceVelocity;
@@ -55,9 +57,11 @@ void PlayerInteraction::Visit(KoopaShell& k) {
         if (k.GetState() == KoopaShellState::Walking) {
             // Walking -> Hiding
             k.Stomp();
+            AudioManager::PlaySFX(AudioKey::HIT_ENEMY);
         } else if (k.GetState() == KoopaShellState::Sliding) {
             // Sliding -> Hiding (Stop the sliding shell)
             k.Stomp();
+            AudioManager::PlaySFX(AudioKey::HIT_ENEMY);
         } else if (k.GetState() == KoopaShellState::Hiding) {
             // Stomping a hiding shell kicks it
             float playerCenterX = self.GetPosition().x + self.GetSize().x / 2.0f;
@@ -69,6 +73,7 @@ void PlayerInteraction::Visit(KoopaShell& k) {
                 dir = (playerCenterX < koopaCenterX) ? 1 : -1;
             }
             k.Kick(dir);
+            AudioManager::PlaySFX(AudioKey::HIT_ENEMY);
         }
 
         // Bounce player
@@ -124,6 +129,7 @@ void PlayerInteraction::Visit(KoopaShell& k) {
 void PlayerInteraction::Visit(Mushroom& m) {
     if (m.IsActive()) {
         m.SetActive(false);
+        AudioManager::PlaySFX(AudioKey::POWER_UP);
         self.TakePowerup(PowerupType::Mushroom);
     }
 }

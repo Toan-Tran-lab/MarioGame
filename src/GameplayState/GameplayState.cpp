@@ -1,6 +1,7 @@
 #include "GameplayState.h"
 #include "raylib.h"
 #include "TextureManager/TextureManager.h"
+#include "AudioManager/AudioManager.h"
 #include "Global/Global.h"
 #include "physics/PhysicsEngine.h"
 #include "physics/CollisionSystem.h"
@@ -319,6 +320,9 @@ void GameplayState::Initialize() {
         SaveManager::SaveGame("auto_save", data);
         Global::hasSaveGame = true;
     }
+
+    // Start the BGM for this level (stops any previously playing track)
+    AudioManager::PlayBGM(currentLevel.GetBGMKey());
 }
 
 void GameplayState::Update(float deltaTime) {
@@ -338,6 +342,7 @@ void GameplayState::Update(float deltaTime) {
     if (timeLeft <= 0) {
         timeLeft = 0;
         isGameOver = true;
+        AudioManager::StopBGM();
     }
 
     player_->Update(deltaTime);
@@ -371,6 +376,15 @@ void GameplayState::Update(float deltaTime) {
                 player_->SetPosition({ pRect.x + deltaX, bTop - pRect.height });
                 player_->GetPhysicsBody().velocity.y = 0.0f;
                 player_->GetPhysicsBody().isGrounded = true;
+
+                // Player::Update() already ran this frame and set the jump animation because
+                // CollisionSystem resets isGrounded before checking tiles (bridge isn't in the grid).
+                // Override it here: player is grounded on the bridge.
+                if (!player_->IsSitting()) {
+                    float vx = std::abs(player_->GetPhysicsBody().velocity.x);
+                    player_->SetAnimation(vx > 0.1f ? player_->GetWalkAnimation()
+                                                    : player_->GetPoseAnimation());
+                }
             }
         }
     }
@@ -412,6 +426,7 @@ void GameplayState::Update(float deltaTime) {
             // ...plus one power-up, reusing the existing Mushroom spawn pattern.
             mushroom_.SetPosition({ origin.x, origin.y - 40.0f });
             mushroom_.SetActive(true);
+            AudioManager::PlaySFX(AudioKey::POWERUP_APPEARS);
         }
 
         if (dragonBoss_->ConsumeCoinBurstRequest()) {
@@ -594,6 +609,7 @@ void GameplayState::Update(float deltaTime) {
             Rectangle cRect = { coin->GetPosition().x, coin->GetPosition().y, coin->GetSize().x, coin->GetSize().y };
             if (CheckCollisionRecs(pRect, cRect)) {
                 coin->SetActive(false);
+                AudioManager::PlaySFX(AudioKey::HIT_COIN);
                 if (coin->AwardsScoreOnCollect()) score += 100;
             }
         }
@@ -672,6 +688,17 @@ void GameplayState::Update(float deltaTime) {
     for (auto& fire : fires_) {
         if (!player_->IsDead() && CheckCollisionRecs(player_->GetPhysicsBody().GetRect(), fire->GetRect())) {
             player_->SetDead(true);
+            AudioManager::PlaySFX(AudioKey::MARIO_DIE);
+        }
+    }
+
+    // Kill player instantly when they touch the map bottom border (pit fall)
+    if (!player_->IsDead() && player_->GetPosition().y >= tileMap.GetBorderBottom()) {
+        player_->TakeDamage(); // goes through state machine (SmallState -> die, SuperState -> shrink+die)
+        // Force death regardless of current state — falling into a pit is always lethal
+        if (!player_->IsDead()) {
+            player_->SetDead(true);
+            AudioManager::PlaySFX(AudioKey::MARIO_DIE);
         }
     }
 
@@ -679,6 +706,7 @@ void GameplayState::Update(float deltaTime) {
     if (player_->IsDead()) {
         if (player_->GetPosition().y > tileMap.GetBorderBottom() + 100) {
             isGameOver = true;
+            AudioManager::StopBGM();
         }
     }
 
@@ -691,6 +719,7 @@ void GameplayState::Update(float deltaTime) {
 
         if (dist <= princess_->GetInteractionRadius()) {
             isGameWon = true;
+            AudioManager::StopBGM();
             Global::gameStateManager->PushState(std::make_unique<LevelCompleteState>(
                 this, currentLevel.GetLevelNumber(), characterId_, score, timeLeft));
         }
@@ -702,6 +731,7 @@ void GameplayState::Update(float deltaTime) {
             // Check if player walks into the goal pipe
             if (CheckCollisionRecs(player_->GetPhysicsBody().GetRect(), goalPipe_->GetRect())) {
                 goalPipe_->Trigger(player_->GetPosition());
+                AudioManager::PlaySFX(AudioKey::PIPE_TRAVEL);
             }
         } else {
             // During slide animation
@@ -710,6 +740,7 @@ void GameplayState::Update(float deltaTime) {
             
             if (goalPipe_->IsAnimationComplete()) {
                 isGameWon = true;
+                AudioManager::StopBGM();
                 Global::gameStateManager->PushState(std::make_unique<LevelCompleteState>(
                     this, currentLevel.GetLevelNumber(), characterId_, score, timeLeft));
             }
@@ -721,6 +752,7 @@ void GameplayState::Update(float deltaTime) {
         if (!flagpole_->IsSliding() && !flagpole_->IsComplete()) {
             if (CheckCollisionRecs(player_->GetPhysicsBody().GetRect(), flagpole_->GetTriggerBounds())) {
                 flagpole_->Trigger(player_->GetPosition().y);
+                AudioManager::PlaySFX(AudioKey::DOWN_FLAG_POLE);
                 player_->GetPhysicsBody().velocity = {0,0};
             }
         } else if (flagpole_->IsSliding()) {
@@ -732,6 +764,7 @@ void GameplayState::Update(float deltaTime) {
 
             if (flagpole_->IsComplete()) {
                 isGameWon = true;
+                AudioManager::StopBGM();
                 Global::gameStateManager->PushState(std::make_unique<LevelCompleteState>(
                     this, currentLevel.GetLevelNumber(), characterId_, score, timeLeft));
             }
