@@ -376,6 +376,15 @@ void GameplayState::Update(float deltaTime) {
                 player_->SetPosition({ pRect.x + deltaX, bTop - pRect.height });
                 player_->GetPhysicsBody().velocity.y = 0.0f;
                 player_->GetPhysicsBody().isGrounded = true;
+
+                // Player::Update() already ran this frame and set the jump animation because
+                // CollisionSystem resets isGrounded before checking tiles (bridge isn't in the grid).
+                // Override it here: player is grounded on the bridge.
+                if (!player_->IsSitting()) {
+                    float vx = std::abs(player_->GetPhysicsBody().velocity.x);
+                    player_->SetAnimation(vx > 0.1f ? player_->GetWalkAnimation()
+                                                    : player_->GetPoseAnimation());
+                }
             }
         }
     }
@@ -678,6 +687,16 @@ void GameplayState::Update(float deltaTime) {
     // Check collisions with Fire
     for (auto& fire : fires_) {
         if (!player_->IsDead() && CheckCollisionRecs(player_->GetPhysicsBody().GetRect(), fire->GetRect())) {
+            player_->SetDead(true);
+            AudioManager::PlaySFX(AudioKey::MARIO_DIE);
+        }
+    }
+
+    // Kill player instantly when they touch the map bottom border (pit fall)
+    if (!player_->IsDead() && player_->GetPosition().y >= tileMap.GetBorderBottom()) {
+        player_->TakeDamage(); // goes through state machine (SmallState -> die, SuperState -> shrink+die)
+        // Force death regardless of current state — falling into a pit is always lethal
+        if (!player_->IsDead()) {
             player_->SetDead(true);
             AudioManager::PlaySFX(AudioKey::MARIO_DIE);
         }
