@@ -1,6 +1,7 @@
 #include "PlayerState.h"
 #include "Player.h"
 #include "Global/Global.h"
+#include "AudioManager/AudioManager.h"
 
 // Base default: no per-frame state logic by default.
 void PlayerState::UpdateState(Player& player, float dt) {}
@@ -16,6 +17,7 @@ void SmallState::Enter(Player& player) {
 void SmallState::OnHit(Player& player) {
     // Already the smallest form; there is no smaller state to shrink to.
     // The player dies, which the gameplay layer reacts to (respawn/game over).
+    AudioManager::PlaySFX(AudioKey::MARIO_DIE);
     player.SetDead(true);
 }
 
@@ -36,6 +38,7 @@ void SuperState::Enter(Player& player) {
 }
 
 void SuperState::OnHit(Player& player) {
+    AudioManager::PlaySFX(AudioKey::POWER_DOWN);
     player.SetState(new TransformingState(new SmallState(), false));
 }
 
@@ -50,6 +53,7 @@ void SuperState::OnPowerup(Player& player, PowerupType type) {
 
 void FireState::OnHit(Player& player) {
     // Classic Mario rule: Fire -> Small directly, skips Super.
+    AudioManager::PlaySFX(AudioKey::POWER_DOWN);
     player.SetState(new SmallState());
 }
 

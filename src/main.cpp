@@ -1,5 +1,6 @@
 #include "raylib.h"
 #include "Global/Global.h"
+#include "AudioManager/AudioManager.h"
 
 int main() {
     SetConfigFlags(FLAG_VSYNC_HINT); // Enable V-Sync hint to prevent screen tearing and smooth out scrolling
@@ -12,6 +13,7 @@ int main() {
 
     while (!WindowShouldClose() && !Global::shouldExit) {
         float dt = GetFrameTime();
+        AudioManager::Update();
         Global::gameStateManager->Update(dt);
 
         BeginDrawing();
