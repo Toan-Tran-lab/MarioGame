@@ -1,4 +1,5 @@
 #include "View.h"
+#include "Global/Global.h"
 #include <cmath>
 
 View::View(float blocksY, float blockSize) {
@@ -83,11 +84,13 @@ void View::ClampToBounds() {
 }
 
 void View::BeginDraw() const {
+    Global::currentCamera = &camera;
     BeginMode2D(camera);
 }
 
 void View::EndDraw() const {
     EndMode2D();
+    Global::currentCamera = nullptr;
 }
 
 void View::DrawBlock(float x, float y, float width, float height, Color color) const {

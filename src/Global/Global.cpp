@@ -5,6 +5,7 @@
 
 namespace Global {
     std::unique_ptr<GameStateManager> gameStateManager;
+    const Camera2D* currentCamera = nullptr;
     bool shouldExit = false;
     bool hasSaveGame = false;
     KeyBindings keys;

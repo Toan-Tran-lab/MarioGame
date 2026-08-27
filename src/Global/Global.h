@@ -25,6 +25,7 @@ namespace Global {
     };
 
     extern std::unique_ptr<GameStateManager> gameStateManager;
+    extern const Camera2D* currentCamera;
     extern bool shouldExit;
     extern bool hasSaveGame;
     extern KeyBindings keys;
