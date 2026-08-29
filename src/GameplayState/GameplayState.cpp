@@ -185,7 +185,7 @@ void GameplayState::Initialize() {
     goalPipe_.reset();
     flagpole_.reset();
     flyingBridges_.clear();
-
+    fires_.clear();
 
     if (isSandboxMode_) {
         // Spawn Goombas and Coins based on Sandbox coordinates
@@ -304,6 +304,7 @@ void GameplayState::Initialize() {
     // Initialize mushroom
     mushroom_.SetPosition({ 300, 400 });
     mushroom_.SetCollisionGrid(&tileMap.GetBlockGrid());
+    mushroom_.SetActive(false);
 
     // Initialize camera
     view = View(16.0f, (float)tileMap.GetTileSize());
@@ -345,47 +346,54 @@ void GameplayState::Update(float deltaTime) {
         AudioManager::StopBGM();
     }
 
+    bool onBridge = false;
+    FlyingBridge* riddenBridge = nullptr;
+
+    for (auto& bridge : flyingBridges_) {
+        Rectangle pRect = player_->GetPhysicsBody().GetRect();
+        Rectangle bRect = bridge->GetRect();
+        bool isFalling = player_->GetPhysicsBody().velocity.y >= 0.0f;
+
+        if (isFalling && CheckCollisionRecs(pRect, bRect)) {
+            float pBottom = pRect.y + pRect.height;
+            float bTop = bRect.y;
+            if (pBottom - bTop < 30.0f) {
+                onBridge = true;
+                riddenBridge = bridge.get();
+                break;
+            }
+        }
+    }
+
+    if (onBridge) {
+        player_->GetPhysicsBody().isGrounded = true;
+    }
+
     player_->Update(deltaTime);
 
     // Forward-only camera constraint (invisible wall on the left)
     float cameraLeft = view.GetWorldLeft();
     if (player_->GetPosition().x < cameraLeft) {
         player_->SetPosition({cameraLeft, player_->GetPosition().y});
+        player_->SyncPhysicsBody();
         if (player_->GetPhysicsBody().velocity.x < 0) {
             player_->GetPhysicsBody().velocity.x = 0.0f;
         }
     }
 
-    // Update flying bridges and handle one-way platform riding
+    // Move bridges and carry the player if they're riding one
     for (auto& bridge : flyingBridges_) {
         float oldX = bridge->GetPosition().x;
         bridge->Update(deltaTime);
         float deltaX = bridge->GetPosition().x - oldX;
 
-        Rectangle pRect = player_->GetPhysicsBody().GetRect();
-        Rectangle bRect = bridge->GetRect();
-
-        bool isFalling = player_->GetPhysicsBody().velocity.y >= 0.0f;
-        if (isFalling && CheckCollisionRecs(pRect, bRect)) {
-            float pBottom = pRect.y + pRect.height;
-            float bTop = bRect.y;
-
-            // Snap only if the player's bottom is near the bridge's top (one-way platform behavior)
-            if (pBottom - bTop < 30.0f) {
-                // Snap player Y and add bridge's X movement to carry the player
-                player_->SetPosition({ pRect.x + deltaX, bTop - pRect.height });
-                player_->GetPhysicsBody().velocity.y = 0.0f;
-                player_->GetPhysicsBody().isGrounded = true;
-
-                // Player::Update() already ran this frame and set the jump animation because
-                // CollisionSystem resets isGrounded before checking tiles (bridge isn't in the grid).
-                // Override it here: player is grounded on the bridge.
-                if (!player_->IsSitting()) {
-                    float vx = std::abs(player_->GetPhysicsBody().velocity.x);
-                    player_->SetAnimation(vx > 0.1f ? player_->GetWalkAnimation()
-                                                    : player_->GetPoseAnimation());
-                }
-            }
+        if (bridge.get() == riddenBridge) {
+            Vector2 pos = player_->GetPosition();
+            pos.x += deltaX;
+            pos.y = bridge->GetPosition().y - player_->GetSize().y;
+            player_->SetPosition(pos);
+            player_->SyncPhysicsBody();
+            player_->GetPhysicsBody().velocity.y = 0.0f;
         }
     }
 
