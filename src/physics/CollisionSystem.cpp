@@ -89,10 +89,23 @@ namespace physics {
             } 
             else if (col.side == CollisionSide::TOP) {
                 // Bonked head on ceiling
-                body.position.y += col.overlap;
-                body.velocity.y = 0; // stop upward movement
-                body.hitCeiling = true;
-                body.hitCeilingRect = block;
+                float bodyCenterX = body.position.x + body.size.x / 2.0f;
+                // Corner slide: if more than half the body is outside the block horizontally, slip past it smoothly.
+                // We leave a small overlap (about 8 pixels in 48-scale, equivalent to ~2-3 pixels in 16-scale) 
+                // so Mario visually clips the corner without being forcefully pushed all the way out.
+                float overlapLeft = (body.position.x + body.size.x) - block.x;
+                float overlapRight = (block.x + block.width) - body.position.x;
+                
+                if (bodyCenterX < block.x) {
+                    if (overlapLeft > 8.0f) body.position.x -= 4.0f; // Smooth push left
+                } else if (bodyCenterX > block.x + block.width) {
+                    if (overlapRight > 8.0f) body.position.x += 4.0f; // Smooth push right
+                } else {
+                    body.position.y += col.overlap;
+                    body.velocity.y = 0; // stop upward movement
+                    body.hitCeiling = true;
+                    body.hitCeilingRect = block;
+                }
             } else if (col.side == CollisionSide::BOTTOM) {
                 // Landed on floor
                 body.position.y -= col.overlap;

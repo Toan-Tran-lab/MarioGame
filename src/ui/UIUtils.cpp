@@ -5,6 +5,7 @@
 #include "World/TileMap.h"
 #include "Global/Global.h"
 #include "TextureManager/TextureManager.h"
+#include "AudioManager/AudioManager.h"
 #include <cmath>
 
 namespace UIUtils {
@@ -82,17 +83,20 @@ namespace UIUtils {
         bgTimer = 0.0f;
         LoadNextBgMap();
         bgInitialized = true;
+        
+        // Start menu music based on the loaded level's BGM
+        AudioManager::PlayBGM(Level::GetLevel(currentBgLevel).GetBGMKey());
     }
 
     void UpdateMenuBackground(float dt) {
         if (!bgInitialized) return;
         
-        bgTimer += dt;
-        if (bgTimer >= 3.0f) {
-            bgTimer = 0.0f;
-            LoadNextBgMap();
+        // Ensure menu music is playing
+        std::string expectedBGM = Level::GetLevel(currentBgLevel).GetBGMKey();
+        if (AudioManager::CurrentBGM() != expectedBGM) {
+            AudioManager::PlayBGM(expectedBGM);
         }
-        
+
         // Panning logic
         bgCam.target.x += bgCamSpeed * dt;
         

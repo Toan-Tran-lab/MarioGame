@@ -15,9 +15,12 @@ private:
     bool isSandboxMode_ = false;
     std::vector<std::vector<SandboxCellData>> sandboxGrid_;
 
+    bool isMultiplayer_ = false; // 2-player co-op flag
+
 public:
     void SetLevel(const Level& level);
     void SetSandboxMode(const std::vector<std::vector<SandboxCellData>>& grid);
+    void SetMultiplayer(bool enabled) { isMultiplayer_ = enabled; }
     void Initialize() override;
     void Update(float deltaTime) override;
     void Draw() override;

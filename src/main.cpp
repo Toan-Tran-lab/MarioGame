@@ -13,6 +13,11 @@ int main() {
 
     while (!WindowShouldClose() && !Global::shouldExit) {
         float dt = GetFrameTime();
+        // Cap delta time to prevent physics tunneling or huge jumps after lag spikes (like loading a level)
+        if (dt > 0.05f) {
+            dt = 0.05f;
+        }
+        
         AudioManager::Update();
         Global::gameStateManager->Update(dt);
 

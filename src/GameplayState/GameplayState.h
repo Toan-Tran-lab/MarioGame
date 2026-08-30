@@ -49,8 +49,18 @@ private:
     std::unique_ptr<Player> player_;
     int characterId_ = 0;
 
+    // --- 2-Player Co-op ---
+    std::unique_ptr<Player> player2_;
+    int characterId2_ = 1; // P2 defaults to the opposite character (Luigi if P1 is Mario)
+    bool isMultiplayer_ = false;
+
     bool isSandboxMode_ = false;
     std::vector<std::vector<SandboxCellData>> sandboxGrid_;
+
+    float smoothedCamX_ = 0.0f;
+    float smoothedCamY_ = 0.0f;
+    bool firstCameraInit_ = true;
+    Player* winningPlayer_ = nullptr;
 
     // HUD & Game Data
     int score = 0;
@@ -64,6 +74,7 @@ public:
     
     void SetLevel(const Level& level);
     void SetCharacter(int characterId);
+    void SetMultiplayer(bool enabled); // Enable 2-player co-op; P2 uses the opposite character
     void SetSandboxMode(const std::vector<std::vector<SandboxCellData>>& grid);
     // Use this to override initial data when loading from a save file
     void SetLoadedData(Vector2 pos, int loadedScore, float loadedTime);

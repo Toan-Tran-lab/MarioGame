@@ -170,5 +170,4 @@ void LevelCompleteState::Draw() {
 }
 
 void LevelCompleteState::Cleanup() {
-    UIUtils::CleanupMenuBackground();
 }

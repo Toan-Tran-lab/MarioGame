@@ -52,6 +52,41 @@ void GameplayState::SetCharacter(int characterId) {
     }
 }
 
+void GameplayState::SetMultiplayer(bool enabled) {
+    isMultiplayer_ = enabled;
+    if (enabled) {
+        // P2 is always the other character
+        characterId2_ = (characterId_ == 0) ? 1 : 0;
+        if (characterId2_ == 1) {
+            player2_ = std::make_unique<Luigi>();
+        } else {
+            player2_ = std::make_unique<Mario>();
+        }
+
+        // P1 key bindings: WASD + Left Shift
+        physics::PlayerKeyBindings p1Bindings;
+        p1Bindings.left    = KEY_A;
+        p1Bindings.right   = KEY_D;
+        p1Bindings.down    = KEY_S;
+        p1Bindings.jump    = KEY_W;
+        p1Bindings.jumpAlt = KEY_SPACE;
+        p1Bindings.sprint  = KEY_LEFT_SHIFT;
+        player_->SetKeyBindings(p1Bindings);
+
+        // P2 key bindings: Arrow keys + Right Shift
+        physics::PlayerKeyBindings p2Bindings;
+        p2Bindings.left    = KEY_LEFT;
+        p2Bindings.right   = KEY_RIGHT;
+        p2Bindings.down    = KEY_DOWN;
+        p2Bindings.jump    = KEY_UP;
+        p2Bindings.jumpAlt = 0; // no alt key
+        p2Bindings.sprint  = KEY_RIGHT_SHIFT;
+        player2_->SetKeyBindings(p2Bindings);
+    } else {
+        player2_.reset();
+    }
+}
+
 void GameplayState::SetSandboxMode(const std::vector<std::vector<SandboxCellData>>& grid) {
     isSandboxMode_ = true;
     sandboxGrid_ = grid;
@@ -62,6 +97,8 @@ void GameplayState::ResetForNewLevel() {
     timeLeft = 300.0f;
     isGameOver = false;
     isGameWon = false;
+    firstCameraInit_ = true;
+    winningPlayer_ = nullptr;
 
     // Reset player's position to (0,0) so that Initialize() knows to pick up the new level's spawn point
     if (player_) {
@@ -98,6 +135,9 @@ SaveData GameplayState::GetSaveData() const {
 }
 
 void GameplayState::Initialize() {
+    firstCameraInit_ = true;
+    winningPlayer_ = nullptr;
+    
     // Load the tilemap based on sandbox mode or level selection
     if (isSandboxMode_) {
         if (!tileMap.LoadFromSandbox(sandboxGrid_)) {
@@ -171,8 +211,16 @@ void GameplayState::Initialize() {
         player_->SetSize({Global::SUPER_PLAYER_WIDTH * Global::GAME_SCALE, Global::SUPER_PLAYER_HEIGHT * Global::GAME_SCALE}); 
     }
     player_->SyncPhysicsBody();
-    
-    // (We will append Luckyblock rects after they are initialized below)
+
+    // Initialize Player 2 (multiplayer only)
+    if (isMultiplayer_ && player2_) {
+        Vector2 p1Pos = player_->GetPosition();
+        // Spawn P2 one tile to the right of P1 so they don't overlap
+        player2_->SetPosition({ p1Pos.x + Global::TILE_SIZE * Global::GAME_SCALE * 2.0f, p1Pos.y });
+        player2_->SetSize(player_->GetSize()); // match P1's current hitbox size
+        player2_->SyncPhysicsBody();
+        player2_->SetCollisionGrid(&tileMap.GetBlockGrid());
+    }
 
     // Initialize enemies and coins
     goombas_.clear();
@@ -342,60 +390,112 @@ void GameplayState::Update(float deltaTime) {
         AudioManager::StopBGM();
     }
 
-    bool onBridge = false;
-    FlyingBridge* riddenBridge = nullptr;
-
-    for (auto& bridge : flyingBridges_) {
-        Rectangle pRect = player_->GetPhysicsBody().GetRect();
-        Rectangle bRect = bridge->GetRect();
-        bool isFalling = player_->GetPhysicsBody().velocity.y >= 0.0f;
-
-        if (isFalling && CheckCollisionRecs(pRect, bRect)) {
-            float pBottom = pRect.y + pRect.height;
-            float bTop = bRect.y;
-            if (pBottom - bTop < 30.0f) {
-                onBridge = true;
-                riddenBridge = bridge.get();
-                break;
-            }
-        }
-    }
-
-    if (onBridge) {
-        player_->GetPhysicsBody().isGrounded = true;
-    }
-
-    player_->Update(deltaTime);
-
-    // Forward-only camera constraint (invisible wall on the left)
-    float cameraLeft = view.GetWorldLeft();
-    if (player_->GetPosition().x < cameraLeft) {
-        player_->SetPosition({cameraLeft, player_->GetPosition().y});
-        player_->SyncPhysicsBody();
-        if (player_->GetPhysicsBody().velocity.x < 0) {
-            player_->GetPhysicsBody().velocity.x = 0.0f;
-        }
-    }
-
-    // Move bridges and carry the player if they're riding one
+    // Move bridges first so their position is current when Player::Update() runs.
     for (auto& bridge : flyingBridges_) {
         float oldX = bridge->GetPosition().x;
         bridge->Update(deltaTime);
         float deltaX = bridge->GetPosition().x - oldX;
 
-        if (bridge.get() == riddenBridge) {
-            Vector2 pos = player_->GetPosition();
-            pos.x += deltaX;
-            pos.y = bridge->GetPosition().y - player_->GetSize().y;
-            player_->SetPosition(pos);
-            player_->SyncPhysicsBody();
-            player_->GetPhysicsBody().velocity.y = 0.0f;
+        auto CheckAndCarry = [&](Player* p) {
+            if (!p || p->IsDead()) return;
+            Rectangle pRect = p->GetPhysicsBody().GetRect();
+            Rectangle bRect = bridge->GetRect();
+            float pBottom = pRect.y + pRect.height;
+            float bTop    = bRect.y;
+            bool hOverlap = (pRect.x + pRect.width > bRect.x) && (pRect.x < bRect.x + bRect.width);
+            bool onTop = (pBottom >= bTop - 4.0f) && (pBottom <= bTop + 4.0f);
+            
+            if (hOverlap && onTop && deltaX != 0.0f) {
+                Vector2 pos = p->GetPosition();
+                pos.x += deltaX;
+                p->SetPosition(pos);
+                p->SyncPhysicsBody();
+            }
+        };
+
+        CheckAndCarry(player_.get());
+        if (isMultiplayer_) CheckAndCarry(player2_.get());
+    }
+
+    // Inject all bridge rects as dynamic solid platforms into the player's collision pass.
+    {
+        std::vector<Rectangle> bridgeRects;
+        bridgeRects.reserve(flyingBridges_.size());
+        for (auto& bridge : flyingBridges_) {
+            bridgeRects.push_back(bridge->GetRect());
+        }
+        player_->SetDynamicPlatforms(bridgeRects);
+        if (isMultiplayer_ && player2_) {
+            player2_->SetDynamicPlatforms(bridgeRects);
         }
     }
+
+    player_->Update(deltaTime);
+
+    // Screen bounds constraints
+    float cameraLeft = view.GetWorldLeft();
+    float cameraWidth = (float)GetScreenWidth() / view.GetRawCamera().zoom;
+    float cameraRight = cameraLeft + cameraWidth;
+
+    auto ConstrainPlayerToScreen = [&](Player* p) {
+        if (!p || p->IsDead()) return;
+        
+        float px = p->GetPosition().x;
+        float pWidth = p->GetSize().x;
+        
+        // Left constraint: prevents moving backwards off-screen
+        if (px < cameraLeft) {
+            p->SetPosition({cameraLeft, p->GetPosition().y});
+            p->SyncPhysicsBody();
+            if (p->GetPhysicsBody().velocity.x < 0) {
+                p->GetPhysicsBody().velocity.x = 0.0f;
+            }
+        }
+        
+        // Right constraint: prevents moving forward off-screen.
+        if (px + pWidth > cameraRight) {
+            p->SetPosition({cameraRight - pWidth, p->GetPosition().y});
+            p->SyncPhysicsBody();
+            if (p->GetPhysicsBody().velocity.x > 0) {
+                p->GetPhysicsBody().velocity.x = 0.0f;
+            }
+        }
+    };
+
+    if (!player_->IsDead()) {
+        ConstrainPlayerToScreen(player_.get());
+    }
+
+    // Update P2 (multiplayer only)
+    if (isMultiplayer_ && player2_) {
+        player2_->Update(deltaTime);
+        if (!player2_->IsDead()) {
+            ConstrainPlayerToScreen(player2_.get());
+        }
+    }
+
+
+
+    // Dynamic AI Targeting: Find the closest alive player for enemies
+    auto GetTargetPlayer = [&](const Vector2& enemyPos) -> Player* {
+        bool p1Alive = player_ && !player_->IsDead();
+        bool p2Alive = isMultiplayer_ && player2_ && !player2_->IsDead();
+        
+        if (p1Alive && p2Alive) {
+            float d1 = std::abs(player_->GetPosition().x - enemyPos.x) + std::abs(player_->GetPosition().y - enemyPos.y);
+            float d2 = std::abs(player2_->GetPosition().x - enemyPos.x) + std::abs(player2_->GetPosition().y - enemyPos.y);
+            return (d1 < d2) ? player_.get() : player2_.get();
+        }
+        if (p1Alive) return player_.get();
+        if (p2Alive) return player2_.get();
+        return nullptr; // Both dead or absent
+    };
 
     // Update Goombas (including dying ones — they run their own timer)
     for (auto& g : goombas_) {
         if (g->IsActive()) {
+            Player* target = GetTargetPlayer(g->GetPosition());
+            g->SetPlayerBody(target ? &target->GetPhysicsBody() : nullptr);
             g->Update(deltaTime);
         }
     }
@@ -403,6 +503,8 @@ void GameplayState::Update(float deltaTime) {
     // Update Koopas
     for (auto& k : koopas_) {
         if (k->IsActive()) {
+            Player* target = GetTargetPlayer(k->GetPosition());
+            k->SetPlayerBody(target ? &target->GetPhysicsBody() : nullptr);
             k->Update(deltaTime);
         }
     }
@@ -410,11 +512,14 @@ void GameplayState::Update(float deltaTime) {
     // Update Buzzy Beetle
     for (auto& b : buzzyBeetles_) {
         if (b->IsActive()) {
+            Player* target = GetTargetPlayer(b->GetPosition());
+            b->SetPlayerBody(target ? &target->GetPhysicsBody() : nullptr);
             b->Update(deltaTime);
         }
     }
 
     if (dragonBoss_ && dragonBoss_->IsActive()) {
+        dragonBoss_->SetPlayerRef(GetTargetPlayer(dragonBoss_->GetPosition()));
         dragonBoss_->Update(deltaTime);
 
         if (dragonBoss_->ConsumeItemScatterRequest()) {
@@ -466,11 +571,12 @@ void GameplayState::Update(float deltaTime) {
     debrisList_.erase(std::remove_if(debrisList_.begin(), debrisList_.end(),
         [](const DebrisPiece& d) { return !d.active; }), debrisList_.end());
 
-    if (player_->CanHitBlock() && player_->GetPhysicsBody().hitCeiling) {
-        Rectangle hitRect = player_->GetPhysicsBody().hitCeilingRect;
-        float headX = player_->GetPosition().x + player_->GetSize().x / 2.0f;
+    auto HandleBlockHit = [&](Player* p) {
+        if (!p || p->IsDead() || !p->CanHitBlock() || !p->GetPhysicsBody().hitCeiling) return;
         
-        // Find which block we hit in the grid based on Mario's head X and the ceiling Y
+        Rectangle hitRect = p->GetPhysicsBody().hitCeilingRect;
+        float headX = p->GetPosition().x + p->GetSize().x / 2.0f;
+        
         int col = (int)(headX / tileMap.GetTileSize());
         int row = (int)(hitRect.y / tileMap.GetTileSize());
         Block* block = tileMap.GetBlockGrid().GetBlock(col, row);
@@ -526,15 +632,52 @@ void GameplayState::Update(float deltaTime) {
                         } else {
                             SpawnBlockDebris(debrisList_, blockWorldRect, "luckyblock", { 64.0f, 0.0f, 16.0f, 16.0f });
                         }
-
-                        // Remove block from collision grid
-                        tileMap.GetBlockGrid().SetBlock(col, row, nullptr);
-                        score += 50;
-                    }
-                    player_->SetCanHitBlock(false);
+        if (block && headX >= hitRect.x && headX <= hitRect.x + hitRect.width) {
+            bool isSmall = p->IsSmall();
+            
+            if (block->IsLucky()) {
+                if (block->Bump()) {
+                    auto c_coin = std::make_unique<Coin>();
+                    c_coin->SetPosition({ (float)(col * tileMap.GetTileSize()), hitRect.y - 16.0f * Global::GAME_SCALE });
+                    c_coin->SetSize({ 16.0f * Global::GAME_SCALE, 16.0f * Global::GAME_SCALE });
+                    c_coin->SetPopping(true, -350.0f);
+                    c_coin->SetAwardsScoreOnCollect(false);
+                    coins_.push_back(std::move(c_coin));
+                    score += 100;
                 }
+                p->SetCanHitBlock(false);
+            } else {
+                if (isSmall) {
+                    block->Bump();
+                } else {
+                    std::string texKey;
+                    Rectangle srcRect = { 0, 0, 16, 16 };
+                    bool foundTile = tileMap.RemoveTileAt(col, row, texKey, srcRect);
+                    
+                    Rectangle blockWorldRect = {
+                        (float)(col * tileMap.GetTileSize()),
+                        (float)(row * tileMap.GetTileSize()),
+                        (float)tileMap.GetTileSize(),
+                        (float)tileMap.GetTileSize()
+                    };
+                    
+                    if (foundTile) {
+                        SpawnBlockDebris(debrisList_, blockWorldRect, texKey, srcRect);
+                    } else {
+                        SpawnBlockDebris(debrisList_, blockWorldRect, "luckyblock", { 64.0f, 0.0f, 16.0f, 16.0f });
+                    }
+
+                    tileMap.GetBlockGrid().SetBlock(col, row, nullptr);
+                    score += 50;
+                }
+                p->SetCanHitBlock(false);
             }
         }
+    };
+
+    HandleBlockHit(player_.get());
+    if (isMultiplayer_ && player2_) {
+        HandleBlockHit(player2_.get());
     }
 
     for (auto& m : mushrooms_) {
@@ -543,39 +686,90 @@ void GameplayState::Update(float deltaTime) {
         }
     }
 
-    // Entity interaction: player vs goombas/koopas/mushroom
-    if (!player_->IsDead()) {
+    // Gather active players for interactions
+    std::vector<Player*> activePlayers;
+    if (player_ && !player_->IsDead()) activePlayers.push_back(player_.get());
+    if (isMultiplayer_ && player2_ && !player2_->IsDead()) activePlayers.push_back(player2_.get());
+
+    // Entity interaction: players vs goombas/koopas/mushroom/boss
+    for (Player* p : activePlayers) {
         for (auto& g : goombas_) {
-            // Only interact with alive, non-dying goombas
-            if (g->IsActive() && !g->IsDying() && player_->Overlaps(*g)) {
-                bool wasDying = g->IsDying(); // always false here, kept for clarity
-                player_->InteractWith(*g);
-                // If the interaction caused a stomp (Goomba just entered Dying)
-                if (!wasDying && g->IsDying()) {
-                    score += 100;
-                }
+            if (g->IsActive() && !g->IsDying() && p->Overlaps(*g)) {
+                bool wasDying = g->IsDying();
+                p->InteractWith(*g);
+                if (!wasDying && g->IsDying()) score += 100;
             }
         }
         for (auto& k : koopas_) {
-            if (k->IsActive() && player_->Overlaps(*k)) {
+            if (k->IsActive() && p->Overlaps(*k)) {
                 KoopaShellState prevState = k->GetState();
-                player_->InteractWith(*k);
-                
-                // If stomped from Walking -> Hiding or Sliding -> Hiding
+                p->InteractWith(*k);
                 if (prevState != KoopaShellState::Hiding && k->GetState() == KoopaShellState::Hiding) {
                     score += 100;
                 }
             }
         }
         for (auto& m : mushrooms_) {
-            if (m->IsActive() && player_->Overlaps(*m)) {
-                player_->InteractWith(*m);
+            if (m->IsActive() && p->Overlaps(*m)) {
+                p->InteractWith(*m);
             }
         }
-        if (dragonBoss_ && dragonBoss_->IsActive() && !dragonBoss_->IsDead() && player_->Overlaps(*dragonBoss_)) {
+        if (dragonBoss_ && dragonBoss_->IsActive() && !dragonBoss_->IsDead() && p->Overlaps(*dragonBoss_)) {
             bool wasDead = dragonBoss_->IsDead();
-            player_->InteractWith(*dragonBoss_);
-            if (!wasDead && dragonBoss_->IsDead()) score += 1000; // boss kill bonus, tune as desired
+            p->InteractWith(*dragonBoss_);
+            if (!wasDead && dragonBoss_->IsDead()) score += 1000;
+        }
+    }
+
+    // Unified Enemy-to-Enemy physical collision resolution
+    std::vector<GroundEnemy*> activeEnemies;
+    for (auto& g : goombas_) if (g->IsActive() && !g->IsDying()) activeEnemies.push_back(g.get());
+    for (auto& k : koopas_) if (k->IsActive()) activeEnemies.push_back(k.get());
+    for (auto& b : buzzyBeetles_) if (b->IsActive() && !b->IsDefeated()) activeEnemies.push_back(b.get());
+
+    for (size_t i = 0; i < activeEnemies.size(); ++i) {
+        for (size_t j = i + 1; j < activeEnemies.size(); ++j) {
+            auto* e1 = activeEnemies[i];
+            auto* e2 = activeEnemies[j];
+            
+            // Do not push apart if one is a sliding shell (let the interact logic handle it)
+            bool e1Sliding = (dynamic_cast<KoopaShell*>(e1) && static_cast<KoopaShell*>(e1)->GetState() == KoopaShellState::Sliding);
+            bool e2Sliding = (dynamic_cast<KoopaShell*>(e2) && static_cast<KoopaShell*>(e2)->GetState() == KoopaShellState::Sliding);
+            if (e1Sliding || e2Sliding) continue;
+
+            if (e1->Overlaps(*e2)) {
+                // Calculate horizontal penetration
+                float e1Center = e1->GetPosition().x + e1->GetSize().x / 2.0f;
+                float e2Center = e2->GetPosition().x + e2->GetSize().x / 2.0f;
+                float dist = std::abs(e1Center - e2Center);
+                float minDist = (e1->GetSize().x + e2->GetSize().x) / 2.0f;
+                
+                // Only push if there's significant overlap horizontally, and vertically they are aligned
+                float e1CenterY = e1->GetPosition().y + e1->GetSize().y / 2.0f;
+                float e2CenterY = e2->GetPosition().y + e2->GetSize().y / 2.0f;
+                if (std::abs(e1CenterY - e2CenterY) < 16.0f) {
+                    if (dist < minDist) {
+                        float push = (minDist - dist) / 2.0f;
+                        if (e1Center < e2Center) {
+                            e1->SetPosition({ e1->GetPosition().x - push, e1->GetPosition().y });
+                            e2->SetPosition({ e2->GetPosition().x + push, e2->GetPosition().y });
+                        } else {
+                            e1->SetPosition({ e1->GetPosition().x + push, e1->GetPosition().y });
+                            e2->SetPosition({ e2->GetPosition().x - push, e2->GetPosition().y });
+                        }
+                        e1->SyncPhysicsBody();
+                        e2->SyncPhysicsBody();
+                        
+                        // Bounce off if idle (not tracking)
+                        if (!e1->GetPhysicsBody().isTracking) {
+                            e1->GetPhysicsBody().aiDirection = (e1Center < e2Center) ? -1 : 1;
+                        }
+                        if (!e2->GetPhysicsBody().isTracking) {
+                            e2->GetPhysicsBody().aiDirection = (e2Center < e1Center) ? -1 : 1;
+                        }
+                    }
+                }
+            }
         }
     }
 
@@ -627,12 +821,14 @@ void GameplayState::Update(float deltaTime) {
     for (auto& coin : coins_) {
         if (coin->IsActive()) {
             coin->Update(deltaTime);
-            Rectangle pRect = player_->GetPhysicsBody().GetRect();
             Rectangle cRect = { coin->GetPosition().x, coin->GetPosition().y, coin->GetSize().x, coin->GetSize().y };
-            if (CheckCollisionRecs(pRect, cRect)) {
-                coin->SetActive(false);
-                AudioManager::PlaySFX(AudioKey::HIT_COIN);
-                if (coin->AwardsScoreOnCollect()) score += 100;
+            for (Player* p : activePlayers) {
+                if (CheckCollisionRecs(p->GetPhysicsBody().GetRect(), cRect)) {
+                    coin->SetActive(false);
+                    AudioManager::PlaySFX(AudioKey::HIT_COIN);
+                    if (coin->AwardsScoreOnCollect()) score += 100;
+                    break;
+                }
             }
         }
     }
@@ -684,21 +880,28 @@ void GameplayState::Update(float deltaTime) {
 
         // 4. Direct player contact
         bool hitPlayerDirectly = false;
-        if (!justExploded && !player_->IsDead() && CheckCollisionRecs(fbRect, player_->GetRect())) {
-            hitPlayerDirectly = true;
-            if (fb->CanHurtPlayer(*player_)) {
-                player_->TakeDamage();
+        if (!justExploded) {
+            for (Player* p : activePlayers) {
+                if (CheckCollisionRecs(fbRect, p->GetRect())) {
+                    hitPlayerDirectly = true;
+                    if (fb->CanHurtPlayer(*p)) {
+                        p->TakeDamage();
+                    }
+                    fb->Explode();
+                    justExploded = true;
+                    break;
+                }
             }
-            fb->Explode();
-            justExploded = true;
         }
 
         // 5. AOE — only if something ELSE triggered the explosion (avoid double-hit same frame)
-        if (justExploded && !hitPlayerDirectly && fb->GetAOERadius() > 0.0f && !player_->IsDead()) {
-            float dx = player_->GetPosition().x - fb->GetPosition().x;
-            float dy = player_->GetPosition().y - fb->GetPosition().y;
-            if (std::sqrt(dx * dx + dy * dy) <= fb->GetAOERadius() && fb->CanHurtPlayer(*player_)) {
-                player_->TakeDamage();
+        if (justExploded && !hitPlayerDirectly && fb->GetAOERadius() > 0.0f) {
+            for (Player* p : activePlayers) {
+                float dx = p->GetPosition().x - fb->GetPosition().x;
+                float dy = p->GetPosition().y - fb->GetPosition().y;
+                if (std::sqrt(dx * dx + dy * dy) <= fb->GetAOERadius() && fb->CanHurtPlayer(*p)) {
+                    p->TakeDamage();
+                }
             }
         }
     }
@@ -708,58 +911,80 @@ void GameplayState::Update(float deltaTime) {
 
     // Check collisions with Fire
     for (auto& fire : fires_) {
-        if (!player_->IsDead() && CheckCollisionRecs(player_->GetPhysicsBody().GetRect(), fire->GetRect())) {
-            player_->SetDead(true);
-            AudioManager::PlaySFX(AudioKey::MARIO_DIE);
+        for (Player* p : activePlayers) {
+            if (CheckCollisionRecs(p->GetPhysicsBody().GetRect(), fire->GetRect())) {
+                p->SetDead(true);
+                AudioManager::PlaySFX(AudioKey::MARIO_DIE);
+            }
         }
     }
 
-    // Kill player instantly when they touch the map bottom border (pit fall)
-    if (!player_->IsDead() && player_->GetPosition().y >= tileMap.GetBorderBottom()) {
-        player_->TakeDamage(); // goes through state machine (SmallState -> die, SuperState -> shrink+die)
-        // Force death regardless of current state — falling into a pit is always lethal
-        if (!player_->IsDead()) {
-            player_->SetDead(true);
-            AudioManager::PlaySFX(AudioKey::MARIO_DIE);
+    // Kill players instantly when they fall into a pit (map bottom border)
+    for (Player* p : activePlayers) {
+        if (p->GetPosition().y >= tileMap.GetBorderBottom()) {
+            p->TakeDamage();
+            if (!p->IsDead()) {
+                p->SetDead(true);
+                AudioManager::PlaySFX(AudioKey::MARIO_DIE);
+            }
         }
     }
 
-    // Handle player death (Game Over when falling off map)
-    if (player_->IsDead()) {
-        if (player_->GetPosition().y > tileMap.GetBorderBottom() + 100) {
+    // Game Over: in multiplayer, wait until BOTH players have fallen off-screen
+    {
+        bool p1OffScreen = player_->IsDead() && player_->GetPosition().y > tileMap.GetBorderBottom() + 100;
+        bool p2OffScreen = !isMultiplayer_ || !player2_ ||
+                           (player2_->IsDead() && player2_->GetPosition().y > tileMap.GetBorderBottom() + 100);
+        if (p1OffScreen && p2OffScreen) {
             isGameOver = true;
             AudioManager::StopBGM();
         }
     }
 
-    if (!isGameWon && !isGameOver && princess_ && !player_->IsDead()) {
-        float dx = (player_->GetPosition().x + player_->GetSize().x / 2.0f) -
-                   (princess_->GetPosition().x + princess_->GetSize().x / 2.0f);
-        float dy = (player_->GetPosition().y + player_->GetSize().y / 2.0f) -
-                   (princess_->GetPosition().y + princess_->GetSize().y / 2.0f);
-        float dist = std::sqrt(dx * dx + dy * dy);
+    if (princess_) princess_->Update(deltaTime); // tick idle animation
 
-        if (dist <= princess_->GetInteractionRadius()) {
-            isGameWon = true;
-            AudioManager::StopBGM();
-            Global::gameStateManager->PushState(std::make_unique<LevelCompleteState>(
-                this, currentLevel.GetLevelNumber(), characterId_, score, timeLeft));
+    if (!isGameWon && !isGameOver && princess_) {
+        for (Player* p : activePlayers) {
+            float dx = (p->GetPosition().x + p->GetSize().x / 2.0f) -
+                       (princess_->GetPosition().x + princess_->GetSize().x / 2.0f);
+            float dy = (p->GetPosition().y + p->GetSize().y / 2.0f) -
+                       (princess_->GetPosition().y + princess_->GetSize().y / 2.0f);
+            float dist = std::sqrt(dx * dx + dy * dy);
+
+            if (dist <= princess_->GetInteractionRadius()) {
+                isGameWon = true;
+                AudioManager::StopBGM();
+                Global::gameStateManager->PushState(std::make_unique<LevelCompleteState>(
+                    this, currentLevel.GetLevelNumber(), characterId_, score, timeLeft));
+                break;
+            }
         }
     }
 
     // GoalPipe Win Condition
-    if (goalPipe_ && !isGameWon && !isGameOver && !player_->IsDead()) {
+    if (goalPipe_ && !isGameWon && !isGameOver) {
         if (!goalPipe_->IsTriggered()) {
-            // Check if player walks into the goal pipe
-            if (CheckCollisionRecs(player_->GetPhysicsBody().GetRect(), goalPipe_->GetRect())) {
-                goalPipe_->Trigger(player_->GetPosition());
-                AudioManager::PlaySFX(AudioKey::PIPE_TRAVEL);
+            for (Player* p : activePlayers) {
+                if (CheckCollisionRecs(p->GetPhysicsBody().GetRect(), goalPipe_->GetRect())) {
+                    winningPlayer_ = p;
+                    goalPipe_->Trigger(winningPlayer_->GetPosition());
+                    AudioManager::PlaySFX(AudioKey::PIPE_TRAVEL);
+                    break;
+                }
             }
-        } else {
+        } else if (winningPlayer_) {
             // During slide animation
             goalPipe_->Update(deltaTime);
-            player_->SetPosition(goalPipe_->GetPlayerAnimPos());
+            winningPlayer_->SetPosition(goalPipe_->GetPlayerAnimPos());
             
+            // Stop other players from moving while win animation plays
+            for (Player* p : activePlayers) {
+                if (p != winningPlayer_) {
+                    p->GetPhysicsBody().velocity = {0,0};
+                    p->SetAnimation(p->GetPoseAnimation());
+                }
+            }
+
             if (goalPipe_->IsAnimationComplete()) {
                 isGameWon = true;
                 AudioManager::StopBGM();
@@ -770,19 +995,31 @@ void GameplayState::Update(float deltaTime) {
     }
 
     // Flagpole Win Condition
-    if (flagpole_ && !isGameWon && !isGameOver && !player_->IsDead()) {
+    if (flagpole_ && !isGameWon && !isGameOver) {
         if (!flagpole_->IsSliding() && !flagpole_->IsComplete()) {
-            if (CheckCollisionRecs(player_->GetPhysicsBody().GetRect(), flagpole_->GetTriggerBounds())) {
-                flagpole_->Trigger(player_->GetPosition().y);
-                AudioManager::PlaySFX(AudioKey::DOWN_FLAG_POLE);
-                player_->GetPhysicsBody().velocity = {0,0};
+            for (Player* p : activePlayers) {
+                if (CheckCollisionRecs(p->GetPhysicsBody().GetRect(), flagpole_->GetTriggerBounds())) {
+                    winningPlayer_ = p;
+                    flagpole_->Trigger(winningPlayer_->GetPosition().y);
+                    AudioManager::PlaySFX(AudioKey::DOWN_FLAG_POLE);
+                    winningPlayer_->GetPhysicsBody().velocity = {0,0};
+                    break;
+                }
             }
-        } else if (flagpole_->IsSliding()) {
+        } else if (flagpole_->IsSliding() && winningPlayer_) {
             flagpole_->Update(deltaTime);
-            // Lock Mario to the pole x position and flag y position
-            player_->SetPosition({ flagpole_->GetPoleX() - player_->GetSize().x / 2.0f, flagpole_->GetFlagY() });
-            player_->GetPhysicsBody().velocity = {0,0};
-            player_->SetAnimation(player_->GetSlideAnimation());
+            // Lock winning player to the pole x position and flag y position
+            winningPlayer_->SetPosition({ flagpole_->GetPoleX() - winningPlayer_->GetSize().x / 2.0f, flagpole_->GetFlagY() });
+            winningPlayer_->GetPhysicsBody().velocity = {0,0};
+            winningPlayer_->SetAnimation(winningPlayer_->GetSlideAnimation());
+
+            // Stop other players from moving while win animation plays
+            for (Player* p : activePlayers) {
+                if (p != winningPlayer_) {
+                    p->GetPhysicsBody().velocity = {0,0};
+                    p->SetAnimation(p->GetPoseAnimation());
+                }
+            }
 
             if (flagpole_->IsComplete()) {
                 isGameWon = true;
@@ -793,7 +1030,39 @@ void GameplayState::Update(float deltaTime) {
         }
     }
 
-    view.Update(player_->GetPosition().x, player_->GetPosition().y);
+    // Shared camera: track midpoint between alive players in multiplayer, or just the surviving player
+    float camTargetX = player_->GetPosition().x;
+    float camTargetY = player_->GetPosition().y;
+    
+    bool p1Alive = player_ && !player_->IsDead();
+    bool p2Alive = isMultiplayer_ && player2_ && !player2_->IsDead();
+
+    if (p1Alive && p2Alive) {
+        camTargetX = (player_->GetPosition().x + player2_->GetPosition().x) / 2.0f;
+        camTargetY = (player_->GetPosition().y + player2_->GetPosition().y) / 2.0f; // Track vertically as well just in case
+    } else if (p1Alive) {
+        camTargetX = player_->GetPosition().x;
+        camTargetY = player_->GetPosition().y;
+    } else if (p2Alive) {
+        camTargetX = player2_->GetPosition().x;
+        camTargetY = player2_->GetPosition().y;
+    } else {
+        // Both dead: keep tracking P1 as they fall
+        camTargetX = player_->GetPosition().x;
+        camTargetY = player_->GetPosition().y;
+    }
+    if (firstCameraInit_) {
+        smoothedCamX_ = camTargetX;
+        smoothedCamY_ = camTargetY;
+        firstCameraInit_ = false;
+    } else {
+        // Smoothly interpolate towards the target to prevent sudden forward snaps when a player dies
+        float camLerpSpeed = 5.0f; 
+        smoothedCamX_ += (camTargetX - smoothedCamX_) * camLerpSpeed * deltaTime;
+        smoothedCamY_ += (camTargetY - smoothedCamY_) * camLerpSpeed * deltaTime;
+    }
+    
+    view.Update(smoothedCamX_, smoothedCamY_);
 }
 
 void GameplayState::Draw() {
@@ -813,6 +1082,9 @@ void GameplayState::Draw() {
     }
 
     player_->Draw();
+    if (isMultiplayer_ && player2_) {
+        player2_->Draw();
+    }
 
     if (clipPlayer) {
         EndScissorMode();
@@ -911,4 +1183,5 @@ void GameplayState::Cleanup() {
     goalPipe_.reset();
     mushrooms_.clear();
     fires_.clear();
+    player2_.reset();
 }

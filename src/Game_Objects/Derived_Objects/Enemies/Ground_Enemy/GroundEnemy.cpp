@@ -6,8 +6,8 @@
 #include <cmath>
 
 void GroundEnemy::UpdateBehavior(float dt, physics::InputState& input) {
-    if (playerBody_ && collisionGrid_) {
-        physics::ProximityAI::UpdateAI(physicsBody_, *playerBody_, GetDetectionRadius(), dt, input, *collisionGrid_);
+    if (collisionGrid_) {
+        physics::ProximityAI::UpdateAI(physicsBody_, playerBody_, GetDetectionRadius(), dt, input, *collisionGrid_);
     }
 }
 
