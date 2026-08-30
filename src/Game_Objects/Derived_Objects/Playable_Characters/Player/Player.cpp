@@ -108,8 +108,8 @@ void Player::Update(float dt) {
         return;
     }
 
-    // Handle sit state
-    if (IsGrounded() && input.moveDown) {
+    // Handle sit state (not allowed when small)
+    if (IsGrounded() && input.moveDown && !IsSmall()) {
         SetSitting(true);
         input.moveLeft = false;
         input.moveRight = false;

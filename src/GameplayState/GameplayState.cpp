@@ -980,11 +980,26 @@ void GameplayState::Update(float deltaTime) {
         }
     }
 
-    // Shared camera: track midpoint between players in multiplayer, P1 in solo
+    // Shared camera: track midpoint between alive players in multiplayer, or just the surviving player
     float camTargetX = player_->GetPosition().x;
     float camTargetY = player_->GetPosition().y;
-    if (isMultiplayer_ && player2_) {
+    
+    bool p1Alive = player_ && !player_->IsDead();
+    bool p2Alive = isMultiplayer_ && player2_ && !player2_->IsDead();
+
+    if (p1Alive && p2Alive) {
         camTargetX = (player_->GetPosition().x + player2_->GetPosition().x) / 2.0f;
+        camTargetY = (player_->GetPosition().y + player2_->GetPosition().y) / 2.0f; // Track vertically as well just in case
+    } else if (p1Alive) {
+        camTargetX = player_->GetPosition().x;
+        camTargetY = player_->GetPosition().y;
+    } else if (p2Alive) {
+        camTargetX = player2_->GetPosition().x;
+        camTargetY = player2_->GetPosition().y;
+    } else {
+        // Both dead: keep tracking P1 as they fall
+        camTargetX = player_->GetPosition().x;
+        camTargetY = player_->GetPosition().y;
     }
     view.Update(camTargetX, camTargetY);
 }

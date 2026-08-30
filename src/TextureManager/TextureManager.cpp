@@ -55,13 +55,8 @@ Rectangle TextureManager::GetSourceRect(const std::string& key, int tileWidth, i
     float w = (float)tileWidth;
     float h = (float)tileHeight;
 
-    // Inset nửa texel để tránh bleeding pixel từ frame/tile kề nhau trong spritesheet
-    // (khi vẽ ở tọa độ không nguyên, GPU có thể sample đúng đường nối giữa 2 ô)
-    const float e = 0.5f;
-    x += e;
-    y += e;
-    w -= 2.0f * e;
-    h -= 2.0f * e;
+    // No inset is needed when using TEXTURE_FILTER_POINT and pixel-perfect snapping.
+    // (The 0.5f inset was causing the first column/row of pixels to be skipped during nearest-neighbor rounding, slicing sprites).
 
     return Rectangle{ x, y, w, h };
 }
