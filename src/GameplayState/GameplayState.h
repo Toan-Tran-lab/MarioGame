@@ -60,6 +60,7 @@ private:
     float smoothedCamX_ = 0.0f;
     float smoothedCamY_ = 0.0f;
     bool firstCameraInit_ = true;
+    Player* winningPlayer_ = nullptr;
 
     // HUD & Game Data
     int score = 0;

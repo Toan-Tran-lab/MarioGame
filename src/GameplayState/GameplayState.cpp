@@ -98,6 +98,7 @@ void GameplayState::ResetForNewLevel() {
     isGameOver = false;
     isGameWon = false;
     firstCameraInit_ = true;
+    winningPlayer_ = nullptr;
 
     // Reset player's position to (0,0) so that Initialize() knows to pick up the new level's spawn point
     if (player_) {
@@ -135,6 +136,7 @@ SaveData GameplayState::GetSaveData() const {
 
 void GameplayState::Initialize() {
     firstCameraInit_ = true;
+    winningPlayer_ = nullptr;
     
     // Load the tilemap based on sandbox mode or level selection
     if (isSandboxMode_) {
@@ -632,64 +634,35 @@ void GameplayState::Update(float deltaTime) {
         mushroom_.Update(deltaTime);
     }
 
-    // Entity interaction: player vs goombas/koopas/mushroom
-    if (!player_->IsDead()) {
-        for (auto& g : goombas_) {
-            // Only interact with alive, non-dying goombas
-            if (g->IsActive() && !g->IsDying() && player_->Overlaps(*g)) {
-                bool wasDying = g->IsDying(); // always false here, kept for clarity
-                player_->InteractWith(*g);
-                // If the interaction caused a stomp (Goomba just entered Dying)
-                if (!wasDying && g->IsDying()) {
-                    score += 100;
-                }
-            }
-        }
-        for (auto& k : koopas_) {
-            if (k->IsActive() && player_->Overlaps(*k)) {
-                KoopaShellState prevState = k->GetState();
-                player_->InteractWith(*k);
-                
-                // If stomped from Walking -> Hiding or Sliding -> Hiding
-                if (prevState != KoopaShellState::Hiding && k->GetState() == KoopaShellState::Hiding) {
-                    score += 100;
-                }
-            }
-        }
-        if (mushroom_.IsActive() && player_->Overlaps(mushroom_)) {
-            player_->InteractWith(mushroom_);
-        }
-        if (dragonBoss_ && dragonBoss_->IsActive() && !dragonBoss_->IsDead() && player_->Overlaps(*dragonBoss_)) {
-            bool wasDead = dragonBoss_->IsDead();
-            player_->InteractWith(*dragonBoss_);
-            if (!wasDead && dragonBoss_->IsDead()) score += 1000; // boss kill bonus, tune as desired
-        }
-    }
+    // Gather active players for interactions
+    std::vector<Player*> activePlayers;
+    if (player_ && !player_->IsDead()) activePlayers.push_back(player_.get());
+    if (isMultiplayer_ && player2_ && !player2_->IsDead()) activePlayers.push_back(player2_.get());
 
-    // Entity interaction: Player 2 vs goombas/koopas/mushroom (multiplayer only)
-    if (isMultiplayer_ && player2_ && !player2_->IsDead()) {
+    // Entity interaction: players vs goombas/koopas/mushroom/boss
+    for (Player* p : activePlayers) {
         for (auto& g : goombas_) {
-            if (g->IsActive() && !g->IsDying() && player2_->Overlaps(*g)) {
+            if (g->IsActive() && !g->IsDying() && p->Overlaps(*g)) {
                 bool wasDying = g->IsDying();
-                player2_->InteractWith(*g);
+                p->InteractWith(*g);
                 if (!wasDying && g->IsDying()) score += 100;
             }
         }
         for (auto& k : koopas_) {
-            if (k->IsActive() && player2_->Overlaps(*k)) {
+            if (k->IsActive() && p->Overlaps(*k)) {
                 KoopaShellState prevState = k->GetState();
-                player2_->InteractWith(*k);
+                p->InteractWith(*k);
                 if (prevState != KoopaShellState::Hiding && k->GetState() == KoopaShellState::Hiding) {
                     score += 100;
                 }
             }
         }
-        if (mushroom_.IsActive() && player2_->Overlaps(mushroom_)) {
-            player2_->InteractWith(mushroom_);
+        if (mushroom_.IsActive() && p->Overlaps(mushroom_)) {
+            p->InteractWith(mushroom_);
         }
-        if (dragonBoss_ && dragonBoss_->IsActive() && !dragonBoss_->IsDead() && player2_->Overlaps(*dragonBoss_)) {
+        if (dragonBoss_ && dragonBoss_->IsActive() && !dragonBoss_->IsDead() && p->Overlaps(*dragonBoss_)) {
             bool wasDead = dragonBoss_->IsDead();
-            player2_->InteractWith(*dragonBoss_);
+            p->InteractWith(*dragonBoss_);
             if (!wasDead && dragonBoss_->IsDead()) score += 1000;
         }
     }
@@ -795,18 +768,13 @@ void GameplayState::Update(float deltaTime) {
         if (coin->IsActive()) {
             coin->Update(deltaTime);
             Rectangle cRect = { coin->GetPosition().x, coin->GetPosition().y, coin->GetSize().x, coin->GetSize().y };
-            // P1 collects
-            if (CheckCollisionRecs(player_->GetPhysicsBody().GetRect(), cRect)) {
-                coin->SetActive(false);
-                AudioManager::PlaySFX(AudioKey::HIT_COIN);
-                if (coin->AwardsScoreOnCollect()) score += 100;
-            }
-            // P2 collects (multiplayer only)
-            else if (isMultiplayer_ && player2_ && !player2_->IsDead() &&
-                     CheckCollisionRecs(player2_->GetPhysicsBody().GetRect(), cRect)) {
-                coin->SetActive(false);
-                AudioManager::PlaySFX(AudioKey::HIT_COIN);
-                if (coin->AwardsScoreOnCollect()) score += 100;
+            for (Player* p : activePlayers) {
+                if (CheckCollisionRecs(p->GetPhysicsBody().GetRect(), cRect)) {
+                    coin->SetActive(false);
+                    AudioManager::PlaySFX(AudioKey::HIT_COIN);
+                    if (coin->AwardsScoreOnCollect()) score += 100;
+                    break;
+                }
             }
         }
     }
@@ -858,21 +826,28 @@ void GameplayState::Update(float deltaTime) {
 
         // 4. Direct player contact
         bool hitPlayerDirectly = false;
-        if (!justExploded && !player_->IsDead() && CheckCollisionRecs(fbRect, player_->GetRect())) {
-            hitPlayerDirectly = true;
-            if (fb->CanHurtPlayer(*player_)) {
-                player_->TakeDamage();
+        if (!justExploded) {
+            for (Player* p : activePlayers) {
+                if (CheckCollisionRecs(fbRect, p->GetRect())) {
+                    hitPlayerDirectly = true;
+                    if (fb->CanHurtPlayer(*p)) {
+                        p->TakeDamage();
+                    }
+                    fb->Explode();
+                    justExploded = true;
+                    break;
+                }
             }
-            fb->Explode();
-            justExploded = true;
         }
 
         // 5. AOE — only if something ELSE triggered the explosion (avoid double-hit same frame)
-        if (justExploded && !hitPlayerDirectly && fb->GetAOERadius() > 0.0f && !player_->IsDead()) {
-            float dx = player_->GetPosition().x - fb->GetPosition().x;
-            float dy = player_->GetPosition().y - fb->GetPosition().y;
-            if (std::sqrt(dx * dx + dy * dy) <= fb->GetAOERadius() && fb->CanHurtPlayer(*player_)) {
-                player_->TakeDamage();
+        if (justExploded && !hitPlayerDirectly && fb->GetAOERadius() > 0.0f) {
+            for (Player* p : activePlayers) {
+                float dx = p->GetPosition().x - fb->GetPosition().x;
+                float dy = p->GetPosition().y - fb->GetPosition().y;
+                if (std::sqrt(dx * dx + dy * dy) <= fb->GetAOERadius() && fb->CanHurtPlayer(*p)) {
+                    p->TakeDamage();
+                }
             }
         }
     }
@@ -882,31 +857,22 @@ void GameplayState::Update(float deltaTime) {
 
     // Check collisions with Fire
     for (auto& fire : fires_) {
-        if (!player_->IsDead() && CheckCollisionRecs(player_->GetPhysicsBody().GetRect(), fire->GetRect())) {
-            player_->SetDead(true);
-            AudioManager::PlaySFX(AudioKey::MARIO_DIE);
-        }
-        if (isMultiplayer_ && player2_ && !player2_->IsDead() &&
-            CheckCollisionRecs(player2_->GetPhysicsBody().GetRect(), fire->GetRect())) {
-            player2_->SetDead(true);
-            AudioManager::PlaySFX(AudioKey::MARIO_DIE);
+        for (Player* p : activePlayers) {
+            if (CheckCollisionRecs(p->GetPhysicsBody().GetRect(), fire->GetRect())) {
+                p->SetDead(true);
+                AudioManager::PlaySFX(AudioKey::MARIO_DIE);
+            }
         }
     }
 
     // Kill players instantly when they fall into a pit (map bottom border)
-    if (!player_->IsDead() && player_->GetPosition().y >= tileMap.GetBorderBottom()) {
-        player_->TakeDamage();
-        if (!player_->IsDead()) {
-            player_->SetDead(true);
-            AudioManager::PlaySFX(AudioKey::MARIO_DIE);
-        }
-    }
-    if (isMultiplayer_ && player2_ && !player2_->IsDead() &&
-        player2_->GetPosition().y >= tileMap.GetBorderBottom()) {
-        player2_->TakeDamage();
-        if (!player2_->IsDead()) {
-            player2_->SetDead(true);
-            AudioManager::PlaySFX(AudioKey::MARIO_DIE);
+    for (Player* p : activePlayers) {
+        if (p->GetPosition().y >= tileMap.GetBorderBottom()) {
+            p->TakeDamage();
+            if (!p->IsDead()) {
+                p->SetDead(true);
+                AudioManager::PlaySFX(AudioKey::MARIO_DIE);
+            }
         }
     }
 
@@ -923,34 +889,48 @@ void GameplayState::Update(float deltaTime) {
 
     if (princess_) princess_->Update(deltaTime); // tick idle animation
 
-    if (!isGameWon && !isGameOver && princess_ && !player_->IsDead()) {
-        float dx = (player_->GetPosition().x + player_->GetSize().x / 2.0f) -
-                   (princess_->GetPosition().x + princess_->GetSize().x / 2.0f);
-        float dy = (player_->GetPosition().y + player_->GetSize().y / 2.0f) -
-                   (princess_->GetPosition().y + princess_->GetSize().y / 2.0f);
-        float dist = std::sqrt(dx * dx + dy * dy);
+    if (!isGameWon && !isGameOver && princess_) {
+        for (Player* p : activePlayers) {
+            float dx = (p->GetPosition().x + p->GetSize().x / 2.0f) -
+                       (princess_->GetPosition().x + princess_->GetSize().x / 2.0f);
+            float dy = (p->GetPosition().y + p->GetSize().y / 2.0f) -
+                       (princess_->GetPosition().y + princess_->GetSize().y / 2.0f);
+            float dist = std::sqrt(dx * dx + dy * dy);
 
-        if (dist <= princess_->GetInteractionRadius()) {
-            isGameWon = true;
-            AudioManager::StopBGM();
-            Global::gameStateManager->PushState(std::make_unique<LevelCompleteState>(
-                this, currentLevel.GetLevelNumber(), characterId_, score, timeLeft));
+            if (dist <= princess_->GetInteractionRadius()) {
+                isGameWon = true;
+                AudioManager::StopBGM();
+                Global::gameStateManager->PushState(std::make_unique<LevelCompleteState>(
+                    this, currentLevel.GetLevelNumber(), characterId_, score, timeLeft));
+                break;
+            }
         }
     }
 
     // GoalPipe Win Condition
-    if (goalPipe_ && !isGameWon && !isGameOver && !player_->IsDead()) {
+    if (goalPipe_ && !isGameWon && !isGameOver) {
         if (!goalPipe_->IsTriggered()) {
-            // Check if player walks into the goal pipe
-            if (CheckCollisionRecs(player_->GetPhysicsBody().GetRect(), goalPipe_->GetRect())) {
-                goalPipe_->Trigger(player_->GetPosition());
-                AudioManager::PlaySFX(AudioKey::PIPE_TRAVEL);
+            for (Player* p : activePlayers) {
+                if (CheckCollisionRecs(p->GetPhysicsBody().GetRect(), goalPipe_->GetRect())) {
+                    winningPlayer_ = p;
+                    goalPipe_->Trigger(winningPlayer_->GetPosition());
+                    AudioManager::PlaySFX(AudioKey::PIPE_TRAVEL);
+                    break;
+                }
             }
-        } else {
+        } else if (winningPlayer_) {
             // During slide animation
             goalPipe_->Update(deltaTime);
-            player_->SetPosition(goalPipe_->GetPlayerAnimPos());
+            winningPlayer_->SetPosition(goalPipe_->GetPlayerAnimPos());
             
+            // Stop other players from moving while win animation plays
+            for (Player* p : activePlayers) {
+                if (p != winningPlayer_) {
+                    p->GetPhysicsBody().velocity = {0,0};
+                    p->SetAnimation(p->GetPoseAnimation());
+                }
+            }
+
             if (goalPipe_->IsAnimationComplete()) {
                 isGameWon = true;
                 AudioManager::StopBGM();
@@ -961,19 +941,31 @@ void GameplayState::Update(float deltaTime) {
     }
 
     // Flagpole Win Condition
-    if (flagpole_ && !isGameWon && !isGameOver && !player_->IsDead()) {
+    if (flagpole_ && !isGameWon && !isGameOver) {
         if (!flagpole_->IsSliding() && !flagpole_->IsComplete()) {
-            if (CheckCollisionRecs(player_->GetPhysicsBody().GetRect(), flagpole_->GetTriggerBounds())) {
-                flagpole_->Trigger(player_->GetPosition().y);
-                AudioManager::PlaySFX(AudioKey::DOWN_FLAG_POLE);
-                player_->GetPhysicsBody().velocity = {0,0};
+            for (Player* p : activePlayers) {
+                if (CheckCollisionRecs(p->GetPhysicsBody().GetRect(), flagpole_->GetTriggerBounds())) {
+                    winningPlayer_ = p;
+                    flagpole_->Trigger(winningPlayer_->GetPosition().y);
+                    AudioManager::PlaySFX(AudioKey::DOWN_FLAG_POLE);
+                    winningPlayer_->GetPhysicsBody().velocity = {0,0};
+                    break;
+                }
             }
-        } else if (flagpole_->IsSliding()) {
+        } else if (flagpole_->IsSliding() && winningPlayer_) {
             flagpole_->Update(deltaTime);
-            // Lock Mario to the pole x position and flag y position
-            player_->SetPosition({ flagpole_->GetPoleX() - player_->GetSize().x / 2.0f, flagpole_->GetFlagY() });
-            player_->GetPhysicsBody().velocity = {0,0};
-            player_->SetAnimation(player_->GetSlideAnimation());
+            // Lock winning player to the pole x position and flag y position
+            winningPlayer_->SetPosition({ flagpole_->GetPoleX() - winningPlayer_->GetSize().x / 2.0f, flagpole_->GetFlagY() });
+            winningPlayer_->GetPhysicsBody().velocity = {0,0};
+            winningPlayer_->SetAnimation(winningPlayer_->GetSlideAnimation());
+
+            // Stop other players from moving while win animation plays
+            for (Player* p : activePlayers) {
+                if (p != winningPlayer_) {
+                    p->GetPhysicsBody().velocity = {0,0};
+                    p->SetAnimation(p->GetPoseAnimation());
+                }
+            }
 
             if (flagpole_->IsComplete()) {
                 isGameWon = true;
