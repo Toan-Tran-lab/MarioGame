@@ -346,27 +346,44 @@ void GameplayState::Update(float deltaTime) {
         AudioManager::StopBGM();
     }
 
-    bool onBridge = false;
-    FlyingBridge* riddenBridge = nullptr;
-
+    // Move bridges first so their position is current when Player::Update() runs.
     for (auto& bridge : flyingBridges_) {
+        float oldX = bridge->GetPosition().x;
+        bridge->Update(deltaTime);
+        float deltaX = bridge->GetPosition().x - oldX;
+
+        // Carry the player horizontally if they're standing on this bridge.
+        // Check: feet are within a tolerance window above/on the bridge top,
+        // and the player overlaps it horizontally. This is robust to velocity
+        // direction (works while jumping off, landing, or standing still).
         Rectangle pRect = player_->GetPhysicsBody().GetRect();
         Rectangle bRect = bridge->GetRect();
-        bool isFalling = player_->GetPhysicsBody().velocity.y >= 0.0f;
+        float pBottom = pRect.y + pRect.height;
+        float bTop    = bRect.y;
+        // Horizontal overlap
+        bool hOverlap = (pRect.x + pRect.width > bRect.x) && (pRect.x < bRect.x + bRect.width);
+        // Feet are on or just above the bridge surface (generous 4px above, 4px sinking in)
+        bool onTop = (pBottom >= bTop - 4.0f) && (pBottom <= bTop + 4.0f);
+        bool riding = hOverlap && onTop;
 
-        if (isFalling && CheckCollisionRecs(pRect, bRect)) {
-            float pBottom = pRect.y + pRect.height;
-            float bTop = bRect.y;
-            if (pBottom - bTop < 30.0f) {
-                onBridge = true;
-                riddenBridge = bridge.get();
-                break;
-            }
+        if (riding && deltaX != 0.0f) {
+            Vector2 pos = player_->GetPosition();
+            pos.x += deltaX;
+            player_->SetPosition(pos);
+            player_->SyncPhysicsBody();
         }
     }
 
-    if (onBridge) {
-        player_->GetPhysicsBody().isGrounded = true;
+    // Inject all bridge rects as dynamic solid platforms into the player's collision pass.
+    // Player::Update() will run CollisionSystem against them, setting isGrounded naturally,
+    // which means animation (walk/pose vs jump) and jumping all work without any hacks.
+    {
+        std::vector<Rectangle> bridgeRects;
+        bridgeRects.reserve(flyingBridges_.size());
+        for (auto& bridge : flyingBridges_) {
+            bridgeRects.push_back(bridge->GetRect());
+        }
+        player_->SetDynamicPlatforms(bridgeRects);
     }
 
     player_->Update(deltaTime);
@@ -378,22 +395,6 @@ void GameplayState::Update(float deltaTime) {
         player_->SyncPhysicsBody();
         if (player_->GetPhysicsBody().velocity.x < 0) {
             player_->GetPhysicsBody().velocity.x = 0.0f;
-        }
-    }
-
-    // Move bridges and carry the player if they're riding one
-    for (auto& bridge : flyingBridges_) {
-        float oldX = bridge->GetPosition().x;
-        bridge->Update(deltaTime);
-        float deltaX = bridge->GetPosition().x - oldX;
-
-        if (bridge.get() == riddenBridge) {
-            Vector2 pos = player_->GetPosition();
-            pos.x += deltaX;
-            pos.y = bridge->GetPosition().y - player_->GetSize().y;
-            player_->SetPosition(pos);
-            player_->SyncPhysicsBody();
-            player_->GetPhysicsBody().velocity.y = 0.0f;
         }
     }
 
@@ -563,6 +564,11 @@ void GameplayState::Update(float deltaTime) {
             player_->InteractWith(*dragonBoss_);
             if (!wasDead && dragonBoss_->IsDead()) score += 1000; // boss kill bonus, tune as desired
         }
+        for (auto& b : buzzyBeetles_) {
+            if (b->IsActive() && !b->IsDefeated() && player_->Overlaps(*b)) {
+                player_->InteractWith(*b);
+            }
+        }
     }
 
     // Entity interaction: Koopa vs Goomba
@@ -717,6 +723,8 @@ void GameplayState::Update(float deltaTime) {
             AudioManager::StopBGM();
         }
     }
+
+    if (princess_) princess_->Update(deltaTime); // tick idle animation
 
     if (!isGameWon && !isGameOver && princess_ && !player_->IsDead()) {
         float dx = (player_->GetPosition().x + player_->GetSize().x / 2.0f) -

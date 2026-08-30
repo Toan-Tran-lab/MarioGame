@@ -63,6 +63,10 @@ void Player::SetCollisionGrid(const BlockGrid* grid) {
     collisionGrid_ = grid;
 }
 
+void Player::SetDynamicPlatforms(const std::vector<Rectangle>& platforms) {
+    dynamicPlatforms_ = platforms;
+}
+
 void Player::SetAnimation(const Animation* newAnim) {
     animState.SetAnimation(newAnim);
 }
@@ -153,6 +157,23 @@ void Player::Update(float dt) {
 
     if (collisionGrid_) {
         physics::CollisionSystem::ResolveMapCollisions(physicsBody_, *collisionGrid_);
+    }
+    // Second pass: dynamic moving platforms (e.g. FlyingBridge).
+    // IMPORTANT: ResolveMapCollisions resets isGrounded=false AND hitCeiling=false at the
+    // start of every call. Save both from the BlockGrid pass and merge them back after,
+    // so standing on a normal tile or bonking a block is not cancelled out by the bridge pass.
+    if (!dynamicPlatforms_.empty()) {
+        bool wasGrounded   = physicsBody_.isGrounded;
+        bool wasHitCeiling = physicsBody_.hitCeiling;
+        Rectangle hitCeilingRect = physicsBody_.hitCeilingRect;
+        physics::CollisionSystem::ResolveMapCollisions(physicsBody_, dynamicPlatforms_);
+        physicsBody_.isGrounded = physicsBody_.isGrounded || wasGrounded;
+        // Preserve ceiling hit from BlockGrid pass (bridge pass only overrides if it found a new one)
+        if (!physicsBody_.hitCeiling && wasHitCeiling) {
+            physicsBody_.hitCeiling    = true;
+            physicsBody_.hitCeilingRect = hitCeilingRect;
+        }
+        dynamicPlatforms_.clear(); // consume — caller must re-inject every frame
     }
 
     bool reversing = (input.moveLeft  && physicsBody_.velocity.x > 0.0f) ||

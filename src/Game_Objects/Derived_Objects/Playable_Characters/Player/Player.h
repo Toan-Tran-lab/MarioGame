@@ -12,6 +12,7 @@ class Player : public Character {
 private:
     PlayerState* state = nullptr;
     const BlockGrid* collisionGrid_ = nullptr;
+    std::vector<Rectangle> dynamicPlatforms_; // moving solid platforms injected each frame
     AnimationState animState;
     bool isDead_ = false;
     bool isSmall_ = true;
@@ -34,6 +35,9 @@ public:
     void TakeDamage();
     void TakePowerup(PowerupType type);
     void SetCollisionGrid(const BlockGrid* grid);
+    // Call each frame before Update() to register moving platform rects (e.g. FlyingBridge).
+    // Cleared automatically at the start of the next Update().
+    void SetDynamicPlatforms(const std::vector<Rectangle>& platforms);
     void SetAnimation(const Animation* newAnim);
 
     //Block Hitting Details
