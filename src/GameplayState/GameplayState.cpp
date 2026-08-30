@@ -389,27 +389,44 @@ void GameplayState::Update(float deltaTime) {
         AudioManager::StopBGM();
     }
 
-    bool onBridge = false;
-    FlyingBridge* riddenBridge = nullptr;
-
+    // Move bridges first so their position is current when Player::Update() runs.
     for (auto& bridge : flyingBridges_) {
-        Rectangle pRect = player_->GetPhysicsBody().GetRect();
-        Rectangle bRect = bridge->GetRect();
-        bool isFalling = player_->GetPhysicsBody().velocity.y >= 0.0f;
+        float oldX = bridge->GetPosition().x;
+        bridge->Update(deltaTime);
+        float deltaX = bridge->GetPosition().x - oldX;
 
-        if (isFalling && CheckCollisionRecs(pRect, bRect)) {
+        auto CheckAndCarry = [&](Player* p) {
+            if (!p || p->IsDead()) return;
+            Rectangle pRect = p->GetPhysicsBody().GetRect();
+            Rectangle bRect = bridge->GetRect();
             float pBottom = pRect.y + pRect.height;
-            float bTop = bRect.y;
-            if (pBottom - bTop < 30.0f) {
-                onBridge = true;
-                riddenBridge = bridge.get();
-                break;
+            float bTop    = bRect.y;
+            bool hOverlap = (pRect.x + pRect.width > bRect.x) && (pRect.x < bRect.x + bRect.width);
+            bool onTop = (pBottom >= bTop - 4.0f) && (pBottom <= bTop + 4.0f);
+            
+            if (hOverlap && onTop && deltaX != 0.0f) {
+                Vector2 pos = p->GetPosition();
+                pos.x += deltaX;
+                p->SetPosition(pos);
+                p->SyncPhysicsBody();
             }
-        }
+        };
+
+        CheckAndCarry(player_.get());
+        if (isMultiplayer_) CheckAndCarry(player2_.get());
     }
 
-    if (onBridge) {
-        player_->GetPhysicsBody().isGrounded = true;
+    // Inject all bridge rects as dynamic solid platforms into the player's collision pass.
+    {
+        std::vector<Rectangle> bridgeRects;
+        bridgeRects.reserve(flyingBridges_.size());
+        for (auto& bridge : flyingBridges_) {
+            bridgeRects.push_back(bridge->GetRect());
+        }
+        player_->SetDynamicPlatforms(bridgeRects);
+        if (isMultiplayer_ && player2_) {
+            player2_->SetDynamicPlatforms(bridgeRects);
+        }
     }
 
     player_->Update(deltaTime);
@@ -438,21 +455,7 @@ void GameplayState::Update(float deltaTime) {
         }
     }
 
-    // Move bridges and carry the player if they're riding one
-    for (auto& bridge : flyingBridges_) {
-        float oldX = bridge->GetPosition().x;
-        bridge->Update(deltaTime);
-        float deltaX = bridge->GetPosition().x - oldX;
 
-        if (bridge.get() == riddenBridge) {
-            Vector2 pos = player_->GetPosition();
-            pos.x += deltaX;
-            pos.y = bridge->GetPosition().y - player_->GetSize().y;
-            player_->SetPosition(pos);
-            player_->SyncPhysicsBody();
-            player_->GetPhysicsBody().velocity.y = 0.0f;
-        }
-    }
 
     // Update Goombas (including dying ones — they run their own timer)
     for (auto& g : goombas_) {
@@ -824,6 +827,8 @@ void GameplayState::Update(float deltaTime) {
             AudioManager::StopBGM();
         }
     }
+
+    if (princess_) princess_->Update(deltaTime); // tick idle animation
 
     if (!isGameWon && !isGameOver && princess_ && !player_->IsDead()) {
         float dx = (player_->GetPosition().x + player_->GetSize().x / 2.0f) -

@@ -1,7 +1,7 @@
 #include "Princess.h"
 #include "TextureManager/TextureManager.h"
 
-static const Animation princessIdleAnim("princess_idle", 16, 32, 0, 2, {0.5f});
+static const Animation princessIdleAnim("princess_idle", 16, 32, 0, 5, {0.5f});
 
 Princess::Princess() {
     animState.SetAnimation(&princessIdleAnim);
