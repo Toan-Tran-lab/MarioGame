@@ -581,69 +581,30 @@ void GameplayState::Update(float deltaTime) {
         int row = (int)(hitRect.y / tileMap.GetTileSize());
         Block* block = tileMap.GetBlockGrid().GetBlock(col, row);
         
-        if (block) {
-            // Check if Mario is directly under this specific block
-            if (headX >= hitRect.x && headX <= hitRect.x + hitRect.width) {
-                bool isSmall = player_->IsSmall();
-                
-                if (block->IsLucky()) {
-                    if (block->Bump()) {
-                        auto* lucky = dynamic_cast<Luckyblock*>(block);
-                        LuckyContents contents = lucky ? lucky->GetLastContents() : LuckyContents::Coin;
-
-                        if (contents == LuckyContents::Mushroom) {
-                            auto m = std::make_unique<Mushroom>();
-                            m->SetPosition({ (float)(col * tileMap.GetTileSize()), hitRect.y - 16.0f * Global::GAME_SCALE });
-                            m->SetCollisionGrid(&tileMap.GetBlockGrid());
-                            m->SetActive(true);
-                            mushrooms_.push_back(std::move(m));
-                            AudioManager::PlaySFX(AudioKey::POWERUP_APPEARS);
-                        } else {
-                            auto c_coin = std::make_unique<Coin>();
-                            c_coin->SetPosition({ (float)(col * tileMap.GetTileSize()), hitRect.y - 16.0f * Global::GAME_SCALE });
-                            c_coin->SetSize({ 16.0f * Global::GAME_SCALE, 16.0f * Global::GAME_SCALE });
-                            c_coin->SetPopping(true, -350.0f);
-                            c_coin->SetAwardsScoreOnCollect(false);
-                            coins_.push_back(std::move(c_coin));
-                            score += 100;
-                        }
-                    }
-                    player_->SetCanHitBlock(false);
-                } else {
-                    // Non-lucky block (regular brick or empty luckyblock)
-                    if (isSmall) {
-                        // Mini Mario: Bumps the block (bounces up and down)
-                        block->Bump();
-                    } else {
-                        // Super Mario: Breaks the block into 4 debris fragments and destroys it
-                        std::string texKey;
-                        Rectangle srcRect = { 0, 0, 16, 16 };
-                        bool foundTile = tileMap.RemoveTileAt(col, row, texKey, srcRect);
-                        
-                        Rectangle blockWorldRect = {
-                            (float)(col * tileMap.GetTileSize()),
-                            (float)(row * tileMap.GetTileSize()),
-                            (float)tileMap.GetTileSize(),
-                            (float)tileMap.GetTileSize()
-                        };
-                        
-                        if (foundTile) {
-                            SpawnBlockDebris(debrisList_, blockWorldRect, texKey, srcRect);
-                        } else {
-                            SpawnBlockDebris(debrisList_, blockWorldRect, "luckyblock", { 64.0f, 0.0f, 16.0f, 16.0f });
-                        }
         if (block && headX >= hitRect.x && headX <= hitRect.x + hitRect.width) {
             bool isSmall = p->IsSmall();
             
             if (block->IsLucky()) {
                 if (block->Bump()) {
-                    auto c_coin = std::make_unique<Coin>();
-                    c_coin->SetPosition({ (float)(col * tileMap.GetTileSize()), hitRect.y - 16.0f * Global::GAME_SCALE });
-                    c_coin->SetSize({ 16.0f * Global::GAME_SCALE, 16.0f * Global::GAME_SCALE });
-                    c_coin->SetPopping(true, -350.0f);
-                    c_coin->SetAwardsScoreOnCollect(false);
-                    coins_.push_back(std::move(c_coin));
-                    score += 100;
+                    auto* lucky = dynamic_cast<Luckyblock*>(block);
+                    LuckyContents contents = lucky ? lucky->GetLastContents() : LuckyContents::Coin;
+
+                    if (contents == LuckyContents::Mushroom) {
+                        auto m = std::make_unique<Mushroom>();
+                        m->SetPosition({ (float)(col * tileMap.GetTileSize()), hitRect.y - 16.0f * Global::GAME_SCALE });
+                        m->SetCollisionGrid(&tileMap.GetBlockGrid());
+                        m->SetActive(true);
+                        mushrooms_.push_back(std::move(m));
+                        AudioManager::PlaySFX(AudioKey::POWERUP_APPEARS);
+                    } else {
+                        auto c_coin = std::make_unique<Coin>();
+                        c_coin->SetPosition({ (float)(col * tileMap.GetTileSize()), hitRect.y - 16.0f * Global::GAME_SCALE });
+                        c_coin->SetSize({ 16.0f * Global::GAME_SCALE, 16.0f * Global::GAME_SCALE });
+                        c_coin->SetPopping(true, -350.0f);
+                        c_coin->SetAwardsScoreOnCollect(false);
+                        coins_.push_back(std::move(c_coin));
+                        score += 100;
+                    }
                 }
                 p->SetCanHitBlock(false);
             } else {
