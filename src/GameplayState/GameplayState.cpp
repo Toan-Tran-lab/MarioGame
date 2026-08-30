@@ -431,28 +431,43 @@ void GameplayState::Update(float deltaTime) {
 
     player_->Update(deltaTime);
 
-    // Forward-only camera constraint for P1
+    // Screen bounds constraints
     float cameraLeft = view.GetWorldLeft();
-    if (player_->GetPosition().x < cameraLeft) {
-        player_->SetPosition({cameraLeft, player_->GetPosition().y});
-        player_->SyncPhysicsBody();
-        if (player_->GetPhysicsBody().velocity.x < 0) {
-            player_->GetPhysicsBody().velocity.x = 0.0f;
+    float cameraWidth = (float)GetScreenWidth() / view.GetRawCamera().zoom;
+    float cameraRight = cameraLeft + cameraWidth;
+
+    auto ConstrainPlayerToScreen = [&](Player* p) {
+        if (!p || p->IsDead()) return;
+        
+        float px = p->GetPosition().x;
+        float pWidth = p->GetSize().x;
+        
+        // Left constraint: prevents moving backwards off-screen
+        if (px < cameraLeft) {
+            p->SetPosition({cameraLeft, p->GetPosition().y});
+            p->SyncPhysicsBody();
+            if (p->GetPhysicsBody().velocity.x < 0) {
+                p->GetPhysicsBody().velocity.x = 0.0f;
+            }
         }
-    }
+        
+        // Right constraint: prevents moving forward off-screen.
+        // In multiplayer, this blocks the leading player from leaving the trailing player behind.
+        if (px + pWidth > cameraRight) {
+            p->SetPosition({cameraRight - pWidth, p->GetPosition().y});
+            p->SyncPhysicsBody();
+            if (p->GetPhysicsBody().velocity.x > 0) {
+                p->GetPhysicsBody().velocity.x = 0.0f;
+            }
+        }
+    };
+
+    ConstrainPlayerToScreen(player_.get());
 
     // Update P2 (multiplayer only)
     if (isMultiplayer_ && player2_ && !player2_->IsDead()) {
         player2_->Update(deltaTime);
-
-        // Forward-only camera constraint for P2
-        if (player2_->GetPosition().x < cameraLeft) {
-            player2_->SetPosition({cameraLeft, player2_->GetPosition().y});
-            player2_->SyncPhysicsBody();
-            if (player2_->GetPhysicsBody().velocity.x < 0) {
-                player2_->GetPhysicsBody().velocity.x = 0.0f;
-            }
-        }
+        ConstrainPlayerToScreen(player2_.get());
     }
 
 

@@ -28,7 +28,7 @@ public:
 
     //Attribute Details
     virtual float GetMoveSpeedMultiplier() const { return 1.0f; }
-    virtual float GetJumpForce()           const { return -450.0f; }
+    virtual float GetJumpForce()           const { return -650.0f; }
     virtual float GetGravityMultiplier()   const { return 1.0f; }
     virtual float GetSkidDecel() const { return 0.0f; }
 

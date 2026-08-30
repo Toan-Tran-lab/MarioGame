@@ -32,14 +32,6 @@ namespace physics {
             }
         }
 
-        // Jump Buffering: Remember the jump input for 0.15 seconds (150ms)
-        if (input.jumpPressed) {
-            body.jumpBufferTimer = 0.15f; 
-        }
-        if (body.jumpBufferTimer > 0) {
-            body.jumpBufferTimer -= dt;
-        }
-
         // Vertical Movement (Gravity & Jump)
         float appliedGravity = GRAVITY;
         // Jump hover mechanic: less gravity while ascending and holding jump
@@ -53,11 +45,10 @@ namespace physics {
         }
 
         if (body.isGrounded) {
-            // If we buffered a jump, execute it immediately upon touching the ground!
-            if (body.jumpBufferTimer > 0) {
+            // Jump if grounded and jump key is pressed
+            if (input.jumpPressed) {
                 body.velocity.y = JUMP_FORCE;
                 body.isGrounded = false;
-                body.jumpBufferTimer = 0.0f; // Consume the buffer
             }
         }
 

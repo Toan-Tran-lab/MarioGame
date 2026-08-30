@@ -11,7 +11,6 @@ namespace physics {
         bool isGrounded = false;
         bool hitCeiling = false;
         Rectangle hitCeilingRect = {0,0,0,0};
-        float jumpBufferTimer = 0.0f; // Remembers jump inputs for a few frames
         int aiDirection = -1; // -1 for left, 1 for right
         
         // Helper to get the bounding box for this body

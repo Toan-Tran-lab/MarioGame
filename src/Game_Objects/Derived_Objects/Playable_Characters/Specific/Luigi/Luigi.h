@@ -6,7 +6,7 @@ public:
     Luigi() = default;
 
     //Attribute Override
-    float GetJumpForce()         const override { return -517.5f; } // jumps a bit higher (+15%)
+    float GetJumpForce()         const override { return -750.0f; } // jumps a bit higher
     float GetGravityMultiplier() const override { return 0.9f; }    // floatier fall
     
     //Animation Override
