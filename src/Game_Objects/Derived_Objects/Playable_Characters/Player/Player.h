@@ -2,6 +2,7 @@
 #include "Game_Objects/Core_Header/Characters.h"
 #include "World/TileMap.h"
 #include "Animations/Animation.h"
+#include "physics/InputManager.h"
 #include <vector>
 
 class PlayerState;
@@ -18,6 +19,7 @@ private:
     bool isSitting_ = false;
     bool canHitBlock_ = true;
     float prevVelY_ = 0.0f;
+    physics::PlayerKeyBindings keyBindings_; // per-player hardware key mapping
 
 public:
     Player();
@@ -28,6 +30,9 @@ public:
     virtual float GetJumpForce()           const { return -450.0f; }
     virtual float GetGravityMultiplier()   const { return 1.0f; }
     virtual float GetSkidDecel() const { return 0.0f; }
+
+    // Key bindings — call before the first Update() to assign P1 / P2 keys
+    void SetKeyBindings(const physics::PlayerKeyBindings& bindings) { keyBindings_ = bindings; }
 
     //Display Details
     void SetState(PlayerState* Temp);

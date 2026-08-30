@@ -82,7 +82,7 @@ void Player::Update(float dt) {
     SyncPhysicsBody();
 
     physics::InputState input;
-    physics::InputManager::UpdateInput(input);
+    physics::InputManager::UpdateInput(input, keyBindings_);
     
     // Handle dead state
     if (isDead_) {

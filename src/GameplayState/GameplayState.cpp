@@ -52,6 +52,41 @@ void GameplayState::SetCharacter(int characterId) {
     }
 }
 
+void GameplayState::SetMultiplayer(bool enabled) {
+    isMultiplayer_ = enabled;
+    if (enabled) {
+        // P2 is always the other character
+        characterId2_ = (characterId_ == 0) ? 1 : 0;
+        if (characterId2_ == 1) {
+            player2_ = std::make_unique<Luigi>();
+        } else {
+            player2_ = std::make_unique<Mario>();
+        }
+
+        // P1 key bindings: WASD + Left Shift
+        physics::PlayerKeyBindings p1Bindings;
+        p1Bindings.left    = KEY_A;
+        p1Bindings.right   = KEY_D;
+        p1Bindings.down    = KEY_S;
+        p1Bindings.jump    = KEY_W;
+        p1Bindings.jumpAlt = KEY_SPACE;
+        p1Bindings.sprint  = KEY_LEFT_SHIFT;
+        player_->SetKeyBindings(p1Bindings);
+
+        // P2 key bindings: Arrow keys + Right Shift
+        physics::PlayerKeyBindings p2Bindings;
+        p2Bindings.left    = KEY_LEFT;
+        p2Bindings.right   = KEY_RIGHT;
+        p2Bindings.down    = KEY_DOWN;
+        p2Bindings.jump    = KEY_UP;
+        p2Bindings.jumpAlt = 0; // no alt key
+        p2Bindings.sprint  = KEY_RIGHT_SHIFT;
+        player2_->SetKeyBindings(p2Bindings);
+    } else {
+        player2_.reset();
+    }
+}
+
 void GameplayState::SetSandboxMode(const std::vector<std::vector<SandboxCellData>>& grid) {
     isSandboxMode_ = true;
     sandboxGrid_ = grid;
@@ -171,8 +206,16 @@ void GameplayState::Initialize() {
         player_->SetSize({Global::SUPER_PLAYER_WIDTH * Global::GAME_SCALE, Global::SUPER_PLAYER_HEIGHT * Global::GAME_SCALE}); 
     }
     player_->SyncPhysicsBody();
-    
-    // (We will append Luckyblock rects after they are initialized below)
+
+    // Initialize Player 2 (multiplayer only)
+    if (isMultiplayer_ && player2_) {
+        Vector2 p1Pos = player_->GetPosition();
+        // Spawn P2 one tile to the right of P1 so they don't overlap
+        player2_->SetPosition({ p1Pos.x + Global::TILE_SIZE * Global::GAME_SCALE * 2.0f, p1Pos.y });
+        player2_->SetSize(player_->GetSize()); // match P1's current hitbox size
+        player2_->SyncPhysicsBody();
+        player2_->SetCollisionGrid(&tileMap.GetBlockGrid());
+    }
 
     // Initialize enemies and coins
     goombas_.clear();
@@ -371,13 +414,27 @@ void GameplayState::Update(float deltaTime) {
 
     player_->Update(deltaTime);
 
-    // Forward-only camera constraint (invisible wall on the left)
+    // Forward-only camera constraint for P1
     float cameraLeft = view.GetWorldLeft();
     if (player_->GetPosition().x < cameraLeft) {
         player_->SetPosition({cameraLeft, player_->GetPosition().y});
         player_->SyncPhysicsBody();
         if (player_->GetPhysicsBody().velocity.x < 0) {
             player_->GetPhysicsBody().velocity.x = 0.0f;
+        }
+    }
+
+    // Update P2 (multiplayer only)
+    if (isMultiplayer_ && player2_ && !player2_->IsDead()) {
+        player2_->Update(deltaTime);
+
+        // Forward-only camera constraint for P2
+        if (player2_->GetPosition().x < cameraLeft) {
+            player2_->SetPosition({cameraLeft, player2_->GetPosition().y});
+            player2_->SyncPhysicsBody();
+            if (player2_->GetPhysicsBody().velocity.x < 0) {
+                player2_->GetPhysicsBody().velocity.x = 0.0f;
+            }
         }
     }
 
@@ -565,6 +622,34 @@ void GameplayState::Update(float deltaTime) {
         }
     }
 
+    // Entity interaction: Player 2 vs goombas/koopas/mushroom (multiplayer only)
+    if (isMultiplayer_ && player2_ && !player2_->IsDead()) {
+        for (auto& g : goombas_) {
+            if (g->IsActive() && !g->IsDying() && player2_->Overlaps(*g)) {
+                bool wasDying = g->IsDying();
+                player2_->InteractWith(*g);
+                if (!wasDying && g->IsDying()) score += 100;
+            }
+        }
+        for (auto& k : koopas_) {
+            if (k->IsActive() && player2_->Overlaps(*k)) {
+                KoopaShellState prevState = k->GetState();
+                player2_->InteractWith(*k);
+                if (prevState != KoopaShellState::Hiding && k->GetState() == KoopaShellState::Hiding) {
+                    score += 100;
+                }
+            }
+        }
+        if (mushroom_.IsActive() && player2_->Overlaps(mushroom_)) {
+            player2_->InteractWith(mushroom_);
+        }
+        if (dragonBoss_ && dragonBoss_->IsActive() && !dragonBoss_->IsDead() && player2_->Overlaps(*dragonBoss_)) {
+            bool wasDead = dragonBoss_->IsDead();
+            player2_->InteractWith(*dragonBoss_);
+            if (!wasDead && dragonBoss_->IsDead()) score += 1000;
+        }
+    }
+
     // Entity interaction: Koopa vs Goomba
     for (auto& k : koopas_) {
         if (k->IsActive() && k->GetState() == KoopaShellState::Sliding) {
@@ -613,9 +698,16 @@ void GameplayState::Update(float deltaTime) {
     for (auto& coin : coins_) {
         if (coin->IsActive()) {
             coin->Update(deltaTime);
-            Rectangle pRect = player_->GetPhysicsBody().GetRect();
             Rectangle cRect = { coin->GetPosition().x, coin->GetPosition().y, coin->GetSize().x, coin->GetSize().y };
-            if (CheckCollisionRecs(pRect, cRect)) {
+            // P1 collects
+            if (CheckCollisionRecs(player_->GetPhysicsBody().GetRect(), cRect)) {
+                coin->SetActive(false);
+                AudioManager::PlaySFX(AudioKey::HIT_COIN);
+                if (coin->AwardsScoreOnCollect()) score += 100;
+            }
+            // P2 collects (multiplayer only)
+            else if (isMultiplayer_ && player2_ && !player2_->IsDead() &&
+                     CheckCollisionRecs(player2_->GetPhysicsBody().GetRect(), cRect)) {
                 coin->SetActive(false);
                 AudioManager::PlaySFX(AudioKey::HIT_COIN);
                 if (coin->AwardsScoreOnCollect()) score += 100;
@@ -698,21 +790,36 @@ void GameplayState::Update(float deltaTime) {
             player_->SetDead(true);
             AudioManager::PlaySFX(AudioKey::MARIO_DIE);
         }
+        if (isMultiplayer_ && player2_ && !player2_->IsDead() &&
+            CheckCollisionRecs(player2_->GetPhysicsBody().GetRect(), fire->GetRect())) {
+            player2_->SetDead(true);
+            AudioManager::PlaySFX(AudioKey::MARIO_DIE);
+        }
     }
 
-    // Kill player instantly when they touch the map bottom border (pit fall)
+    // Kill players instantly when they fall into a pit (map bottom border)
     if (!player_->IsDead() && player_->GetPosition().y >= tileMap.GetBorderBottom()) {
-        player_->TakeDamage(); // goes through state machine (SmallState -> die, SuperState -> shrink+die)
-        // Force death regardless of current state — falling into a pit is always lethal
+        player_->TakeDamage();
         if (!player_->IsDead()) {
             player_->SetDead(true);
             AudioManager::PlaySFX(AudioKey::MARIO_DIE);
         }
     }
+    if (isMultiplayer_ && player2_ && !player2_->IsDead() &&
+        player2_->GetPosition().y >= tileMap.GetBorderBottom()) {
+        player2_->TakeDamage();
+        if (!player2_->IsDead()) {
+            player2_->SetDead(true);
+            AudioManager::PlaySFX(AudioKey::MARIO_DIE);
+        }
+    }
 
-    // Handle player death (Game Over when falling off map)
-    if (player_->IsDead()) {
-        if (player_->GetPosition().y > tileMap.GetBorderBottom() + 100) {
+    // Game Over: in multiplayer, wait until BOTH players have fallen off-screen
+    {
+        bool p1OffScreen = player_->IsDead() && player_->GetPosition().y > tileMap.GetBorderBottom() + 100;
+        bool p2OffScreen = !isMultiplayer_ || !player2_ ||
+                           (player2_->IsDead() && player2_->GetPosition().y > tileMap.GetBorderBottom() + 100);
+        if (p1OffScreen && p2OffScreen) {
             isGameOver = true;
             AudioManager::StopBGM();
         }
@@ -779,7 +886,13 @@ void GameplayState::Update(float deltaTime) {
         }
     }
 
-    view.Update(player_->GetPosition().x, player_->GetPosition().y);
+    // Shared camera: track midpoint between players in multiplayer, P1 in solo
+    float camTargetX = player_->GetPosition().x;
+    float camTargetY = player_->GetPosition().y;
+    if (isMultiplayer_ && player2_) {
+        camTargetX = (player_->GetPosition().x + player2_->GetPosition().x) / 2.0f;
+    }
+    view.Update(camTargetX, camTargetY);
 }
 
 void GameplayState::Draw() {
@@ -799,6 +912,9 @@ void GameplayState::Draw() {
     }
 
     player_->Draw();
+    if (isMultiplayer_ && player2_) {
+        player2_->Draw();
+    }
 
     if (clipPlayer) {
         EndScissorMode();
@@ -894,4 +1010,5 @@ void GameplayState::Cleanup() {
     flyingBridges_.clear();
     goalPipe_.reset();
     fires_.clear();
+    player2_.reset();
 }

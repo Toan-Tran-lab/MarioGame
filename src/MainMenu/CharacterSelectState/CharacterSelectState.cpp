@@ -38,7 +38,12 @@ void CharacterSelectState::Update(float deltaTime) {
         selectedCharacter = !selectedCharacter;
     }
 
-    if (IsKeyPressed(Global::keys.select) || IsKeyPressed(KEY_ENTER)) {
+    // TAB toggles 2-player mode
+    if (IsKeyPressed(KEY_TAB)) {
+        isMultiplayer_ = !isMultiplayer_;
+    }
+
+    auto launchGame = [&]() {
         auto gameplay = std::make_unique<GameplayState>();
         if (isSandboxMode_) {
             gameplay->SetSandboxMode(sandboxGrid_);
@@ -46,7 +51,14 @@ void CharacterSelectState::Update(float deltaTime) {
             gameplay->SetLevel(selectedLevel);
         }
         gameplay->SetCharacter(selectedCharacter);
+        if (isMultiplayer_) {
+            gameplay->SetMultiplayer(true);
+        }
         Global::gameStateManager->PushState(std::move(gameplay));
+    };
+
+    if (IsKeyPressed(Global::keys.select) || IsKeyPressed(KEY_ENTER)) {
+        launchGame();
     }
 
     if (IsKeyPressed(Global::keys.back) || IsKeyPressed(KEY_ESCAPE)) {
@@ -72,14 +84,7 @@ void CharacterSelectState::Update(float deltaTime) {
     
     if (IsMouseButtonPressed(MOUSE_BUTTON_LEFT)) {
         if (CheckCollisionPointRec(mousePos, marioRect) || CheckCollisionPointRec(mousePos, luigiRect)) {
-            auto gameplay = std::make_unique<GameplayState>();
-            if (isSandboxMode_) {
-                gameplay->SetSandboxMode(sandboxGrid_);
-            } else {
-                gameplay->SetLevel(selectedLevel);
-            }
-            gameplay->SetCharacter(selectedCharacter);
-            Global::gameStateManager->PushState(std::move(gameplay));
+            launchGame();
         }
     }
 }
@@ -154,6 +159,14 @@ void CharacterSelectState::Draw() {
     float x = sw - spacing * 2.5f;
 
     UIUtils::DrawKeyPrompt("ESC", "BACK", x, barY + 5, barFontSize, spacing);
+
+    // 2P mode indicator
+    const char* modeLabel = isMultiplayer_ ? "2P MODE: ON" : "2P MODE: OFF";
+    Color modeColor = isMultiplayer_ ? GREEN : GRAY;
+    int modeLabelW = MeasureText(modeLabel, barFontSize);
+    DrawText(modeLabel, (int)(sw * 0.05f), barY + 5, barFontSize, modeColor);
+    int tabHintW = MeasureText("[TAB] TOGGLE", barFontSize);
+    DrawText("[TAB] TOGGLE", (int)(sw * 0.05f + modeLabelW + 16), barY + 5, barFontSize, LIGHTGRAY);
 }
 
 void CharacterSelectState::Cleanup() {}
