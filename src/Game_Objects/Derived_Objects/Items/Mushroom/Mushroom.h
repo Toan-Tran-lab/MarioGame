@@ -10,6 +10,8 @@ private:
     AnimationState animState;
     const BlockGrid* collisionGrid_ = nullptr;
 
+    bool physicsSynced_ = false;
+
 public:
     Mushroom();
 

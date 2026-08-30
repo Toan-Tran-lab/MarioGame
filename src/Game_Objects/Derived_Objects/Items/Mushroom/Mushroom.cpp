@@ -18,6 +18,11 @@ Mushroom::Mushroom() {
 
 void Mushroom::Update(float dt) {
     if (!IsActive()) return;
+
+    if (!physicsSynced_) {
+        SyncPhysicsBody();
+        physicsSynced_ = true;
+    }
     
     physics::InputState noInput;
     noInput.ignorePhysics = true; // Let the physics engine know it's a simple entity
