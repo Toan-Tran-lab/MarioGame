@@ -3,6 +3,7 @@
 #include "MainMenu/SaveLoadState/SaveLoadState.h"
 #include "GameplayState/GameplayState.h"
 #include "Global/Global.h"
+#include "AudioManager/AudioManager.h"
 #include <cmath>
 
 PauseMenuState::PauseMenuState(GameplayState* parent) 
@@ -16,6 +17,7 @@ void PauseMenuState::Initialize() {
         {"QUIT LEVEL", true},
         {"EXIT TO MENU", true}
     };
+    AudioManager::PauseBGM();
 }
 
 Rectangle PauseMenuState::GetItemRect(int index, float sw, float sh) const {
@@ -54,6 +56,7 @@ void PauseMenuState::Update(float deltaTime) {
             if (CheckCollisionPointRec(mousePos, GetItemRect(i, sw, sh))) {
                 switch (i) {
                     case 0: // RESUME
+                        AudioManager::ResumeBGM();
                         Global::gameStateManager->PopState();
                         return;
                     case 1: // SAVE GAME
@@ -77,7 +80,7 @@ void PauseMenuState::Update(float deltaTime) {
     // Enter key action
     if (IsKeyPressed(Global::keys.select)) {
         switch (selectedIndex) {
-            case 0: Global::gameStateManager->PopState(); return;
+            case 0: AudioManager::ResumeBGM(); Global::gameStateManager->PopState(); return;
             case 1: Global::gameStateManager->PushState(std::make_unique<SaveLoadState>(SaveLoadState::Mode::Save, parentState)); return;
             case 2: Global::gameStateManager->PushState(std::make_unique<SettingsState>()); return;
             case 3: // QUIT LEVEL
@@ -90,6 +93,7 @@ void PauseMenuState::Update(float deltaTime) {
 
     // Pressing ESC again resumes game
     if (IsKeyPressed(Global::keys.pause)) {
+        AudioManager::ResumeBGM();
         Global::gameStateManager->PopState();
     }
 }
@@ -123,4 +127,9 @@ void PauseMenuState::Draw() {
     }
 }
 
-void PauseMenuState::Cleanup() {}
+void PauseMenuState::Cleanup() {
+    // Safety net: if the state is popped without going through a menu action
+    // (e.g. programmatic pop), ensure BGM isn't left paused indefinitely.
+    // ResumeBGM is a no-op if the music is already playing.
+    AudioManager::ResumeBGM();
+}
