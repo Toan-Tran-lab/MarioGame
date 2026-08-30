@@ -55,9 +55,6 @@ Rectangle TextureManager::GetSourceRect(const std::string& key, int tileWidth, i
     float w = (float)tileWidth;
     float h = (float)tileHeight;
 
-    // No inset is needed when using TEXTURE_FILTER_POINT and pixel-perfect snapping.
-    // (The 0.5f inset was causing the first column/row of pixels to be skipped during nearest-neighbor rounding, slicing sprites).
-
     return Rectangle{ x, y, w, h };
 }
 
