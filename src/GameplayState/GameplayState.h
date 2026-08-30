@@ -57,6 +57,10 @@ private:
     bool isSandboxMode_ = false;
     std::vector<std::vector<SandboxCellData>> sandboxGrid_;
 
+    float smoothedCamX_ = 0.0f;
+    float smoothedCamY_ = 0.0f;
+    bool firstCameraInit_ = true;
+
     // HUD & Game Data
     int score = 0;
     float timeLeft = 300.0f; // 300 seconds default

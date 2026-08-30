@@ -97,6 +97,7 @@ void GameplayState::ResetForNewLevel() {
     timeLeft = 300.0f;
     isGameOver = false;
     isGameWon = false;
+    firstCameraInit_ = true;
 
     // Reset player's position to (0,0) so that Initialize() knows to pick up the new level's spawn point
     if (player_) {
@@ -133,6 +134,8 @@ SaveData GameplayState::GetSaveData() const {
 }
 
 void GameplayState::Initialize() {
+    firstCameraInit_ = true;
+    
     // Load the tilemap based on sandbox mode or level selection
     if (isSandboxMode_) {
         if (!tileMap.LoadFromSandbox(sandboxGrid_)) {
@@ -452,7 +455,6 @@ void GameplayState::Update(float deltaTime) {
         }
         
         // Right constraint: prevents moving forward off-screen.
-        // In multiplayer, this blocks the leading player from leaving the trailing player behind.
         if (px + pWidth > cameraRight) {
             p->SetPosition({cameraRight - pWidth, p->GetPosition().y});
             p->SyncPhysicsBody();
@@ -462,12 +464,16 @@ void GameplayState::Update(float deltaTime) {
         }
     };
 
-    ConstrainPlayerToScreen(player_.get());
+    if (!player_->IsDead()) {
+        ConstrainPlayerToScreen(player_.get());
+    }
 
     // Update P2 (multiplayer only)
-    if (isMultiplayer_ && player2_ && !player2_->IsDead()) {
+    if (isMultiplayer_ && player2_) {
         player2_->Update(deltaTime);
-        ConstrainPlayerToScreen(player2_.get());
+        if (!player2_->IsDead()) {
+            ConstrainPlayerToScreen(player2_.get());
+        }
     }
 
 
@@ -564,64 +570,62 @@ void GameplayState::Update(float deltaTime) {
     debrisList_.erase(std::remove_if(debrisList_.begin(), debrisList_.end(),
         [](const DebrisPiece& d) { return !d.active; }), debrisList_.end());
 
-    if (player_->CanHitBlock() && player_->GetPhysicsBody().hitCeiling) {
-        Rectangle hitRect = player_->GetPhysicsBody().hitCeilingRect;
-        float headX = player_->GetPosition().x + player_->GetSize().x / 2.0f;
+    auto HandleBlockHit = [&](Player* p) {
+        if (!p || p->IsDead() || !p->CanHitBlock() || !p->GetPhysicsBody().hitCeiling) return;
         
-        // Find which block we hit in the grid based on Mario's head X and the ceiling Y
+        Rectangle hitRect = p->GetPhysicsBody().hitCeilingRect;
+        float headX = p->GetPosition().x + p->GetSize().x / 2.0f;
+        
         int col = (int)(headX / tileMap.GetTileSize());
         int row = (int)(hitRect.y / tileMap.GetTileSize());
         Block* block = tileMap.GetBlockGrid().GetBlock(col, row);
         
-        if (block) {
-            // Check if Mario is directly under this specific block
-            if (headX >= hitRect.x && headX <= hitRect.x + hitRect.width) {
-                bool isSmall = player_->IsSmall();
-                
-                if (block->IsLucky()) {
-                    // Active Luckyblock (has coin): spawns item/coin and bounces (cannot break on first hit)
-                    if (block->Bump()) {
-                        auto c_coin = std::make_unique<Coin>();
-                        c_coin->SetPosition({ (float)(col * tileMap.GetTileSize()), hitRect.y - 16.0f * Global::GAME_SCALE });
-                        c_coin->SetSize({ 16.0f * Global::GAME_SCALE, 16.0f * Global::GAME_SCALE });
-                        c_coin->SetPopping(true, -350.0f);
-                        c_coin->SetAwardsScoreOnCollect(false); // score already granted on the bump itself
-                        coins_.push_back(std::move(c_coin));
-                        score += 100;
-                    }
-                    player_->SetCanHitBlock(false);
-                } else {
-                    // Non-lucky block (regular brick or empty luckyblock)
-                    if (isSmall) {
-                        // Mini Mario: Bumps the block (bounces up and down)
-                        block->Bump();
-                    } else {
-                        // Super Mario: Breaks the block into 4 debris fragments and destroys it
-                        std::string texKey;
-                        Rectangle srcRect = { 0, 0, 16, 16 };
-                        bool foundTile = tileMap.RemoveTileAt(col, row, texKey, srcRect);
-                        
-                        Rectangle blockWorldRect = {
-                            (float)(col * tileMap.GetTileSize()),
-                            (float)(row * tileMap.GetTileSize()),
-                            (float)tileMap.GetTileSize(),
-                            (float)tileMap.GetTileSize()
-                        };
-                        
-                        if (foundTile) {
-                            SpawnBlockDebris(debrisList_, blockWorldRect, texKey, srcRect);
-                        } else {
-                            SpawnBlockDebris(debrisList_, blockWorldRect, "luckyblock", { 64.0f, 0.0f, 16.0f, 16.0f });
-                        }
-
-                        // Remove block from collision grid
-                        tileMap.GetBlockGrid().SetBlock(col, row, nullptr);
-                        score += 50;
-                    }
-                    player_->SetCanHitBlock(false);
+        if (block && headX >= hitRect.x && headX <= hitRect.x + hitRect.width) {
+            bool isSmall = p->IsSmall();
+            
+            if (block->IsLucky()) {
+                if (block->Bump()) {
+                    auto c_coin = std::make_unique<Coin>();
+                    c_coin->SetPosition({ (float)(col * tileMap.GetTileSize()), hitRect.y - 16.0f * Global::GAME_SCALE });
+                    c_coin->SetSize({ 16.0f * Global::GAME_SCALE, 16.0f * Global::GAME_SCALE });
+                    c_coin->SetPopping(true, -350.0f);
+                    c_coin->SetAwardsScoreOnCollect(false);
+                    coins_.push_back(std::move(c_coin));
+                    score += 100;
                 }
+                p->SetCanHitBlock(false);
+            } else {
+                if (isSmall) {
+                    block->Bump();
+                } else {
+                    std::string texKey;
+                    Rectangle srcRect = { 0, 0, 16, 16 };
+                    bool foundTile = tileMap.RemoveTileAt(col, row, texKey, srcRect);
+                    
+                    Rectangle blockWorldRect = {
+                        (float)(col * tileMap.GetTileSize()),
+                        (float)(row * tileMap.GetTileSize()),
+                        (float)tileMap.GetTileSize(),
+                        (float)tileMap.GetTileSize()
+                    };
+                    
+                    if (foundTile) {
+                        SpawnBlockDebris(debrisList_, blockWorldRect, texKey, srcRect);
+                    } else {
+                        SpawnBlockDebris(debrisList_, blockWorldRect, "luckyblock", { 64.0f, 0.0f, 16.0f, 16.0f });
+                    }
+
+                    tileMap.GetBlockGrid().SetBlock(col, row, nullptr);
+                    score += 50;
+                }
+                p->SetCanHitBlock(false);
             }
         }
+    };
+
+    HandleBlockHit(player_.get());
+    if (isMultiplayer_ && player2_) {
+        HandleBlockHit(player2_.get());
     }
 
     if (mushroom_.IsActive()) {
@@ -1001,7 +1005,18 @@ void GameplayState::Update(float deltaTime) {
         camTargetX = player_->GetPosition().x;
         camTargetY = player_->GetPosition().y;
     }
-    view.Update(camTargetX, camTargetY);
+    if (firstCameraInit_) {
+        smoothedCamX_ = camTargetX;
+        smoothedCamY_ = camTargetY;
+        firstCameraInit_ = false;
+    } else {
+        // Smoothly interpolate towards the target to prevent sudden forward snaps when a player dies
+        float camLerpSpeed = 5.0f; 
+        smoothedCamX_ += (camTargetX - smoothedCamX_) * camLerpSpeed * deltaTime;
+        smoothedCamY_ += (camTargetY - smoothedCamY_) * camLerpSpeed * deltaTime;
+    }
+    
+    view.Update(smoothedCamX_, smoothedCamY_);
 }
 
 void GameplayState::Draw() {
