@@ -42,7 +42,7 @@ private:
     std::unique_ptr<Princess> princess_;
     std::unique_ptr<GoalPipe> goalPipe_;
     std::unique_ptr<Flagpole> flagpole_;
-    Mushroom mushroom_;
+    std::vector<std::unique_ptr<Mushroom>> mushrooms_;
     std::vector<std::unique_ptr<FlyingBridge>> flyingBridges_;
     std::vector<std::unique_ptr<Fire>> fires_;
 

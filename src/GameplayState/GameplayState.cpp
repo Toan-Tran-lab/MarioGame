@@ -184,6 +184,7 @@ void GameplayState::Initialize() {
     princess_.reset();
     goalPipe_.reset();
     flagpole_.reset();
+    mushrooms_.clear();
     flyingBridges_.clear();
     fires_.clear();
 
@@ -300,11 +301,6 @@ void GameplayState::Initialize() {
 
     // Now pass the block grid to the player
     player_->SetCollisionGrid(&tileMap.GetBlockGrid());
-
-    // Initialize mushroom
-    mushroom_.SetPosition({ 300, 400 });
-    mushroom_.SetCollisionGrid(&tileMap.GetBlockGrid());
-    mushroom_.SetActive(false);
 
     // Initialize camera
     view = View(16.0f, (float)tileMap.GetTileSize());
@@ -432,8 +428,11 @@ void GameplayState::Update(float deltaTime) {
                 coins_.push_back(std::move(c_coin));
             }
             // ...plus one power-up, reusing the existing Mushroom spawn pattern.
-            mushroom_.SetPosition({ origin.x, origin.y - 40.0f });
-            mushroom_.SetActive(true);
+            auto m = std::make_unique<Mushroom>();
+            m->SetPosition({ origin.x, origin.y - 40.0f });
+            m->SetCollisionGrid(&tileMap.GetBlockGrid());
+            m->SetActive(true);
+            mushrooms_.push_back(std::move(m));
             AudioManager::PlaySFX(AudioKey::POWERUP_APPEARS);
         }
 
@@ -482,15 +481,26 @@ void GameplayState::Update(float deltaTime) {
                 bool isSmall = player_->IsSmall();
                 
                 if (block->IsLucky()) {
-                    // Active Luckyblock (has coin): spawns item/coin and bounces (cannot break on first hit)
                     if (block->Bump()) {
-                        auto c_coin = std::make_unique<Coin>();
-                        c_coin->SetPosition({ (float)(col * tileMap.GetTileSize()), hitRect.y - 16.0f * Global::GAME_SCALE });
-                        c_coin->SetSize({ 16.0f * Global::GAME_SCALE, 16.0f * Global::GAME_SCALE });
-                        c_coin->SetPopping(true, -350.0f);
-                        c_coin->SetAwardsScoreOnCollect(false); // score already granted on the bump itself
-                        coins_.push_back(std::move(c_coin));
-                        score += 100;
+                        auto* lucky = dynamic_cast<Luckyblock*>(block);
+                        LuckyContents contents = lucky ? lucky->GetLastContents() : LuckyContents::Coin;
+
+                        if (contents == LuckyContents::Mushroom) {
+                            auto m = std::make_unique<Mushroom>();
+                            m->SetPosition({ (float)(col * tileMap.GetTileSize()), hitRect.y - 16.0f * Global::GAME_SCALE });
+                            m->SetCollisionGrid(&tileMap.GetBlockGrid());
+                            m->SetActive(true);
+                            mushrooms_.push_back(std::move(m));
+                            AudioManager::PlaySFX(AudioKey::POWERUP_APPEARS);
+                        } else {
+                            auto c_coin = std::make_unique<Coin>();
+                            c_coin->SetPosition({ (float)(col * tileMap.GetTileSize()), hitRect.y - 16.0f * Global::GAME_SCALE });
+                            c_coin->SetSize({ 16.0f * Global::GAME_SCALE, 16.0f * Global::GAME_SCALE });
+                            c_coin->SetPopping(true, -350.0f);
+                            c_coin->SetAwardsScoreOnCollect(false);
+                            coins_.push_back(std::move(c_coin));
+                            score += 100;
+                        }
                     }
                     player_->SetCanHitBlock(false);
                 } else {
@@ -527,8 +537,10 @@ void GameplayState::Update(float deltaTime) {
         }
     }
 
-    if (mushroom_.IsActive()) {
-        mushroom_.Update(deltaTime);
+    for (auto& m : mushrooms_) {
+        if (m->IsActive()) {
+            m->Update(deltaTime);
+        }
     }
 
     // Entity interaction: player vs goombas/koopas/mushroom
@@ -555,8 +567,10 @@ void GameplayState::Update(float deltaTime) {
                 }
             }
         }
-        if (mushroom_.IsActive() && player_->Overlaps(mushroom_)) {
-            player_->InteractWith(mushroom_);
+        for (auto& m : mushrooms_) {
+            if (m->IsActive() && player_->Overlaps(*m)) {
+                player_->InteractWith(*m);
+            }
         }
         if (dragonBoss_ && dragonBoss_->IsActive() && !dragonBoss_->IsDead() && player_->Overlaps(*dragonBoss_)) {
             bool wasDead = dragonBoss_->IsDead();
@@ -834,8 +848,10 @@ void GameplayState::Draw() {
             coin->Draw();
         }
     }
-    if (mushroom_.IsActive()) {
-        mushroom_.Draw();
+    for (auto& m : mushrooms_) {
+        if (m->IsActive()) {
+            m->Draw();
+        }
     }
 
     for (const auto& d : debrisList_) {
@@ -893,5 +909,6 @@ void GameplayState::Cleanup() {
     princess_.reset();
     flyingBridges_.clear();
     goalPipe_.reset();
+    mushrooms_.clear();
     fires_.clear();
 }

@@ -13,6 +13,7 @@ Mushroom::Mushroom() {
     size_ = {Global::TILE_SIZE * Global::GAME_SCALE, Global::TILE_SIZE * Global::GAME_SCALE};
     physicsBody_.size = {Global::TILE_SIZE * Global::GAME_SCALE, Global::TILE_SIZE * Global::GAME_SCALE};
     physicsBody_.aiDirection = 1;
+    SetActive(false);
 }
 
 void Mushroom::Update(float dt) {
