@@ -12,6 +12,7 @@ namespace physics {
         bool hitCeiling = false;
         Rectangle hitCeilingRect = {0,0,0,0};
         int aiDirection = -1; // -1 for left, 1 for right
+        bool isTracking = false;
         
         // Helper to get the bounding box for this body
         Rectangle GetRect() const {

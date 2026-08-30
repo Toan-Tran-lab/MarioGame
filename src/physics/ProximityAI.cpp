@@ -3,22 +3,41 @@
 
 namespace physics {
 
-    void ProximityAI::UpdateAI(PhysicsBody& enemy, const PhysicsBody& player, float detectionRadius, float dt, InputState& outInput, const BlockGrid& blockGrid) {
-        float dx = player.position.x - enemy.position.x;
-        float dy = player.position.y - enemy.position.y;
-        float distance = std::sqrt(dx * dx + dy * dy);
-
+    void ProximityAI::UpdateAI(PhysicsBody& enemy, const PhysicsBody* player, float detectionRadius, float dt, InputState& outInput, const BlockGrid& blockGrid) {
         // Reset inputs and tell physics engine to bypass acceleration/friction
         outInput = InputState();
         outInput.ignorePhysics = true;
 
         constexpr float ENEMY_SPEED = 100.0f;
+        
+        bool chase = false;
+        float dx = 0.0f;
+        
+        if (player) {
+            dx = player->position.x - enemy.position.x;
+            float dy = player->position.y - enemy.position.y;
+            float distance = std::sqrt(dx * dx + dy * dy);
+            
+            if (distance < detectionRadius) {
+                chase = true;
+            }
+        }
+        
+        enemy.isTracking = chase;
 
-        if (distance < detectionRadius) {
-            // Track player
-            enemy.aiDirection = (dx > 0) ? 1 : -1;
+        if (chase) {
+            // Player is close. Check if directly above or below to avoid jitter.
+            if (std::abs(dx) < 16.0f) {
+                enemy.aiDirection = 0; // Stop moving if directly aligned vertically
+            } else {
+                enemy.aiDirection = (dx > 0) ? 1 : -1;
+            }
         } else {
             // Idle state: Patrol left/right
+            if (enemy.aiDirection == 0) {
+                enemy.aiDirection = 1; // Kickstart movement if we were stopped
+            }
+            
             if (std::abs(enemy.velocity.x) < 0.1f) {
                 // If velocity was zeroed by the collision system last frame, we hit a wall
                 enemy.aiDirection *= -1;

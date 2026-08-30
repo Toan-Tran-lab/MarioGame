@@ -472,9 +472,26 @@ void GameplayState::Update(float deltaTime) {
 
 
 
+    // Dynamic AI Targeting: Find the closest alive player for enemies
+    auto GetTargetPlayer = [&](const Vector2& enemyPos) -> Player* {
+        bool p1Alive = player_ && !player_->IsDead();
+        bool p2Alive = isMultiplayer_ && player2_ && !player2_->IsDead();
+        
+        if (p1Alive && p2Alive) {
+            float d1 = std::abs(player_->GetPosition().x - enemyPos.x) + std::abs(player_->GetPosition().y - enemyPos.y);
+            float d2 = std::abs(player2_->GetPosition().x - enemyPos.x) + std::abs(player2_->GetPosition().y - enemyPos.y);
+            return (d1 < d2) ? player_.get() : player2_.get();
+        }
+        if (p1Alive) return player_.get();
+        if (p2Alive) return player2_.get();
+        return nullptr; // Both dead or absent
+    };
+
     // Update Goombas (including dying ones — they run their own timer)
     for (auto& g : goombas_) {
         if (g->IsActive()) {
+            Player* target = GetTargetPlayer(g->GetPosition());
+            g->SetPlayerBody(target ? &target->GetPhysicsBody() : nullptr);
             g->Update(deltaTime);
         }
     }
@@ -482,6 +499,8 @@ void GameplayState::Update(float deltaTime) {
     // Update Koopas
     for (auto& k : koopas_) {
         if (k->IsActive()) {
+            Player* target = GetTargetPlayer(k->GetPosition());
+            k->SetPlayerBody(target ? &target->GetPhysicsBody() : nullptr);
             k->Update(deltaTime);
         }
     }
@@ -489,11 +508,14 @@ void GameplayState::Update(float deltaTime) {
     // Update Buzzy Beetle
     for (auto& b : buzzyBeetles_) {
         if (b->IsActive()) {
+            Player* target = GetTargetPlayer(b->GetPosition());
+            b->SetPlayerBody(target ? &target->GetPhysicsBody() : nullptr);
             b->Update(deltaTime);
         }
     }
 
     if (dragonBoss_ && dragonBoss_->IsActive()) {
+        dragonBoss_->SetPlayerRef(GetTargetPlayer(dragonBoss_->GetPosition()));
         dragonBoss_->Update(deltaTime);
 
         if (dragonBoss_->ConsumeItemScatterRequest()) {
@@ -665,6 +687,58 @@ void GameplayState::Update(float deltaTime) {
             bool wasDead = dragonBoss_->IsDead();
             player2_->InteractWith(*dragonBoss_);
             if (!wasDead && dragonBoss_->IsDead()) score += 1000;
+        }
+    }
+
+    // Unified Enemy-to-Enemy physical collision resolution
+    std::vector<GroundEnemy*> activeEnemies;
+    for (auto& g : goombas_) if (g->IsActive() && !g->IsDying()) activeEnemies.push_back(g.get());
+    for (auto& k : koopas_) if (k->IsActive()) activeEnemies.push_back(k.get());
+    for (auto& b : buzzyBeetles_) if (b->IsActive() && !b->IsDefeated()) activeEnemies.push_back(b.get());
+
+    for (size_t i = 0; i < activeEnemies.size(); ++i) {
+        for (size_t j = i + 1; j < activeEnemies.size(); ++j) {
+            auto* e1 = activeEnemies[i];
+            auto* e2 = activeEnemies[j];
+            
+            // Do not push apart if one is a sliding shell (let the interact logic handle it)
+            bool e1Sliding = (dynamic_cast<KoopaShell*>(e1) && static_cast<KoopaShell*>(e1)->GetState() == KoopaShellState::Sliding);
+            bool e2Sliding = (dynamic_cast<KoopaShell*>(e2) && static_cast<KoopaShell*>(e2)->GetState() == KoopaShellState::Sliding);
+            if (e1Sliding || e2Sliding) continue;
+
+            if (e1->Overlaps(*e2)) {
+                // Calculate horizontal penetration
+                float e1Center = e1->GetPosition().x + e1->GetSize().x / 2.0f;
+                float e2Center = e2->GetPosition().x + e2->GetSize().x / 2.0f;
+                float dist = std::abs(e1Center - e2Center);
+                float minDist = (e1->GetSize().x + e2->GetSize().x) / 2.0f;
+                
+                // Only push if there's significant overlap horizontally, and vertically they are aligned
+                float e1CenterY = e1->GetPosition().y + e1->GetSize().y / 2.0f;
+                float e2CenterY = e2->GetPosition().y + e2->GetSize().y / 2.0f;
+                if (std::abs(e1CenterY - e2CenterY) < 16.0f) {
+                    if (dist < minDist) {
+                        float push = (minDist - dist) / 2.0f;
+                        if (e1Center < e2Center) {
+                            e1->SetPosition({ e1->GetPosition().x - push, e1->GetPosition().y });
+                            e2->SetPosition({ e2->GetPosition().x + push, e2->GetPosition().y });
+                        } else {
+                            e1->SetPosition({ e1->GetPosition().x + push, e1->GetPosition().y });
+                            e2->SetPosition({ e2->GetPosition().x - push, e2->GetPosition().y });
+                        }
+                        e1->SyncPhysicsBody();
+                        e2->SyncPhysicsBody();
+                        
+                        // Bounce off if idle (not tracking)
+                        if (!e1->GetPhysicsBody().isTracking) {
+                            e1->GetPhysicsBody().aiDirection = (e1Center < e2Center) ? -1 : 1;
+                        }
+                        if (!e2->GetPhysicsBody().isTracking) {
+                            e2->GetPhysicsBody().aiDirection = (e2Center < e1Center) ? -1 : 1;
+                        }
+                    }
+                }
+            }
         }
     }
 
