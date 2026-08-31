@@ -56,7 +56,7 @@ void SuperState::OnPowerup(Player& player, PowerupType type) {
 void FireState::Enter(Player& player) {
     player.SetIsSmall(false);
     player.SetSize({Global::SUPER_PLAYER_WIDTH * Global::GAME_SCALE, Global::SUPER_PLAYER_HEIGHT * Global::GAME_SCALE});
-    player.SetTint(Color{ 255, 100, 100, 255 }); // Red-ish tint for Fire Mario
+    player.SetTint(WHITE); // Now uses real sprites! No tint needed!
 }
 
 void FireState::OnHit(Player& player) {

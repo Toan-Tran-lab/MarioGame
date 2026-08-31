@@ -166,6 +166,12 @@ void GameplayState::Initialize() {
     TextureManager::Load("mario_mini_die", "assets/textures/Mario-mini/die/mario.png");
     TextureManager::Load("mario_mini_sit", "assets/textures/Mario/sit/mario.png"); // using normal sit if mini sit isn't provided
 
+    // Fire Mario
+    TextureManager::Load("fire_mario_walk", "assets/textures/Fire Mario/walk/fireMario.png");
+    TextureManager::Load("fire_mario_jump", "assets/textures/Fire Mario/jump/fireMario.png");
+    TextureManager::Load("fire_mario_slide", "assets/textures/Fire Mario/slide/fireMario.png");
+    TextureManager::Load("fire_mario_sit", "assets/textures/Fire Mario/sit/fireMario.png");
+
     // Luigi Normal
     TextureManager::Load("luigi_pose", "assets/textures/Luigi/pose/luigi.png");
     TextureManager::Load("luigi_walk", "assets/textures/Luigi/walk/luigi.png");
@@ -180,6 +186,12 @@ void GameplayState::Initialize() {
     TextureManager::Load("luigi_mini_slide", "assets/textures/Luigi-mini/slide/luigi.png");
     TextureManager::Load("luigi_mini_die", "assets/textures/Luigi-mini/die/luigi.png");
     TextureManager::Load("luigi_mini_sit", "assets/textures/Luigi/sit/luigi.png"); // fallback
+
+    // Fire Luigi
+    TextureManager::Load("fire_luigi_walk", "assets/textures/Fire Luigi/walk/fireLuigi.png");
+    TextureManager::Load("fire_luigi_jump", "assets/textures/Fire Luigi/jump/fireLuigi.png");
+    TextureManager::Load("fire_luigi_slide", "assets/textures/Fire Luigi/slide/fireLuigi.png");
+    TextureManager::Load("fire_luigi_sit", "assets/textures/Fire Luigi/sit/fireLuigi.png");
 
     // Items
     TextureManager::Load("mushroom", "assets/textures/mushroom/mushroom.png");
@@ -234,6 +246,7 @@ void GameplayState::Initialize() {
     flagpole_.reset();
     mushrooms_.clear();
     fireFlowers_.clear();
+    starmen_.clear();
     playerFireballs_.clear();
     flyingBridges_.clear();
     fires_.clear();
@@ -607,6 +620,13 @@ void GameplayState::Update(float deltaTime) {
                             mushrooms_.push_back(std::move(m));
                             AudioManager::PlaySFX(AudioKey::POWERUP_APPEARS);
                         }
+                    } else if (contents == LuckyContents::Starman) {
+                        auto s = std::make_unique<Starman>();
+                        s->SetPosition({ (float)(col * tileMap.GetTileSize()), hitRect.y - 16.0f * Global::GAME_SCALE });
+                        s->SetCollisionGrid(&tileMap.GetBlockGrid());
+                        s->SetActive(true);
+                        starmen_.push_back(std::move(s));
+                        AudioManager::PlaySFX(AudioKey::POWERUP_APPEARS);
                     } else {
                         auto c_coin = std::make_unique<Coin>();
                         c_coin->SetPosition({ (float)(col * tileMap.GetTileSize()), hitRect.y - 16.0f * Global::GAME_SCALE });
@@ -668,7 +688,7 @@ void GameplayState::Update(float deltaTime) {
                     auto fb = std::make_unique<PlayerFireball>(spawnPos, dir);
                     fb->SetActive(true);
                     playerFireballs_.push_back(std::move(fb));
-                    // AudioManager::PlaySFX(AudioKey::FIREBALL); // No SFX yet
+                    AudioManager::PlaySFX(AudioKey::FIREBALL);
                 }
             }
         }
@@ -681,6 +701,11 @@ void GameplayState::Update(float deltaTime) {
     for (auto& m : mushrooms_) {
         if (m->IsActive()) {
             m->Update(deltaTime);
+        }
+    }
+    for (auto& s : starmen_) {
+        if (s->IsActive()) {
+            s->Update(deltaTime);
         }
     }
     for (auto& f : fireFlowers_) {
@@ -743,6 +768,11 @@ void GameplayState::Update(float deltaTime) {
         for (auto& m : mushrooms_) {
             if (m->IsActive() && p->Overlaps(*m)) {
                 p->InteractWith(*m);
+            }
+        }
+        for (auto& s : starmen_) {
+            if (s->IsActive() && p->Overlaps(*s)) {
+                p->InteractWith(*s);
             }
         }
         for (auto& f : fireFlowers_) {
@@ -1176,6 +1206,11 @@ void GameplayState::Draw() {
             m->Draw();
         }
     }
+    for (auto& s : starmen_) {
+        if (s->IsActive()) {
+            s->Draw();
+        }
+    }
     for (auto& f : fireFlowers_) {
         if (f->IsActive()) {
             f->Draw();
@@ -1244,6 +1279,7 @@ void GameplayState::Cleanup() {
     goalPipe_.reset();
     mushrooms_.clear();
     fireFlowers_.clear();
+    starmen_.clear();
     playerFireballs_.clear();
     fires_.clear();
     player2_.reset();

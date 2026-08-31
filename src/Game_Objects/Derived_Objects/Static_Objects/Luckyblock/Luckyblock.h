@@ -2,7 +2,7 @@
 #include "Game_Objects/Derived_Objects/Static_Objects/Block/Block.h"
 #include "Animations/Animation.h"
 
-enum class LuckyContents { Coin, Mushroom, FireFlower };
+enum class LuckyContents { Coin, Mushroom, FireFlower, Starman };
 
 class Luckyblock : public Block {
 private:

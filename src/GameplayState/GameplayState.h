@@ -21,6 +21,7 @@
 #include "Game_Objects/Derived_Objects/Items/Coin/Coin.h"
 #include "Game_Objects/Derived_Objects/Items/Mushroom/Mushroom.h"
 #include "Game_Objects/Derived_Objects/Items/FireFlower/FireFlower.h"
+#include "Game_Objects/Derived_Objects/Items/Starman/Starman.h"
 #include "Game_Objects/Derived_Objects/Projectiles/PlayerFireball/PlayerFireball.h"
 #include "Game_Objects/Derived_Objects/Static_Objects/FlyingBridge/FlyingBridge.h"
 
@@ -46,6 +47,7 @@ private:
     std::unique_ptr<Flagpole> flagpole_;
     std::vector<std::unique_ptr<Mushroom>> mushrooms_;
     std::vector<std::unique_ptr<FireFlower>> fireFlowers_;
+    std::vector<std::unique_ptr<Starman>> starmen_;
     std::vector<std::unique_ptr<PlayerFireball>> playerFireballs_;
     std::vector<std::unique_ptr<FlyingBridge>> flyingBridges_;
     std::vector<std::unique_ptr<Fire>> fires_;

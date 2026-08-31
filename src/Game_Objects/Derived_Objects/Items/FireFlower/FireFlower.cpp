@@ -3,7 +3,7 @@
 #include "Global/Global.h"
 #include "TextureManager/TextureManager.h"
 
-static const Animation fireflowerAnim("fireflower", 16, 16, 0, 1, {1.0f});
+static const Animation fireflowerAnim("fireflower", 120, 114, 0, 1, {1.0f});
 
 FireFlower::FireFlower() {
     animState.SetAnimation(&fireflowerAnim);

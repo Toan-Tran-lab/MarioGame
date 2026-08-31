@@ -6,6 +6,7 @@
 #include "Game_Objects/Derived_Objects/Playable_Characters/Player/Player.h"
 #include "Game_Objects/Derived_Objects/Items/Mushroom/Mushroom.h"
 #include "Game_Objects/Derived_Objects/Items/FireFlower/FireFlower.h"
+#include "Game_Objects/Derived_Objects/Items/Starman/Starman.h"
 
 void ShellInteraction::Visit(Goomba& g) {
     // A sliding shell defeats any goomba in its path. Reuses Stomp() —
@@ -44,6 +45,10 @@ void ShellInteraction::Visit(Mushroom& m) {
 
 void ShellInteraction::Visit(FireFlower& f) {
     // Shells don't interact with FireFlowers
+}
+
+void ShellInteraction::Visit(Starman& s) {
+    // Shells don't interact with Starmen
 }
 
 void ShellInteraction::Visit(BuzzyBeetle& b) {

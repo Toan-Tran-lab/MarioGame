@@ -85,6 +85,17 @@ void Player::AcceptInteract(CharacterVisitor& other) {
 }
 
 void Player::Update(float dt) {
+    if (starTimer_ > 0.0f) {
+        starTimer_ -= dt;
+        float hue = fmod(GetTime() * 360.0f, 360.0f);
+        tint_ = ColorFromHSV(hue, 1.0f, 1.0f);
+        if (starTimer_ <= 0.0f) {
+            starTimer_ = 0.0f;
+            tint_ = WHITE;
+            if (state) state->Enter(*this); // re-apply state tint (e.g. FireState red)
+        }
+    }
+
     if (state) state->UpdateState(*this, dt);
 
     SyncPhysicsBody();

@@ -22,6 +22,7 @@ private:
     float prevVelY_ = 0.0f;
     Color tint_ = WHITE;
     bool wantsToShoot_ = false;
+    float starTimer_ = 0.0f; // Starman invincibility timer
     physics::PlayerKeyBindings keyBindings_; // per-player hardware key mapping
 
 public:
@@ -45,6 +46,11 @@ public:
     // Call each frame before Update() to register moving platform rects (e.g. FlyingBridge).
     // Cleared automatically at the start of the next Update().
     void SetDynamicPlatforms(const std::vector<Rectangle>& platforms);
+    
+    // Interaction/Mechanics
+    void GrantStarman(float duration = 10.0f) { starTimer_ = duration; }
+    bool IsInvincible() const { return starTimer_ > 0.0f; }
+    
     void SetAnimation(const Animation* newAnim);
 
     //Block Hitting Details

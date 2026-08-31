@@ -3,7 +3,7 @@
 #include "TextureManager/TextureManager.h"
 #include "physics/PhysicsEngine.h" // For gravity
 
-static const Animation playerFireballAnim("player_fireball", 16, 21, 0, 4, {0.1f, 0.1f, 0.1f, 0.1f});
+static const Animation playerFireballAnim("player_fireball", 29, 48, 0, 4, {0.1f});
 
 PlayerFireball::PlayerFireball(Vector2 startPos, float direction) {
     position_ = startPos;
