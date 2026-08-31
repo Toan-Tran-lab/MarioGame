@@ -20,6 +20,8 @@ private:
     bool isSitting_ = false;
     bool canHitBlock_ = true;
     float prevVelY_ = 0.0f;
+    Color tint_ = WHITE;
+    bool wantsToShoot_ = false;
     physics::PlayerKeyBindings keyBindings_; // per-player hardware key mapping
 
 public:
@@ -60,8 +62,14 @@ public:
     //Sitting Details
     bool IsSitting() const;
     void SetSitting(bool sitting);
-
     bool IsProjectileImmune() const;
+    bool CanShootFireball() const;
+    
+    void SetTint(Color tint) { tint_ = tint; }
+    Color GetTint() const { return tint_; }
+    
+    bool WantsToShoot() const { return wantsToShoot_; }
+    void ConsumeShootRequest() { wantsToShoot_ = false; }
 
     // Animation Getters
     virtual const Animation* GetPoseAnimation() const = 0;

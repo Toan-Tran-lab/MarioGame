@@ -15,7 +15,7 @@ void AnimationState::Update(float dt) {
     }
 }
 
-void AnimationState::Draw(const Vector2& position, FacingDirection facing, const Vector2& scale) {
+void AnimationState::Draw(const Vector2& position, FacingDirection facing, const Vector2& scale, Color tint) {
     if (!currentAnim) return;
 
     if (!TextureManager::Has(currentAnim->textureKey)) return;
@@ -51,5 +51,5 @@ void AnimationState::Draw(const Vector2& position, FacingDirection facing, const
         destRect.height = (sy1 - sy0) / cameraZoom;
     }
 
-    DrawTexturePro(TextureManager::Get(currentAnim->textureKey), srcRect, destRect, {0, 0}, 0.0f, WHITE);
+    DrawTexturePro(TextureManager::Get(currentAnim->textureKey), srcRect, destRect, {0,0}, 0.0f, tint);
 }

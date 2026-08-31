@@ -6,6 +6,7 @@
 #include "Game_Objects/Derived_Objects/Enemies/Boss/BossEnemy/BossState.h"
 #include "Game_Objects/Derived_Objects/Playable_Characters/Player/Player.h"
 #include "Game_Objects/Derived_Objects/Items/Mushroom/Mushroom.h"
+#include "Game_Objects/Derived_Objects/Items/FireFlower/FireFlower.h"
 #include "Game_Objects/Derived_Objects/Playable_Characters/Player/PlayerState.h"
 #include "AudioManager/AudioManager.h"
 #include <cmath>
@@ -175,4 +176,9 @@ void PlayerInteraction::Visit(Boss& b) {
     } else {
         self.TakeDamage();
     }
+}
+
+void PlayerInteraction::Visit(FireFlower& f) {
+    self.TakePowerup(PowerupType::FireFlower);
+    f.SetActive(false);
 }

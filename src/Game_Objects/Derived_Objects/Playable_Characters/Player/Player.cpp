@@ -59,6 +59,10 @@ bool Player::IsProjectileImmune() const {
     return state ? state->IsProjectileImmune() : false;
 }
 
+bool Player::CanShootFireball() const {
+    return state ? state->CanShootFireball() : false;
+}
+
 void Player::SetCollisionGrid(const BlockGrid* grid) {
     collisionGrid_ = grid;
 }
@@ -197,6 +201,10 @@ void Player::Update(float dt) {
     // Determine Animation State
     // Very basic logic: if not grounded -> Jump; if sliding -> Slide; if moving -> Walk; else -> Pose
     // For now, let's keep it simple
+    if (input.shootPressed) {
+        wantsToShoot_ = true;
+    }
+
     if (isSitting_) {
         if (animState.GetAnimation() != GetSitAnimation()) {
             SetAnimation(GetSitAnimation());
@@ -231,5 +239,5 @@ void Player::Update(float dt) {
 
 void Player::Draw() {
     Vector2 drawPos = { position_.x, position_.y };
-    animState.Draw(drawPos, facing_, size_);
+    animState.Draw(drawPos, facing_, size_, tint_);
 }

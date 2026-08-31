@@ -12,6 +12,7 @@ void SmallState::Enter(Player& player) {
     player.SetIsSmall(true);
     // When small, texture is 16x16.
     player.SetSize({Global::MINI_PLAYER_WIDTH * Global::GAME_SCALE, Global::MINI_PLAYER_HEIGHT * Global::GAME_SCALE});
+    player.SetTint(WHITE);
 }
 
 void SmallState::OnHit(Player& player) {
@@ -35,6 +36,7 @@ void SuperState::Enter(Player& player) {
     player.SetIsSmall(false);
     // When big, texture is 16x32.
     player.SetSize({Global::SUPER_PLAYER_WIDTH * Global::GAME_SCALE, Global::SUPER_PLAYER_HEIGHT * Global::GAME_SCALE});
+    player.SetTint(WHITE);
 }
 
 void SuperState::OnHit(Player& player) {
@@ -50,6 +52,12 @@ void SuperState::OnPowerup(Player& player, PowerupType type) {
 }
 
 // --- FireState ---
+
+void FireState::Enter(Player& player) {
+    player.SetIsSmall(false);
+    player.SetSize({Global::SUPER_PLAYER_WIDTH * Global::GAME_SCALE, Global::SUPER_PLAYER_HEIGHT * Global::GAME_SCALE});
+    player.SetTint(Color{ 255, 100, 100, 255 }); // Red-ish tint for Fire Mario
+}
 
 void FireState::OnHit(Player& player) {
     // Classic Mario rule: Fire -> Small directly, skips Super.

@@ -233,6 +233,8 @@ void GameplayState::Initialize() {
     goalPipe_.reset();
     flagpole_.reset();
     mushrooms_.clear();
+    fireFlowers_.clear();
+    playerFireballs_.clear();
     flyingBridges_.clear();
     fires_.clear();
 
@@ -590,12 +592,21 @@ void GameplayState::Update(float deltaTime) {
                     LuckyContents contents = lucky ? lucky->GetLastContents() : LuckyContents::Coin;
 
                     if (contents == LuckyContents::Mushroom) {
-                        auto m = std::make_unique<Mushroom>();
-                        m->SetPosition({ (float)(col * tileMap.GetTileSize()), hitRect.y - 16.0f * Global::GAME_SCALE });
-                        m->SetCollisionGrid(&tileMap.GetBlockGrid());
-                        m->SetActive(true);
-                        mushrooms_.push_back(std::move(m));
-                        AudioManager::PlaySFX(AudioKey::POWERUP_APPEARS);
+                        if (!isSmall) {
+                            // Upgrade to FireFlower if player is not small
+                            auto f = std::make_unique<FireFlower>();
+                            f->SetPosition({ (float)(col * tileMap.GetTileSize()), hitRect.y - 16.0f * Global::GAME_SCALE });
+                            f->SetActive(true);
+                            fireFlowers_.push_back(std::move(f));
+                            AudioManager::PlaySFX(AudioKey::POWERUP_APPEARS);
+                        } else {
+                            auto m = std::make_unique<Mushroom>();
+                            m->SetPosition({ (float)(col * tileMap.GetTileSize()), hitRect.y - 16.0f * Global::GAME_SCALE });
+                            m->SetCollisionGrid(&tileMap.GetBlockGrid());
+                            m->SetActive(true);
+                            mushrooms_.push_back(std::move(m));
+                            AudioManager::PlaySFX(AudioKey::POWERUP_APPEARS);
+                        }
                     } else {
                         auto c_coin = std::make_unique<Coin>();
                         c_coin->SetPosition({ (float)(col * tileMap.GetTileSize()), hitRect.y - 16.0f * Global::GAME_SCALE });
@@ -640,10 +651,69 @@ void GameplayState::Update(float deltaTime) {
     if (isMultiplayer_ && player2_) {
         HandleBlockHit(player2_.get());
     }
+    
+    // Gather active players for shooting
+    std::vector<Player*> activePlayersForShoot;
+    if (player_ && !player_->IsDead()) activePlayersForShoot.push_back(player_.get());
+    if (isMultiplayer_ && player2_ && !player2_->IsDead()) activePlayersForShoot.push_back(player2_.get());
+
+    for (Player* p : activePlayersForShoot) {
+        if (p->WantsToShoot()) {
+            p->ConsumeShootRequest();
+            if (p->CanShootFireball()) {
+                // Limit to 2 player fireballs on screen total
+                if (playerFireballs_.size() < 2) {
+                    float dir = (p->GetFacing() == FacingDirection::Right) ? 1.0f : -1.0f;
+                    Vector2 spawnPos = { p->GetPosition().x + (p->GetSize().x / 2.0f) + (dir * 8.0f), p->GetPosition().y + p->GetSize().y / 2.0f };
+                    auto fb = std::make_unique<PlayerFireball>(spawnPos, dir);
+                    fb->SetActive(true);
+                    playerFireballs_.push_back(std::move(fb));
+                    // AudioManager::PlaySFX(AudioKey::FIREBALL); // No SFX yet
+                }
+            }
+        }
+    }
+
+    // Cleanup dead player fireballs before updating to maintain the 2-fireball limit correctly
+    playerFireballs_.erase(std::remove_if(playerFireballs_.begin(), playerFireballs_.end(),
+        [](const std::unique_ptr<PlayerFireball>& fb) { return !fb->IsActive(); }), playerFireballs_.end());
 
     for (auto& m : mushrooms_) {
         if (m->IsActive()) {
             m->Update(deltaTime);
+        }
+    }
+    for (auto& f : fireFlowers_) {
+        if (f->IsActive()) {
+            f->Update(deltaTime);
+        }
+    }
+    for (auto& fb : playerFireballs_) {
+        if (fb->IsActive()) {
+            fb->Update(deltaTime);
+            // Handle fireball bouncing
+            Rectangle fbRect = fb->GetRect();
+            int bcol = (int)(fbRect.x / tileMap.GetTileSize());
+            int brow = (int)((fbRect.y + fbRect.height) / tileMap.GetTileSize());
+            Block* floorBlock = tileMap.GetBlockGrid().GetBlock(bcol, brow);
+            if (floorBlock || fbRect.y + fbRect.height >= tileMap.GetPixelHeight()) {
+                // Bounce
+                Vector2 vel = fb->GetVelocity();
+                vel.y = -350.0f; // Bounce strength
+                fb->SetVelocity(vel);
+            }
+            
+            // Handle fireball hitting walls (destroy)
+            int sideCol = (fb->GetVelocity().x > 0) ? (int)((fbRect.x + fbRect.width) / tileMap.GetTileSize()) : (int)(fbRect.x / tileMap.GetTileSize());
+            int sideRow = (int)((fbRect.y + fbRect.height/2.0f) / tileMap.GetTileSize());
+            Block* wallBlock = tileMap.GetBlockGrid().GetBlock(sideCol, sideRow);
+            if (wallBlock) {
+                fb->Explode();
+            }
+            
+            // Advance position via velocity manually since Projectile isn't updated by PhysicsEngine
+            Vector2 pos = { fbRect.x + fb->GetVelocity().x * deltaTime, fbRect.y + fb->GetVelocity().y * deltaTime };
+            fb->SetPosition(pos);
         }
     }
 
@@ -675,6 +745,11 @@ void GameplayState::Update(float deltaTime) {
                 p->InteractWith(*m);
             }
         }
+        for (auto& f : fireFlowers_) {
+            if (f->IsActive() && p->Overlaps(*f)) {
+                p->InteractWith(*f);
+            }
+        }
         if (dragonBoss_ && dragonBoss_->IsActive() && !dragonBoss_->IsDead() && p->Overlaps(*dragonBoss_)) {
             bool wasDead = dragonBoss_->IsDead();
             p->InteractWith(*dragonBoss_);
@@ -687,6 +762,21 @@ void GameplayState::Update(float deltaTime) {
     for (auto& g : goombas_) if (g->IsActive() && !g->IsDying()) activeEnemies.push_back(g.get());
     for (auto& k : koopas_) if (k->IsActive()) activeEnemies.push_back(k.get());
     for (auto& b : buzzyBeetles_) if (b->IsActive() && !b->IsDefeated()) activeEnemies.push_back(b.get());
+
+    // Fireball vs Enemy collision
+    for (auto& fb : playerFireballs_) {
+        if (fb->IsActive() && !fb->IsExploded()) {
+            for (auto* e : activeEnemies) {
+                if (CheckCollisionRecs(fb->GetRect(), e->GetRect())) {
+                    e->SetActive(false); // Instantly defeat enemy
+                    fb->Explode();
+                    score += 100;
+                    AudioManager::PlaySFX(AudioKey::HIT_ENEMY); // generic hit sound
+                    break;
+                }
+            }
+        }
+    }
 
     for (size_t i = 0; i < activeEnemies.size(); ++i) {
         for (size_t j = i + 1; j < activeEnemies.size(); ++j) {
@@ -1086,6 +1176,16 @@ void GameplayState::Draw() {
             m->Draw();
         }
     }
+    for (auto& f : fireFlowers_) {
+        if (f->IsActive()) {
+            f->Draw();
+        }
+    }
+    for (auto& fb : playerFireballs_) {
+        if (fb->IsActive()) {
+            fb->Draw();
+        }
+    }
 
     for (const auto& d : debrisList_) {
         d.Draw();
@@ -1143,6 +1243,8 @@ void GameplayState::Cleanup() {
     flyingBridges_.clear();
     goalPipe_.reset();
     mushrooms_.clear();
+    fireFlowers_.clear();
+    playerFireballs_.clear();
     fires_.clear();
     player2_.reset();
 }
