@@ -88,41 +88,49 @@ DragonAction DragonBossBrain::DecideNextAction(DragonBoss& boss, const std::vect
     float distX = std::abs(pCenter.x - bossCenter.x);
     float distY = pCenter.y - bossCenter.y;
     bool isEnraged = boss.IsEnraged();
+    bool inFireRange = (distX <= 420.0f && std::abs(distY) <= 90.0f);
 
     // 1. Pincer situation with 2 players surrounding the boss
     if (isPincerSituation_) {
         if (attackCounter_ % 2 == 0) {
             return DragonAction::Scream; // Shockwave expands both directions
         } else {
-            return DragonAction::Jump;   // Jump over or reposition
+            return isEnraged ? DragonAction::Walk : DragonAction::Jump;
         }
     }
 
-    // 2. Player is jumping above boss head: Jump up to contest / counter
+    // 2. Player is jumping above boss head: Contest with jump (if normal) or shockwave roar
     if (distY < -40.0f && distX < 120.0f) {
-        return DragonAction::Jump;
-    }
-
-    // 3. Enraged rotation (faster, aggressive)
-    if (isEnraged) {
-        int choice = attackCounter_ % 5;
-        switch (choice) {
-            case 0: return DragonAction::Scream;
-            case 1: return DragonAction::Jump;
-            case 2: return DragonAction::Fire;
-            case 3: return DragonAction::Walk;
-            default: return DragonAction::Scream;
+        if (isEnraged) {
+            return (attackCounter_ % 3 == 0) ? DragonAction::Jump : DragonAction::Scream;
+        } else {
+            return DragonAction::Jump;
         }
     }
 
-    // 4. Standard rotation: balanced cycle with Walk, Fire, Scream, Jump
+    // 3. Enraged rotation (< 50% HP):
+    // Reduced jumps (1/6), increased 2-lap walks, frequent double screams, and fire ONLY when in range!
+    if (isEnraged) {
+        int choice = attackCounter_ % 6;
+        switch (choice) {
+            case 0: return DragonAction::Walk;   // 2-lap aggressive patrol
+            case 1: return DragonAction::Scream; // 2x shockwave
+            case 2: return inFireRange ? DragonAction::Fire : DragonAction::Walk;
+            case 3: return DragonAction::Walk;   // 2-lap aggressive patrol
+            case 4: return DragonAction::Scream; // 2x shockwave
+            default: return DragonAction::Jump;  // Reduced jump (only 1 out of 6)
+        }
+    }
+
+    // 4. Standard rotation (>= 50% HP):
+    // Balanced cycle of Walk, Fire (if in range), Scream, Jump
     int choice = attackCounter_ % 6;
     switch (choice) {
         case 0: return DragonAction::Walk;   // March forward
-        case 1: return DragonAction::Fire;   // Fire stream
+        case 1: return inFireRange ? DragonAction::Fire : DragonAction::Jump;
         case 2: return DragonAction::Scream; // Shockwave roar
         case 3: return DragonAction::Jump;   // Jump slam
         case 4: return DragonAction::Scream; // Shockwave roar
-        default: return DragonAction::Fire;  // Fire stream
+        default: return inFireRange ? DragonAction::Fire : DragonAction::Walk;
     }
 }

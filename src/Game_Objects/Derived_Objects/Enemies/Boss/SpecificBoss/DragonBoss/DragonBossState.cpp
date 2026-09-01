@@ -92,23 +92,55 @@ void DragonWalkState::Enter(Boss& boss) {
     auto& dragon = static_cast<DragonBoss&>(boss);
     dragon.PlayWalkAnim();
     timer_ = 0.0f;
-    duration_ = dragon.IsEnraged() ? 1.8f : 2.4f;
-    startX_ = boss.GetPosition().x;
-    targetDistance_ = 15.0f * 16.0f * Global::GAME_SCALE; // 15 tiles
+    turnsCount_ = 0;
+    currentFacing_ = dragon.GetFacing();
+
+    if (dragon.IsEnraged()) {
+        maxTurns_ = 4; // 2 full round trips (4 wall rebounds)
+        baseSpeed_ = 160.0f;
+        maxSpeed_ = 420.0f;
+        accelRate_ = 100.0f; // Rapid acceleration during rage
+    } else {
+        maxTurns_ = 1; // Walks until hitting an obstacle/wall
+        baseSpeed_ = 120.0f;
+        maxSpeed_ = 280.0f;
+        accelRate_ = 70.0f;  // Smoothly increases speed over time
+    }
+    currentSpeed_ = baseSpeed_; // Reset to base speed at start of walk
 }
 
 void DragonWalkState::UpdateState(Boss& boss, float dt) {
     auto& dragon = static_cast<DragonBoss&>(boss);
     timer_ += dt;
 
-    float progress = timer_ / duration_;
-    if (progress > 1.0f) progress = 1.0f;
+    // Gradually accelerate walking speed over time
+    currentSpeed_ += accelRate_ * dt;
+    if (currentSpeed_ > maxSpeed_) {
+        currentSpeed_ = maxSpeed_;
+    }
 
-    float dir = (dragon.GetFacing() == FacingDirection::Left) ? -1.0f : 1.0f;
-    boss.SetPosition({ startX_ + dir * targetDistance_ * progress, boss.GetPosition().y });
+    float dir = (currentFacing_ == FacingDirection::Left) ? -1.0f : 1.0f;
+    float nextX = boss.GetPosition().x + dir * currentSpeed_ * dt;
 
-    if (timer_ >= duration_) {
-        boss.SetPosition({ startX_ + dir * targetDistance_, boss.GetPosition().y });
+    // Check if the boss can move to nextX or if it hits an obstacle/wall
+    if (dragon.CanMoveHorizontal(nextX)) {
+        boss.SetPosition({ nextX, boss.GetPosition().y });
+    } else {
+        // Hit obstacle/wall!
+        turnsCount_++;
+        if (turnsCount_ >= maxTurns_) {
+            boss.SetState(new DragonIdleState());
+            return;
+        }
+
+        // Rebound off obstacle: turn around and walk in opposite direction
+        currentFacing_ = (currentFacing_ == FacingDirection::Left) ? FacingDirection::Right : FacingDirection::Left;
+        dragon.SetFacing(currentFacing_);
+    }
+
+    // Safety timeout in case no wall is reached
+    float maxDuration = dragon.IsEnraged() ? 7.0f : 3.5f;
+    if (timer_ >= maxDuration) {
         boss.SetState(new DragonIdleState());
         return;
     }
@@ -196,9 +228,6 @@ void DragonJumpState::UpdateState(Boss& boss, float dt) {
 void DragonFireState::Enter(Boss& boss) {
     auto& dragon = static_cast<DragonBoss&>(boss);
     dragon.PlayFireAnim();
-    baseSize_ = boss.GetSize();
-    groundY_ = (dragon.GetGroundY() > 0.0f) ? dragon.GetGroundY() : boss.GetPosition().y;
-    centerX_ = boss.GetPosition().x + baseSize_.x * 0.5f; // Anchor scaling to Center X
     timer_ = 0.0f;
     flameFired_ = false;
 }
@@ -207,20 +236,12 @@ void DragonFireState::UpdateState(Boss& boss, float dt) {
     auto& dragon = static_cast<DragonBoss&>(boss);
     timer_ += dt;
 
-    float scale = 1.0f;
-
     // 1. Frames 1 to 6 (Windup/Charge, t = 0 to 1.35s):
-    // Smoothly grow from 1.0x to 2.0x symmetrically from Center X
     if (timer_ < kWindupDuration) {
-        float progress = timer_ / kWindupDuration;
-        scale = 1.0f + progress * 1.0f; // 1.0x -> 2.0x
         dragon.EndFlameStream();
     }
     // 2. Frame 7 (Fire stream active, t = 1.35s to 2.15s):
-    // Stay at 2.0x size throughout the fire stream
-    else if (timer_ < (kWindupDuration + kFireDuration)) {
-        scale = 2.0f;
-
+    else if (timer_ < kStateDuration) {
         if (!flameFired_) {
             flameFired_ = true;
             AudioManager::PlaySFX(AudioKey::FIREBALL);
@@ -229,33 +250,14 @@ void DragonFireState::UpdateState(Boss& boss, float dt) {
         growth = (growth < 0.0f) ? 0.0f : (growth > 1.0f ? 1.0f : growth);
         float dir = (dragon.GetFacing() == FacingDirection::Left) ? -1.0f : 1.0f;
         Vector2 mouthPos = {
-            (centerX_ - baseSize_.x * scale * 0.5f) + (dir < 0.0f ? 4.0f : (baseSize_.x * scale - 4.0f)),
-            (groundY_ - (baseSize_.y * scale - baseSize_.y)) + (baseSize_.y * scale) * 0.65f
+            boss.GetPosition().x + (dir < 0.0f ? 2.0f : (boss.GetSize().x - 2.0f)),
+            boss.GetPosition().y + boss.GetSize().y * 0.65f
         };
         dragon.UpdateFlameStream(mouthPos, dir, growth);
     }
-    // 3. Smooth Shrink Transition (t = 2.15s to 2.55s):
-    // Smoothly contract from 2.0x back down to 1.0x symmetrically to Center X
-    else if (timer_ < kStateDuration) {
-        dragon.EndFlameStream();
-        float progress = (timer_ - (kWindupDuration + kFireDuration)) / kShrinkDuration;
-        progress = (progress < 0.0f) ? 0.0f : (progress > 1.0f ? 1.0f : progress);
-        scale = 2.0f - progress * 1.0f; // 2.0x -> 1.0x
-    }
-    else {
-        scale = 1.0f;
-        dragon.EndFlameStream();
-    }
-
-    // Apply scaling centered at centerX_ and anchored to groundY_
-    Vector2 curSize = { baseSize_.x * scale, baseSize_.y * scale };
-    boss.SetSize(curSize);
-    boss.SetPosition({ centerX_ - curSize.x * 0.5f, groundY_ - (curSize.y - baseSize_.y) });
 
     if (timer_ >= kStateDuration) {
         dragon.EndFlameStream();
-        boss.SetSize(baseSize_);
-        boss.SetPosition({ centerX_ - baseSize_.x * 0.5f, groundY_ });
         boss.SetState(new DragonIdleState());
         return;
     }
@@ -267,7 +269,8 @@ void DragonScreamState::Enter(Boss& boss) {
     auto& dragon = static_cast<DragonBoss&>(boss);
     dragon.PlayScreamAnim();
     timer_ = 0.0f;
-    shockwaveTriggered_ = false;
+    shockwavesTriggered_ = 0;
+    isEnraged_ = dragon.IsEnraged();
     AudioManager::PlaySFX(AudioKey::DRAGON_SCREAM);
 }
 
@@ -275,18 +278,59 @@ void DragonScreamState::UpdateState(Boss& boss, float dt) {
     auto& dragon = static_cast<DragonBoss&>(boss);
     timer_ += dt;
 
-    // Trigger foot stomp shockwave at frame 3/4
-    if (timer_ >= 0.76f && !shockwaveTriggered_) {
-        shockwaveTriggered_ = true;
-        Vector2 footPos = {
-            boss.GetPosition().x + boss.GetSize().x / 2.0f,
-            boss.GetPosition().y + boss.GetSize().y
-        };
-        dragon.RequestShockwave(footPos, footPos.y);
-    }
+    if (!isEnraged_) {
+        // Normal Mode:
+        // Animation frames 1, 2, 3, 4 with durations {0.35s, 0.35s, 0.40s, 0.50s}
+        // Shockwave triggers only at animation 4 (frame offset 3) starting at t = 1.10s
+        if (timer_ >= 1.10f && shockwavesTriggered_ == 0) {
+            shockwavesTriggered_ = 1;
+            Vector2 footPos = {
+                boss.GetPosition().x + boss.GetSize().x / 2.0f,
+                boss.GetPosition().y + boss.GetSize().y
+            };
+            dragon.RequestShockwave(footPos, footPos.y);
+        }
 
-    if (timer_ >= kStateDuration) {
-        boss.SetState(new DragonIdleState());
-        return;
+        if (timer_ >= 1.60f) {
+            boss.SetState(new DragonIdleState());
+            return;
+        }
+    } else {
+        // Enraged Mode (< 50% HP):
+        // Sequence: Frame 1 (0.25s) -> Frame 2 (0.25s) -> Frame 3 (0.30s) -> Frame 4 (0.40s, Shockwave #1)
+        // -> Frame 3 (0.30s) -> Frame 4 (0.45s, Shockwave #2)
+        if (timer_ < 0.25f) {
+            dragon.GetAnimState().SetCurrentFrameOffset(0);
+        } else if (timer_ < 0.50f) {
+            dragon.GetAnimState().SetCurrentFrameOffset(1);
+        } else if (timer_ < 0.80f) {
+            dragon.GetAnimState().SetCurrentFrameOffset(2);
+        } else if (timer_ < 1.20f) {
+            dragon.GetAnimState().SetCurrentFrameOffset(3); // Animation 4
+            if (shockwavesTriggered_ == 0) {
+                shockwavesTriggered_ = 1;
+                Vector2 footPos = {
+                    boss.GetPosition().x + boss.GetSize().x / 2.0f,
+                    boss.GetPosition().y + boss.GetSize().y
+                };
+                dragon.RequestShockwave(footPos, footPos.y);
+            }
+        } else if (timer_ < 1.55f) {
+            dragon.GetAnimState().SetCurrentFrameOffset(2); // Repeat Animation 3
+        } else if (timer_ < 2.05f) {
+            dragon.GetAnimState().SetCurrentFrameOffset(3); // Repeat Animation 4
+            if (shockwavesTriggered_ == 1) {
+                shockwavesTriggered_ = 2;
+                Vector2 footPos = {
+                    boss.GetPosition().x + boss.GetSize().x / 2.0f,
+                    boss.GetPosition().y + boss.GetSize().y
+                };
+                dragon.RequestShockwave(footPos, footPos.y);
+                AudioManager::PlaySFX(AudioKey::DRAGON_SCREAM);
+            }
+        } else {
+            boss.SetState(new DragonIdleState());
+            return;
+        }
     }
 }

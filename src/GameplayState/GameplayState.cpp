@@ -1360,6 +1360,7 @@ void GameplayState::Update(float deltaTime) {
             if (dist <= princess_->GetInteractionRadius()) {
                 isGameWon = true;
                 AudioManager::StopBGM();
+                AudioManager::PlaySFX(AudioKey::LEVEL_COMPLETE);
                 Global::gameStateManager->PushState(std::make_unique<LevelCompleteState>(
                     this, currentLevel.GetLevelNumber(), characterId_, score, timeLeft));
                 break;
@@ -1394,6 +1395,7 @@ void GameplayState::Update(float deltaTime) {
             if (goalPipe_->IsAnimationComplete()) {
                 isGameWon = true;
                 AudioManager::StopBGM();
+                AudioManager::PlaySFX(AudioKey::LEVEL_COMPLETE);
                 Global::gameStateManager->PushState(std::make_unique<LevelCompleteState>(
                     this, currentLevel.GetLevelNumber(), characterId_, score, timeLeft));
             }
@@ -1430,6 +1432,7 @@ void GameplayState::Update(float deltaTime) {
             if (flagpole_->IsComplete()) {
                 isGameWon = true;
                 AudioManager::StopBGM();
+                AudioManager::PlaySFX(AudioKey::LEVEL_COMPLETE);
                 Global::gameStateManager->PushState(std::make_unique<LevelCompleteState>(
                     this, currentLevel.GetLevelNumber(), characterId_, score, timeLeft));
             }

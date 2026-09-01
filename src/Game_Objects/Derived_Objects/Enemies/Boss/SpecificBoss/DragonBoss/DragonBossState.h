@@ -1,5 +1,6 @@
 #pragma once
 #include "Game_Objects/Derived_Objects/Enemies/Boss/BossEnemy/BossState.h"
+#include "Game_Objects/Core_Header/BaseGameObjects.h"
 #include "DragonBossBrain.h"
 
 class DragonBoss;
@@ -28,10 +29,14 @@ public:
 
 class DragonWalkState : public BossState {
 private:
-    float duration_ = 2.24f;
     float timer_ = 0.0f;
-    float startX_ = 0.0f;
-    float targetDistance_ = 0.0f;
+    int turnsCount_ = 0;
+    int maxTurns_ = 1;
+    float baseSpeed_ = 120.0f;
+    float currentSpeed_ = 120.0f;
+    float maxSpeed_ = 300.0f;
+    float accelRate_ = 80.0f;
+    FacingDirection currentFacing_ = FacingDirection::Left;
 
 public:
     void Enter(Boss& boss) override;
@@ -65,11 +70,7 @@ private:
     bool flameFired_ = false;
     static constexpr float kWindupDuration = 1.35f;
     static constexpr float kFireDuration = 0.80f;
-    static constexpr float kShrinkDuration = 0.90f;
-    static constexpr float kStateDuration = kWindupDuration + kFireDuration + kShrinkDuration;
-    Vector2 baseSize_{ 0.0f, 0.0f };
-    float groundY_ = 0.0f;
-    float centerX_ = 0.0f;
+    static constexpr float kStateDuration = kWindupDuration + kFireDuration;
 
 public:
     void Enter(Boss& boss) override;
@@ -79,8 +80,8 @@ public:
 class DragonScreamState : public BossState {
 private:
     float timer_ = 0.0f;
-    bool shockwaveTriggered_ = false;
-    static constexpr float kStateDuration = 1.60f;
+    int shockwavesTriggered_ = 0;
+    bool isEnraged_ = false;
 
 public:
     void Enter(Boss& boss) override;
