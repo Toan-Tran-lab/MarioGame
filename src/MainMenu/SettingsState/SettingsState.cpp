@@ -30,8 +30,9 @@ void SettingsState::Initialize() {
         {"KEY BINDINGS", "Customize controls", ItemType::Display}
     };
     items[1].cycleValues = resolutionLabels; items[1].cycleIndex = defaultResIndex; items[1].defaultCycleIndex = defaultResIndex;
-    items[4].sliderValue = 80; items[4].defaultSlider = 80; items[4].sliderMin = 0; items[4].sliderMax = 100; items[4].sliderStep = 10;
-    items[5].toggleValue = false; items[5].defaultToggle = false;
+    items[2].toggleValue = IsWindowFullscreen(); items[2].defaultToggle = false;
+    items[4].sliderValue = Global::settingsVolume; items[4].defaultSlider = 80; items[4].sliderMin = 0; items[4].sliderMax = 100; items[4].sliderStep = 10;
+    items[5].toggleValue = Global::settingsMuted; items[5].defaultToggle = false;
     items[7].displayValue = "Coming Soon";
     selectedIndex = 1; editMode = false; prevMouseDown = false; timeAccum = 0.0f;
 }
@@ -94,13 +95,15 @@ void SettingsState::ApplySetting(int index) {
         case SettingId::Resolution: ApplyResolution(items[index].cycleIndex); break;
         case SettingId::Fullscreen: ApplyFullscreen(); break;
         case SettingId::Volume: 
+            Global::settingsVolume = items[index].sliderValue;
             if (!items[static_cast<int>(SettingId::Mute)].toggleValue) {
-                SetMasterVolume(items[index].sliderValue / 100.0f);
+                SetMasterVolume(Global::settingsVolume / 100.0f);
             }
             break;
         case SettingId::Mute:
-            if (items[index].toggleValue) SetMasterVolume(0.0f);
-            else SetMasterVolume(items[static_cast<int>(SettingId::Volume)].sliderValue / 100.0f);
+            Global::settingsMuted = items[index].toggleValue;
+            if (Global::settingsMuted) SetMasterVolume(0.0f);
+            else SetMasterVolume(Global::settingsVolume / 100.0f);
             break;
         default: break;
     }

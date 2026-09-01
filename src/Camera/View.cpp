@@ -34,11 +34,19 @@ void View::Update(float targetX, float targetY, float zoomMultiplier) {
 
     camera.offset = { floorf(screenW / 2.0f), floorf(screenH / 2.0f) };
 
+    // Enforce one-way scrolling if not allowed to move backward
+    if (!allowBackwardScroll) {
+        if (targetX > maxTargetX) {
+            maxTargetX = targetX;
+        } else {
+            targetX = maxTargetX;
+        }
+    }
+
     // Track target
     camera.target.x = targetX;
     camera.target.y = targetY;
 
-    // Camera follows target smoothly in both directions (forward and backward)
     ClampToBounds();
 
     // Snap camera target to screen pixel grid for smoother scrolling.

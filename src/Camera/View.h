@@ -8,6 +8,7 @@ private:
     float maxTargetX;
     float mapPixelWidth;
     float mapPixelHeight;
+    bool allowBackwardScroll = false;
 
     void ClampToBounds();
 
@@ -20,6 +21,8 @@ public:
 
     // Call this every frame with the target to track (e.g., Mario's position)
     void Update(float targetX, float targetY, float zoomMultiplier = 1.0f);
+
+    void SetAllowBackwardScroll(bool allow) { allowBackwardScroll = allow; }
 
     void BeginDraw() const;
     void EndDraw() const;

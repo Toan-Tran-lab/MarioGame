@@ -31,6 +31,8 @@ namespace Global {
     extern KeyBindings keys;
     extern Font titleFont;
     extern Font baseFont;
+    extern int settingsVolume;
+    extern bool settingsMuted;
 
     void Init();
     void Cleanup();

@@ -19,7 +19,12 @@ void SaveLoadState::RefreshSlots() {
         
         SaveData data;
         bool exists = SaveManager::LoadGame(slotNames[i], data);
-        std::string info = exists ? "Level " + std::to_string(data.levelId) + " - " + data.timestamp : "Empty";
+        std::string ts = data.timestamp;
+        if (ts.length() >= 19) {
+            // Convert "YYYY-MM-DD HH:MM:SS" to "YY/MM/DD HH:MM"
+            ts = ts.substr(2, 2) + "/" + ts.substr(5, 2) + "/" + ts.substr(8, 2) + " " + ts.substr(11, 5);
+        }
+        std::string info = exists ? "Level " + std::to_string(data.levelId) + " | " + ts : "Empty";
         
         slots.push_back({displayNames[i], slotNames[i], info, exists});
     }
@@ -30,9 +35,9 @@ void SaveLoadState::Initialize() {
 }
 
 Rectangle SaveLoadState::GetItemRect(int index, float sw, float sh) const {
-    float itemW = sw * 0.5f, itemH = sh * 0.1f;
+    float itemW = sw * 0.7f, itemH = sh * 0.12f;
     float itemX = (sw - itemW) * 0.5f;
-    return { itemX, sh * 0.3f + index * (itemH + sh * 0.05f), itemW, itemH };
+    return { itemX, sh * 0.28f + index * (itemH + sh * 0.035f), itemW, itemH };
 }
 
 void SaveLoadState::Update(float deltaTime) {

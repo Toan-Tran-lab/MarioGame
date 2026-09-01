@@ -177,6 +177,13 @@ void PlayerInteraction::Visit(BuzzyBeetle& b) {
 
 void PlayerInteraction::Visit(Piranha& p) {
     if (!p.IsExposedOrMoving()) return;
+    
+    if (self.IsInvincible()) {
+        p.SetActive(false);
+        AudioManager::PlaySFX(AudioKey::HIT_ENEMY);
+        return;
+    }
+    
     // Touching a Piranha plant always damages the player (cannot be stomped)
     self.TakeDamage();
 }
