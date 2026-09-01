@@ -91,9 +91,9 @@ namespace UIUtils {
     void UpdateMenuBackground(float dt) {
         if (!bgInitialized) return;
         
-        // Ensure menu music is playing
-        std::string expectedBGM = Level::GetLevel(currentBgLevel).GetBGMKey();
-        if (AudioManager::CurrentBGM() != expectedBGM) {
+        // Start menu music only if nothing is currently playing
+        if (AudioManager::CurrentBGM().empty()) {
+            std::string expectedBGM = Level::GetLevel(currentBgLevel).GetBGMKey();
             AudioManager::PlayBGM(expectedBGM);
         }
 

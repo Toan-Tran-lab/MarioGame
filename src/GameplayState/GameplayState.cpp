@@ -444,6 +444,13 @@ void GameplayState::Initialize() {
         smoothedCamY_ = player_->GetPosition().y;
         view.Update(smoothedCamX_, smoothedCamY_, 1.0f);
     }
+    // Start level BGM (sandbox has no dedicated song, fall back to level 1 theme)
+    if (!isSandboxMode_) {
+        AudioManager::PlayBGM(currentLevel.GetBGMKey());
+    } else {
+        AudioManager::PlayBGM(Level::GetLevel(1).GetBGMKey());
+    }
+
     firstCameraInit_ = false;
 }
 
@@ -1676,6 +1683,7 @@ void GameplayState::Draw() {
 }
 
 void GameplayState::Cleanup() {
+    AudioManager::StopBGM();
     AudioManager::StopStarmanBGM();
     goombas_.clear();
     koopas_.clear();

@@ -4,6 +4,7 @@
 #include "Level/Level.h"
 #include "TextureManager/TextureManager.h"
 #include "ui/UIUtils.h"
+#include "AudioManager/AudioManager.h"
 #include <cmath>
 #include <string>
 
@@ -67,20 +68,20 @@ void LevelCompleteState::Update(float deltaTime) {
                 parentState->Initialize();
             } else {
                 // No next level — return to main menu
-                Global::gameStateManager->PopState(); // Pop LevelCompleteState
-                Global::gameStateManager->PopState(); // Pop GameplayState
+                AudioManager::StopSFX(AudioKey::LEVEL_COMPLETE);
+                Global::gameStateManager->PopToMainMenu();
             }
         } else {
             // RETURN TO MENU
-            Global::gameStateManager->PopState(); // Pop LevelCompleteState
-            Global::gameStateManager->PopState(); // Pop GameplayState
+            AudioManager::StopSFX(AudioKey::LEVEL_COMPLETE);
+            Global::gameStateManager->PopToMainMenu();
         }
     }
 
     // ESC always returns to menu
     if (IsKeyPressed(KEY_ESCAPE)) {
-        Global::gameStateManager->PopState(); // Pop LevelCompleteState
-        Global::gameStateManager->PopState(); // Pop GameplayState
+        AudioManager::StopSFX(AudioKey::LEVEL_COMPLETE);
+        Global::gameStateManager->PopToMainMenu();
     }
 }
 
