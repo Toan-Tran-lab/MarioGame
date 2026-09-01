@@ -12,6 +12,7 @@ constexpr float kFrameDuration = 0.15f;
 // --- Static animation definitions (Flyweight) ---
 static const Animation buzzyWalkAnim("buzzy_walk", 16, 16, 0, 2, {kFrameDuration});
 static const Animation buzzyHideAnim("buzzy_hide", 16, 16, 0, 1, {1.0f});
+static const Animation buzzyUpsideDownAnim("buzzy_upsidedown", 70, 70, 0, 1, {1.0f}); // 70x70
 
 BuzzyBeetle::BuzzyBeetle() {
     animState.SetAnimation(&buzzyWalkAnim);
@@ -20,6 +21,11 @@ BuzzyBeetle::BuzzyBeetle() {
 }
 
 BuzzyBeetle::~BuzzyBeetle() {}
+
+void BuzzyBeetle::TriggerUpsideDownDeath(bool hitFromLeft) {
+    GroundEnemy::TriggerUpsideDownDeath(hitFromLeft);
+    animState.SetAnimation(&buzzyUpsideDownAnim);
+}
 
 // ---------------------------------------------------------------------------
 // State helpers
@@ -148,8 +154,16 @@ void BuzzyBeetle::Draw() {
     if (!TextureManager::Has("buzzy_hide")) {
         TextureManager::Load("buzzy_hide", "assets/textures/BuzzyBeetle/hide/enemies.png");
     }
+    if (!TextureManager::Has("buzzy_upsidedown")) {
+        TextureManager::Load("buzzy_upsidedown", "assets/textures/BuzzyBeetle/dead/enemies.png");
+    }
 
     Vector2 drawPos = { position_.x, position_.y };
+
+    if (upsideDownDead_) {
+        animState.Draw(drawPos, facing_, size_);
+        return;
+    }
 
     switch (state_) {
         case BuzzyBeetleState::CeilingPatrol: {

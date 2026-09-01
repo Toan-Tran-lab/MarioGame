@@ -10,7 +10,8 @@ namespace {
 
     constexpr float kBumpGravity = 900.0f;
     constexpr float kBumpInitialVel = -150.0f;
-    constexpr float kMushroomChance = 0.35f; // 35% mushroom, 65% coin
+    constexpr float kStarChance = 0.20f;     // 20% starman
+    constexpr float kMushroomChance = 0.35f; // 35% mushroom, 45% coin
 }
 
 Luckyblock::Luckyblock()
@@ -28,7 +29,13 @@ bool Luckyblock::Bump() {
         animState.SetAnimation(&luckyEmptyAnim);
 
         float roll = (float)rand() / (float)RAND_MAX; // [0, 1)
-        lastContents_ = (roll < kMushroomChance) ? LuckyContents::Mushroom : LuckyContents::Coin;
+        if (roll < kStarChance) {
+            lastContents_ = LuckyContents::Starman;
+        } else if (roll < kStarChance + kMushroomChance) {
+            lastContents_ = LuckyContents::Mushroom;
+        } else {
+            lastContents_ = LuckyContents::Coin;
+        }
 
         Block::Bump();
         return true;

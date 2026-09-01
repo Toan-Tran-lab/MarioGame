@@ -20,6 +20,11 @@ private:
     bool isSitting_ = false;
     bool canHitBlock_ = true;
     float prevVelY_ = 0.0f;
+    Color tint_ = WHITE;
+    bool wantsToShoot_ = false;
+    float shootAnimTimer_ = 0.0f; // Brief timer to show shoot sprite
+    float starTimer_ = 0.0f; // Starman invincibility timer
+    float hitInvincibleTimer_ = 0.0f; // Post-hit invincibility (i-frames)
     physics::PlayerKeyBindings keyBindings_; // per-player hardware key mapping
 
 public:
@@ -43,6 +48,13 @@ public:
     // Call each frame before Update() to register moving platform rects (e.g. FlyingBridge).
     // Cleared automatically at the start of the next Update().
     void SetDynamicPlatforms(const std::vector<Rectangle>& platforms);
+    
+    // Interaction/Mechanics
+    void GrantStarman(float duration = 10.0f) { starTimer_ = duration; }
+    bool IsInvincible() const { return starTimer_ > 0.0f; }
+    void StartHitInvincibility(float duration = 2.0f) { hitInvincibleTimer_ = duration; }
+    bool IsHitInvincible() const { return hitInvincibleTimer_ > 0.0f; }
+    
     void SetAnimation(const Animation* newAnim);
 
     //Block Hitting Details
@@ -60,8 +72,15 @@ public:
     //Sitting Details
     bool IsSitting() const;
     void SetSitting(bool sitting);
-
     bool IsProjectileImmune() const;
+    bool CanShootFireball() const;
+    
+    void SetTint(Color tint) { tint_ = tint; }
+    Color GetTint() const { return tint_; }
+    
+    bool WantsToShoot() const { return wantsToShoot_; }
+    void ConsumeShootRequest() { wantsToShoot_ = false; }
+    void PlayShootAnimation() { if (GetShootAnimation()) shootAnimTimer_ = 0.2f; }
 
     // Animation Getters
     virtual const Animation* GetPoseAnimation() const = 0;
@@ -70,6 +89,7 @@ public:
     virtual const Animation* GetSlideAnimation() const = 0;
     virtual const Animation* GetSitAnimation() const = 0;
     virtual const Animation* GetDieAnimation() const = 0;
+    virtual const Animation* GetShootAnimation() const { return nullptr; } // Only Fire mode has this
 
     //Inherit from Character.h
     void InteractWith(Character& other) override;

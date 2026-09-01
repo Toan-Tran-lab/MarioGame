@@ -10,6 +10,7 @@ std::string AudioManager::currentBGMKey;
 float       AudioManager::bgmVolume      = 1.0f;
 float       AudioManager::masterSFXVolume = 1.0f;
 bool        AudioManager::initialized    = false;
+bool        AudioManager::starmanActive  = false;
 
 // ---------------------------------------------------------------------------
 // Lifecycle
@@ -35,22 +36,29 @@ void AudioManager::LoadAll() {
     LoadSound(AudioKey::POWER_UP,       "assets/audio/power up/powerup.wav");
     LoadSound(AudioKey::POWERUP_APPEARS,"assets/audio/power-ups appear/powerup_appears.wav");
     LoadSound(AudioKey::DOWN_FLAG_POLE, "assets/audio/down the flag pole/down_the_flag_pole.wav");
+    LoadSound(AudioKey::FIREBALL,       "assets/audio/Fireball/Fireball.mp3");
 
     TraceLog(LOG_INFO, "AudioManager: All SFX loaded");
 
     // -----------------------------------------------------------------------
-    // BGM — streaming music, one per level
+    // BGM — streaming music, one per level (+ starman invincibility theme)
     // -----------------------------------------------------------------------
     LoadMusic(AudioKey::BGM_LEVEL_1, "assets/audio/back ground music/LV1/lv1.mp3");
     LoadMusic(AudioKey::BGM_LEVEL_2, "assets/audio/back ground music/LV2/lv2.mp3");
     LoadMusic(AudioKey::BGM_LEVEL_3, "assets/audio/back ground music/LV3/lv3.mp3");
+    LoadMusic(AudioKey::STARMAN,     "assets/audio/Invincible Star/Invincible Star.mp3");
 
     TraceLog(LOG_INFO, "AudioManager: All BGM loaded");
 }
 
 void AudioManager::Update() {
     if (!initialized) return;
-    if (!currentBGMKey.empty()) {
+    if (starmanActive) {
+        auto it = musicTracks.find(AudioKey::STARMAN);
+        if (it != musicTracks.end()) {
+            UpdateMusicStream(it->second);
+        }
+    } else if (!currentBGMKey.empty()) {
         auto it = musicTracks.find(currentBGMKey);
         if (it != musicTracks.end()) {
             UpdateMusicStream(it->second);
@@ -150,6 +158,14 @@ void AudioManager::LoadMusic(const std::string& key, const std::string& filePath
 }
 
 void AudioManager::PlayBGM(const std::string& key, bool exclusive) {
+    if (starmanActive) {
+        starmanActive = false;
+        auto itStar = musicTracks.find(AudioKey::STARMAN);
+        if (itStar != musicTracks.end()) {
+            ::StopMusicStream(itStar->second);
+        }
+    }
+
     if (exclusive && !currentBGMKey.empty()) {
         auto it = musicTracks.find(currentBGMKey);
         if (it != musicTracks.end()) {
@@ -168,28 +184,94 @@ void AudioManager::PlayBGM(const std::string& key, bool exclusive) {
 }
 
 void AudioManager::PauseBGM() {
-    if (currentBGMKey.empty()) return;
-    auto it = musicTracks.find(currentBGMKey);
-    if (it != musicTracks.end()) {
-        ::PauseMusicStream(it->second);
+    if (starmanActive) {
+        auto itStar = musicTracks.find(AudioKey::STARMAN);
+        if (itStar != musicTracks.end()) {
+            ::PauseMusicStream(itStar->second);
+        }
+    }
+    if (!currentBGMKey.empty()) {
+        auto it = musicTracks.find(currentBGMKey);
+        if (it != musicTracks.end()) {
+            ::PauseMusicStream(it->second);
+        }
     }
 }
 
 void AudioManager::ResumeBGM() {
-    if (currentBGMKey.empty()) return;
-    auto it = musicTracks.find(currentBGMKey);
-    if (it != musicTracks.end()) {
-        ::ResumeMusicStream(it->second);
+    if (starmanActive) {
+        auto itStar = musicTracks.find(AudioKey::STARMAN);
+        if (itStar != musicTracks.end()) {
+            ::ResumeMusicStream(itStar->second);
+        }
+    } else if (!currentBGMKey.empty()) {
+        auto it = musicTracks.find(currentBGMKey);
+        if (it != musicTracks.end()) {
+            ::ResumeMusicStream(it->second);
+        }
     }
 }
 
 void AudioManager::StopBGM() {
-    if (currentBGMKey.empty()) return;
-    auto it = musicTracks.find(currentBGMKey);
-    if (it != musicTracks.end()) {
-        ::StopMusicStream(it->second);
+    if (starmanActive) {
+        starmanActive = false;
+        auto itStar = musicTracks.find(AudioKey::STARMAN);
+        if (itStar != musicTracks.end()) {
+            ::StopMusicStream(itStar->second);
+        }
     }
-    currentBGMKey.clear();
+    if (!currentBGMKey.empty()) {
+        auto it = musicTracks.find(currentBGMKey);
+        if (it != musicTracks.end()) {
+            ::StopMusicStream(it->second);
+        }
+        currentBGMKey.clear();
+    }
+}
+
+void AudioManager::StartStarmanBGM() {
+    auto itStar = musicTracks.find(AudioKey::STARMAN);
+    if (itStar == musicTracks.end()) {
+        TraceLog(LOG_WARNING, "AudioManager: Starman music track not found");
+        return;
+    }
+
+    if (!starmanActive) {
+        starmanActive = true;
+        // Pause stage BGM if one was playing
+        if (!currentBGMKey.empty()) {
+            auto itBgm = musicTracks.find(currentBGMKey);
+            if (itBgm != musicTracks.end()) {
+                ::PauseMusicStream(itBgm->second);
+            }
+        }
+    }
+
+    // (Re)start starman music from beginning
+    ::StopMusicStream(itStar->second);
+    ::PlayMusicStream(itStar->second);
+}
+
+void AudioManager::StopStarmanBGM() {
+    if (!starmanActive) return;
+    starmanActive = false;
+
+    auto itStar = musicTracks.find(AudioKey::STARMAN);
+    if (itStar != musicTracks.end()) {
+        ::StopMusicStream(itStar->second);
+    }
+
+    // Resume stage BGM if one was paused
+    if (!currentBGMKey.empty()) {
+        auto itBgm = musicTracks.find(currentBGMKey);
+        if (itBgm != musicTracks.end()) {
+            ::ResumeMusicStream(itBgm->second);
+        }
+    }
+}
+
+bool AudioManager::IsStarmanBGMPlaying() {
+    return starmanActive;
 }
 
 const std::string& AudioManager::CurrentBGM() {
@@ -217,6 +299,9 @@ void AudioManager::UnloadMusic(const std::string& key) {
             ::StopMusicStream(it->second);
             currentBGMKey.clear();
         }
+        if (key == AudioKey::STARMAN) {
+            starmanActive = false;
+        }
         ::UnloadMusicStream(it->second);
         musicTracks.erase(it);
     }
@@ -233,3 +318,4 @@ bool AudioManager::HasSound(const std::string& key) {
 bool AudioManager::HasMusic(const std::string& key) {
     return musicTracks.find(key) != musicTracks.end();
 }
+

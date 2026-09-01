@@ -8,12 +8,25 @@ void TextureManager::Load(const std::string& key, const std::string& filePath) {
     // Nếu đã load rồi thì bỏ qua
     if (textures.find(key) != textures.end()) return;
 
-    Texture2D tex = LoadTexture(filePath.c_str());
+    Image img = LoadImage(filePath.c_str());
 
-    // Kiểm tra load thành công (texture hợp lệ có id > 0)
-    if (tex.id == 0) {
+    // Kiểm tra load thành công
+    if (img.data == nullptr) {
         TraceLog(LOG_ERROR, "TextureManager: Không thể load texture '%s' từ '%s'",
                  key.c_str(), filePath.c_str());
+        return;
+    }
+
+    // Clean up semi-transparent pixels left by background-removal tools.
+    // Any pixel with alpha < 128 becomes fully transparent; >= 128 becomes fully opaque.
+    ImageAlphaClear(&img, BLANK, 0.5f);
+
+    Texture2D tex = LoadTextureFromImage(img);
+    UnloadImage(img);
+
+    if (tex.id == 0) {
+        TraceLog(LOG_ERROR, "TextureManager: Failed to create GPU texture for '%s'",
+                 key.c_str());
         return;
     }
 

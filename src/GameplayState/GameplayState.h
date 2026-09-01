@@ -22,6 +22,9 @@
 #include "Game_Objects/Derived_Objects/Static_Objects/Fire/Fire.h"
 #include "Game_Objects/Derived_Objects/Items/Coin/Coin.h"
 #include "Game_Objects/Derived_Objects/Items/Mushroom/Mushroom.h"
+#include "Game_Objects/Derived_Objects/Items/FireFlower/FireFlower.h"
+#include "Game_Objects/Derived_Objects/Items/Starman/Starman.h"
+#include "Game_Objects/Derived_Objects/Projectiles/PlayerFireball/PlayerFireball.h"
 #include "Game_Objects/Derived_Objects/Static_Objects/FlyingBridge/FlyingBridge.h"
 
 #include "GameplayState/BossBattleController/BossBattleController.h"
@@ -36,12 +39,19 @@ struct BulletTrigger {
     bool triggered = false;
 };
 
+struct ScorePopup {
+    Vector2 position;
+    float timer;
+    int score;
+};
+
 class GameplayState : public IGameState {
 private:
     TileMap tileMap;
     View view;
     Level currentLevel;
 
+    std::vector<ScorePopup> scorePopups_;
     std::vector<std::unique_ptr<Goomba>> goombas_;
     std::vector<std::unique_ptr<KoopaShell>> koopas_;
     std::vector<std::unique_ptr<BuzzyBeetle>> buzzyBeetles_;
@@ -56,6 +66,9 @@ private:
     std::unique_ptr<GoalPipe> goalPipe_;
     std::unique_ptr<Flagpole> flagpole_;
     std::vector<std::unique_ptr<Mushroom>> mushrooms_;
+    std::vector<std::unique_ptr<FireFlower>> fireFlowers_;
+    std::vector<std::unique_ptr<Starman>> starmen_;
+    std::vector<std::unique_ptr<PlayerFireball>> playerFireballs_;
     std::vector<std::unique_ptr<FlyingBridge>> flyingBridges_;
     std::vector<std::unique_ptr<Fire>> fires_;
 

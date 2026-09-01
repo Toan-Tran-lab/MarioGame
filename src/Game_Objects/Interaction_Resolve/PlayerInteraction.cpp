@@ -8,6 +8,8 @@
 #include "Game_Objects/Derived_Objects/Enemies/Boss/BossEnemy/BossState.h"
 #include "Game_Objects/Derived_Objects/Playable_Characters/Player/Player.h"
 #include "Game_Objects/Derived_Objects/Items/Mushroom/Mushroom.h"
+#include "Game_Objects/Derived_Objects/Items/FireFlower/FireFlower.h"
+#include "Game_Objects/Derived_Objects/Items/Starman/Starman.h"
 #include "Game_Objects/Derived_Objects/Playable_Characters/Player/PlayerState.h"
 #include "AudioManager/AudioManager.h"
 #include <cmath>
@@ -23,6 +25,13 @@ constexpr float kBossKnockbackSpeed = 250.0f;
 }
 
 void PlayerInteraction::Visit(Goomba& g) {
+    if (self.IsInvincible()) {
+        bool hitFromLeft = self.GetPosition().x < g.GetPosition().x;
+        g.TriggerUpsideDownDeath(hitFromLeft);
+        AudioManager::PlaySFX(AudioKey::HIT_ENEMY);
+        return;
+    }
+
     const float playerBottom = self.GetPosition().y + self.GetSize().y;
     const float goombaTop = g.GetPosition().y;
     const bool falling = self.GetVelocity().y > 0.0f;
@@ -49,6 +58,13 @@ void PlayerInteraction::Visit(Player& p) {
 }
 
 void PlayerInteraction::Visit(KoopaShell& k) {
+    if (self.IsInvincible()) {
+        bool hitFromLeft = self.GetPosition().x < k.GetPosition().x;
+        k.TriggerUpsideDownDeath(hitFromLeft);
+        AudioManager::PlaySFX(AudioKey::HIT_ENEMY);
+        return;
+    }
+
     const float playerBottom = self.GetPosition().y + self.GetSize().y;
     const float koopaTop = k.GetPosition().y;
     const bool falling = self.GetVelocity().y > 0.0f;
@@ -137,6 +153,13 @@ void PlayerInteraction::Visit(Mushroom& m) {
 }
 
 void PlayerInteraction::Visit(BuzzyBeetle& b) {
+    if (self.IsInvincible()) {
+        bool hitFromLeft = self.GetPosition().x < b.GetPosition().x;
+        b.TriggerUpsideDownDeath(hitFromLeft);
+        AudioManager::PlaySFX(AudioKey::HIT_ENEMY);
+        return;
+    }
+
     const float playerBottom = self.GetPosition().y + self.GetSize().y;
     const float beetleTop = b.GetPosition().y;
     const bool falling = self.GetVelocity().y > 0.0f;
@@ -179,6 +202,12 @@ void PlayerInteraction::Visit(Bullet& b) {
 void PlayerInteraction::Visit(Boss& b) {
     if (b.IsDead()) return;
 
+    if (self.IsInvincible()) {
+        b.TakeDamage(1000); // Massive damage to boss
+        AudioManager::PlaySFX(AudioKey::HIT_ENEMY);
+        return;
+    }
+
     const float playerBottom = self.GetPosition().y + self.GetSize().y;
     const float bossTop = b.GetPosition().y;
     const bool falling = self.GetVelocity().y > 0.0f;
@@ -200,4 +229,16 @@ void PlayerInteraction::Visit(Boss& b) {
     } else {
         self.TakeDamage();
     }
+}
+
+void PlayerInteraction::Visit(FireFlower& f) {
+    self.TakePowerup(PowerupType::FireFlower);
+    AudioManager::PlaySFX(AudioKey::POWER_UP);
+    f.SetActive(false);
+}
+
+void PlayerInteraction::Visit(Starman& s) {
+    self.GrantStarman();
+    AudioManager::StartStarmanBGM();
+    s.SetActive(false);
 }

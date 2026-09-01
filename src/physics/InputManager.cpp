@@ -28,6 +28,7 @@ namespace physics {
         state.jumpPressed = IsKeyPressed(KEY_SPACE) || IsKeyPressed(KEY_W) || IsKeyPressed(KEY_UP);
         state.jumpHeld    = IsKeyDown(KEY_SPACE)    || IsKeyDown(KEY_W)    || IsKeyDown(KEY_UP);
         state.sprint = IsKeyDown(KEY_LEFT_SHIFT) || IsKeyDown(KEY_Z);
+        state.shootPressed = IsKeyPressed(KEY_J) || IsKeyPressed(KEY_F);
     }
 
     // --- Per-player keybinding overload ---
@@ -61,6 +62,7 @@ namespace physics {
         state.jumpHeld = jumpMainHeld || jumpAltHeld;
 
         state.sprint = IsKeyDown(bindings.sprint);
+        state.shootPressed = IsKeyPressed(bindings.shoot);
     }
 
 } // namespace physics

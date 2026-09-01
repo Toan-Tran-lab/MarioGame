@@ -18,6 +18,8 @@ namespace AudioKey {
     inline constexpr const char* POWER_UP          = "power_up";
     inline constexpr const char* POWERUP_APPEARS   = "powerup_appears";
     inline constexpr const char* DOWN_FLAG_POLE    = "down_flag_pole";
+    inline constexpr const char* FIREBALL          = "fireball";
+    inline constexpr const char* STARMAN           = "starman";
 
     // BGM — one per level
     inline constexpr const char* BGM_LEVEL_1       = "bgm_level_1";  // Grassland
@@ -103,6 +105,13 @@ public:
     static void UnloadMusic(const std::string& key);
 
     // -----------------------------------------------------------------------
+    // Starman / Invincibility Music Control
+    // -----------------------------------------------------------------------
+    static void StartStarmanBGM();
+    static void StopStarmanBGM();
+    static bool IsStarmanBGMPlaying();
+
+    // -----------------------------------------------------------------------
     // Queries
     // -----------------------------------------------------------------------
 
@@ -116,4 +125,5 @@ private:
     static float        bgmVolume;
     static float        masterSFXVolume;
     static bool         initialized;
+    static bool         starmanActive;
 };

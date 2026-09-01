@@ -5,6 +5,7 @@
 #include "World/BlockGrid.h"
 #include "Global/Global.h"
 #include <cmath>
+#include <algorithm>
 
 static const Animation mushroomAnim("mushroom", 16, 16, 0, 1, {1.0f});
 
@@ -16,8 +17,31 @@ Mushroom::Mushroom() {
     SetActive(false);
 }
 
+void Mushroom::StartEmerging(float blockTopY) {
+    blockOriginY_ = blockTopY;
+    emergeTargetY_ = blockTopY - size_.y;
+    position_.y = blockTopY;
+    isEmerging_ = true;
+    physicsSynced_ = false;
+    physicsBody_.position = position_;
+    physicsBody_.velocity = { 0.0f, 0.0f };
+    SetActive(true);
+}
+
 void Mushroom::Update(float dt) {
     if (!IsActive()) return;
+
+    if (isEmerging_) {
+        position_.y -= kEmergeSpeed * dt;
+        physicsBody_.position = position_;
+        if (position_.y <= emergeTargetY_) {
+            position_.y = emergeTargetY_;
+            isEmerging_ = false;
+            physicsSynced_ = false;
+        }
+        animState.Update(dt);
+        return;
+    }
 
     if (!physicsSynced_) {
         SyncPhysicsBody();
@@ -54,7 +78,15 @@ void Mushroom::Update(float dt) {
 void Mushroom::Draw() {
     if (!IsActive()) return;
     Vector2 drawPos = { position_.x, position_.y };
-    animState.Draw(drawPos, facing_, size_);
+    if (isEmerging_) {
+        float visibleH = blockOriginY_ - position_.y;
+        float fraction = std::clamp(visibleH / size_.y, 0.0f, 1.0f);
+        if (fraction > 0.0f) {
+            animState.DrawCropped(drawPos, facing_, size_, fraction);
+        }
+    } else {
+        animState.Draw(drawPos, facing_, size_);
+    }
 }
 
 void Mushroom::InteractWith(Character& other) {

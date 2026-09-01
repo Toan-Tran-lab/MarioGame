@@ -24,6 +24,7 @@ void Player::SetState(PlayerState* Temp) {
 }
 
 void Player::TakeDamage() {
+    if (isDead_ || IsInvincible() || IsHitInvincible()) return;
     if (state) state->OnHit(*this);
 }
 
@@ -33,6 +34,11 @@ void Player::TakePowerup(PowerupType type) {
 
 void Player::SetDead(bool dead) {
     isDead_ = dead;
+    if (dead) {
+        starTimer_ = 0.0f;
+        hitInvincibleTimer_ = 0.0f;
+        tint_ = WHITE;
+    }
 }
 
 bool Player::IsDead() const {
@@ -59,6 +65,10 @@ bool Player::IsProjectileImmune() const {
     return state ? state->IsProjectileImmune() : false;
 }
 
+bool Player::CanShootFireball() const {
+    return state ? state->CanShootFireball() : false;
+}
+
 void Player::SetCollisionGrid(const BlockGrid* grid) {
     collisionGrid_ = grid;
 }
@@ -81,6 +91,28 @@ void Player::AcceptInteract(CharacterVisitor& other) {
 }
 
 void Player::Update(float dt) {
+    if (starTimer_ > 0.0f) {
+        starTimer_ -= dt;
+        float hue = fmod(GetTime() * 360.0f, 360.0f);
+        tint_ = ColorFromHSV(hue, 1.0f, 1.0f);
+        if (starTimer_ <= 0.0f) {
+            starTimer_ = 0.0f;
+            tint_ = WHITE;
+            if (state) state->Enter(*this); // re-apply state tint (e.g. FireState red)
+        }
+    }
+
+    if (hitInvincibleTimer_ > 0.0f) {
+        hitInvincibleTimer_ -= dt;
+        if (hitInvincibleTimer_ <= 0.0f) {
+            hitInvincibleTimer_ = 0.0f;
+            if (starTimer_ <= 0.0f) {
+                tint_ = WHITE;
+                if (state) state->Enter(*this);
+            }
+        }
+    }
+
     if (state) state->UpdateState(*this, dt);
 
     SyncPhysicsBody();
@@ -197,9 +229,20 @@ void Player::Update(float dt) {
     // Determine Animation State
     // Very basic logic: if not grounded -> Jump; if sliding -> Slide; if moving -> Walk; else -> Pose
     // For now, let's keep it simple
+    if (input.shootPressed) {
+        wantsToShoot_ = true;
+    }
+
+    // Tick down shoot animation timer
+    if (shootAnimTimer_ > 0.0f) shootAnimTimer_ -= dt;
+
     if (isSitting_) {
         if (animState.GetAnimation() != GetSitAnimation()) {
             SetAnimation(GetSitAnimation());
+        }
+    } else if (shootAnimTimer_ > 0.0f && IsGrounded() && GetShootAnimation()) {
+        if (animState.GetAnimation() != GetShootAnimation()) {
+            SetAnimation(GetShootAnimation());
         }
     } else if (!IsGrounded()) {
         if (animState.GetAnimation() != GetJumpAnimation()) {
@@ -231,5 +274,13 @@ void Player::Update(float dt) {
 
 void Player::Draw() {
     Vector2 drawPos = { position_.x, position_.y };
-    animState.Draw(drawPos, facing_, size_);
+    Color drawTint = tint_;
+    if (hitInvincibleTimer_ > 0.0f && starTimer_ <= 0.0f) {
+        // Classic Mario i-frame flickering: alternate between faded and visible
+        int phase = (int)(hitInvincibleTimer_ * 20.0f) % 2;
+        if (phase == 0) {
+            drawTint = Fade(tint_, 0.25f);
+        }
+    }
+    animState.Draw(drawPos, facing_, size_, drawTint);
 }

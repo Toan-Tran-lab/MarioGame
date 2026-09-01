@@ -40,6 +40,8 @@ public:
     BuzzyBeetle();
     ~BuzzyBeetle();
 
+    void TriggerUpsideDownDeath(bool hitFromLeft) override;
+
     BuzzyBeetleState GetBuzzyState() const { return state_; }
 
     // BuzzyBeetle is invincible — these are no-ops or bounce-only.

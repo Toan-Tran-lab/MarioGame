@@ -166,13 +166,21 @@ void GameplayState::Initialize() {
     TextureManager::Load("mario_mini_die", "assets/textures/Mario-mini/die/mario.png");
     TextureManager::Load("mario_mini_sit", "assets/textures/Mario/sit/mario.png"); // using normal sit if mini sit isn't provided
 
+    // Fire Mario
+    TextureManager::Load("fire_mario_pose", "assets/textures/Fire Mario/pose/fireMario.png");
+    TextureManager::Load("fire_mario_walk", "assets/textures/Fire Mario/walk/fireMario.png");
+    TextureManager::Load("fire_mario_jump", "assets/textures/Fire Mario/jump/fireMario.png");
+    TextureManager::Load("fire_mario_slide", "assets/textures/Fire Mario/slide/fireMario.png");
+    TextureManager::Load("fire_mario_sit", "assets/textures/Fire Mario/sit/fireMario.png");
+    TextureManager::Load("fire_mario_shoot", "assets/textures/Fire Mario/shoot/fireMario.png");
+
     // Luigi Normal
     TextureManager::Load("luigi_pose", "assets/textures/Luigi/pose/luigi.png");
     TextureManager::Load("luigi_walk", "assets/textures/Luigi/walk/luigi.png");
     TextureManager::Load("luigi_jump", "assets/textures/Luigi/jump/luigi.png");
     TextureManager::Load("luigi_slide", "assets/textures/Luigi/slide/luigi.png");
-    TextureManager::Load("luigi_sit", "assets/textures/Luigi/sit/luigi.png");
-
+    TextureManager::Load("luigi_die", "assets/textures/Luigi/die/luigi.png");
+    
     // Luigi Mini
     TextureManager::Load("luigi_mini_pose", "assets/textures/Luigi-mini/pose/luigi.png");
     TextureManager::Load("luigi_mini_walk", "assets/textures/Luigi-mini/walk/luigi.png");
@@ -180,6 +188,14 @@ void GameplayState::Initialize() {
     TextureManager::Load("luigi_mini_slide", "assets/textures/Luigi-mini/slide/luigi.png");
     TextureManager::Load("luigi_mini_die", "assets/textures/Luigi-mini/die/luigi.png");
     TextureManager::Load("luigi_mini_sit", "assets/textures/Luigi/sit/luigi.png"); // fallback
+
+    // Fire Luigi
+    TextureManager::Load("fire_luigi_pose", "assets/textures/Fire Luigi/pose/fireLuigi.png");
+    TextureManager::Load("fire_luigi_walk", "assets/textures/Fire Luigi/walk/fireLuigi.png");
+    TextureManager::Load("fire_luigi_jump", "assets/textures/Fire Luigi/jump/fireLuigi.png");
+    TextureManager::Load("fire_luigi_slide", "assets/textures/Fire Luigi/slide/fireLuigi.png");
+    TextureManager::Load("fire_luigi_sit", "assets/textures/Fire Luigi/sit/fireLuigi.png");
+    TextureManager::Load("fire_luigi_shoot", "assets/textures/Fire Luigi/shoot/fireLuigi.png");
 
     // Items
     TextureManager::Load("mushroom", "assets/textures/mushroom/mushroom.png");
@@ -238,6 +254,9 @@ void GameplayState::Initialize() {
     goalPipe_.reset();
     flagpole_.reset();
     mushrooms_.clear();
+    fireFlowers_.clear();
+    starmen_.clear();
+    playerFireballs_.clear();
     flyingBridges_.clear();
     fires_.clear();
 
@@ -413,6 +432,13 @@ void GameplayState::Update(float deltaTime) {
         timeLeft = 0;
         isGameOver = true;
         AudioManager::StopBGM();
+    }
+
+    // Monitor starman invincibility and audio
+    bool anyStarActive = (player_ && player_->IsInvincible() && !player_->IsDead()) ||
+                         (player2_ && player2_->IsInvincible() && !player2_->IsDead());
+    if (AudioManager::IsStarmanBGMPlaying() && !anyStarActive) {
+        AudioManager::StopStarmanBGM();
     }
 
     // Move bridges first so their position is current when Player::Update() runs.
@@ -642,6 +668,13 @@ void GameplayState::Update(float deltaTime) {
     debrisList_.erase(std::remove_if(debrisList_.begin(), debrisList_.end(),
         [](const DebrisPiece& d) { return !d.active; }), debrisList_.end());
 
+    // Update score popups
+    for (auto& popup : scorePopups_) {
+        popup.timer += deltaTime;
+    }
+    scorePopups_.erase(std::remove_if(scorePopups_.begin(), scorePopups_.end(),
+        [](const ScorePopup& p) { return p.timer >= 1.0f; }), scorePopups_.end());
+
     auto HandleBlockHit = [&](Player* p) {
         if (!p || p->IsDead() || !p->CanHitBlock() || !p->GetPhysicsBody().hitCeiling) return;
         
@@ -660,12 +693,31 @@ void GameplayState::Update(float deltaTime) {
                     auto* lucky = dynamic_cast<Luckyblock*>(block);
                     LuckyContents contents = lucky ? lucky->GetLastContents() : LuckyContents::Coin;
 
+                    float blockX = (float)(col * tileMap.GetTileSize());
+                    float blockTopY = (float)(row * tileMap.GetTileSize());
+
                     if (contents == LuckyContents::Mushroom) {
-                        auto m = std::make_unique<Mushroom>();
-                        m->SetPosition({ (float)(col * tileMap.GetTileSize()), hitRect.y - 16.0f * Global::GAME_SCALE });
-                        m->SetCollisionGrid(&tileMap.GetBlockGrid());
-                        m->SetActive(true);
-                        mushrooms_.push_back(std::move(m));
+                        if (!isSmall) {
+                            // Upgrade to FireFlower if player is not small
+                            auto f = std::make_unique<FireFlower>();
+                            f->SetPosition({ blockX, blockTopY });
+                            f->StartEmerging(blockTopY);
+                            fireFlowers_.push_back(std::move(f));
+                            AudioManager::PlaySFX(AudioKey::POWERUP_APPEARS);
+                        } else {
+                            auto m = std::make_unique<Mushroom>();
+                            m->SetPosition({ blockX, blockTopY });
+                            m->SetCollisionGrid(&tileMap.GetBlockGrid());
+                            m->StartEmerging(blockTopY);
+                            mushrooms_.push_back(std::move(m));
+                            AudioManager::PlaySFX(AudioKey::POWERUP_APPEARS);
+                        }
+                    } else if (contents == LuckyContents::Starman) {
+                        auto s = std::make_unique<Starman>();
+                        s->SetPosition({ blockX, blockTopY });
+                        s->SetCollisionGrid(&tileMap.GetBlockGrid());
+                        s->StartEmerging(blockTopY);
+                        starmen_.push_back(std::move(s));
                         AudioManager::PlaySFX(AudioKey::POWERUP_APPEARS);
                     } else {
                         auto c_coin = std::make_unique<Coin>();
@@ -711,10 +763,75 @@ void GameplayState::Update(float deltaTime) {
     if (isMultiplayer_ && player2_) {
         HandleBlockHit(player2_.get());
     }
+    
+    // Gather active players for shooting
+    std::vector<Player*> activePlayersForShoot;
+    if (player_ && !player_->IsDead()) activePlayersForShoot.push_back(player_.get());
+    if (isMultiplayer_ && player2_ && !player2_->IsDead()) activePlayersForShoot.push_back(player2_.get());
+
+    for (Player* p : activePlayersForShoot) {
+        if (p->WantsToShoot()) {
+            p->ConsumeShootRequest();
+            if (p->CanShootFireball()) {
+                // Limit to 2 player fireballs on screen total
+                if (playerFireballs_.size() < 2) {
+                    float dir = (p->GetFacing() == FacingDirection::Right) ? 1.0f : -1.0f;
+                    Vector2 spawnPos = { p->GetPosition().x + (p->GetSize().x / 2.0f) + (dir * 8.0f), p->GetPosition().y + p->GetSize().y / 2.0f };
+                    auto fb = std::make_unique<PlayerFireball>(spawnPos, dir);
+                    fb->SetActive(true);
+                    playerFireballs_.push_back(std::move(fb));
+                    AudioManager::PlaySFX(AudioKey::FIREBALL);
+                    p->PlayShootAnimation();
+                }
+            }
+        }
+    }
+
+    // Cleanup dead player fireballs before updating to maintain the 2-fireball limit correctly
+    playerFireballs_.erase(std::remove_if(playerFireballs_.begin(), playerFireballs_.end(),
+        [](const std::unique_ptr<PlayerFireball>& fb) { return !fb->IsActive(); }), playerFireballs_.end());
 
     for (auto& m : mushrooms_) {
         if (m->IsActive()) {
             m->Update(deltaTime);
+        }
+    }
+    for (auto& s : starmen_) {
+        if (s->IsActive()) {
+            s->Update(deltaTime);
+        }
+    }
+    for (auto& f : fireFlowers_) {
+        if (f->IsActive()) {
+            f->Update(deltaTime);
+        }
+    }
+    for (auto& fb : playerFireballs_) {
+        if (fb->IsActive()) {
+            fb->Update(deltaTime);
+            // Handle fireball bouncing
+            Rectangle fbRect = fb->GetRect();
+            int bcol = (int)(fbRect.x / tileMap.GetTileSize());
+            int brow = (int)((fbRect.y + fbRect.height) / tileMap.GetTileSize());
+            Block* floorBlock = tileMap.GetBlockGrid().GetBlock(bcol, brow);
+            if (floorBlock || fbRect.y + fbRect.height >= tileMap.GetPixelHeight()) {
+                // Bounce
+                Vector2 vel = fb->GetVelocity();
+                vel.y = -350.0f; // Bounce strength
+                fb->SetVelocity(vel);
+            }
+            
+            // Handle fireball hitting walls (destroy)
+            int sideCol = (fb->GetVelocity().x > 0) ? (int)((fbRect.x + fbRect.width) / tileMap.GetTileSize()) : (int)(fbRect.x / tileMap.GetTileSize());
+            int sideRow = (int)((fbRect.y + fbRect.height/2.0f) / tileMap.GetTileSize());
+            Block* wallBlock = tileMap.GetBlockGrid().GetBlock(sideCol, sideRow);
+            if (wallBlock) {
+                fb->Explode();
+            }
+            
+            // Advance position via velocity manually since Projectile isn't updated by PhysicsEngine
+            Vector2 pos = { fbRect.x + fb->GetVelocity().x * deltaTime, fbRect.y + fb->GetVelocity().y * deltaTime };
+            fb->SetPosition(pos);
         }
     }
 
@@ -729,15 +846,20 @@ void GameplayState::Update(float deltaTime) {
     // Entity interaction: players vs goombas/koopas/mushroom/boss
     for (Player* p : activePlayers) {
         for (auto& g : goombas_) {
-            if (g->IsActive() && !g->IsDying() && p->Overlaps(*g)) {
+            if (g->IsActive() && !g->IsDying() && !g->IsUpsideDownDead() && p->Overlaps(*g)) {
                 bool wasDying = g->IsDying();
+                bool wasUpsideDown = g->IsUpsideDownDead();
                 p->InteractWith(*g);
-                if (!wasDying && g->IsDying()) score += 100;
+                if ((!wasDying && g->IsDying()) || (!wasUpsideDown && g->IsUpsideDownDead())) {
+                    score += 100;
+                    scorePopups_.push_back({g->GetPosition(), 0.0f, 100});
+                }
             }
         }
         for (auto& k : koopas_) {
-            if (k->IsActive() && p->Overlaps(*k)) {
+            if (k->IsActive() && !k->IsUpsideDownDead() && p->Overlaps(*k)) {
                 KoopaShellState prevState = k->GetState();
+                bool wasUpsideDown = k->IsUpsideDownDead();
                 p->InteractWith(*k);
                 if (prevState != KoopaShellState::Hiding && k->GetState() == KoopaShellState::Hiding) {
                     score += 100;
@@ -761,13 +883,41 @@ void GameplayState::Update(float deltaTime) {
         }
         for (auto& m : mushrooms_) {
             if (m->IsActive() && p->Overlaps(*m)) {
+                bool wasActive = m->IsActive();
                 p->InteractWith(*m);
+                if (wasActive && !m->IsActive()) {
+                    score += 1000;
+                    scorePopups_.push_back({m->GetPosition(), 0.0f, 1000});
+                }
+            }
+        }
+        for (auto& s : starmen_) {
+            if (s->IsActive() && p->Overlaps(*s)) {
+                bool wasActive = s->IsActive();
+                p->InteractWith(*s);
+                if (wasActive && !s->IsActive()) {
+                    score += 1000;
+                    scorePopups_.push_back({s->GetPosition(), 0.0f, 1000});
+                }
+            }
+        }
+        for (auto& f : fireFlowers_) {
+            if (f->IsActive() && p->Overlaps(*f)) {
+                bool wasActive = f->IsActive();
+                p->InteractWith(*f);
+                if (wasActive && !f->IsActive()) {
+                    score += 1000;
+                    scorePopups_.push_back({f->GetPosition(), 0.0f, 1000});
+                }
             }
         }
         if (dragonBoss_ && dragonBoss_->IsActive() && !dragonBoss_->IsDead() && p->Overlaps(*dragonBoss_)) {
             bool wasDead = dragonBoss_->IsDead();
             p->InteractWith(*dragonBoss_);
-            if (!wasDead && dragonBoss_->IsDead()) score += 1000;
+            if (!wasDead && dragonBoss_->IsDead()) {
+                score += 1000;
+                scorePopups_.push_back({dragonBoss_->GetPosition(), 0.0f, 1000});
+            }
         }
     }
 
@@ -827,11 +977,15 @@ void GameplayState::Update(float deltaTime) {
     for (auto& k : koopas_) {
         if (k->IsActive() && k->GetState() == KoopaShellState::Sliding) {
             for (auto& g : goombas_) {
-                if (g->IsActive() && !g->IsDying() && k->Overlaps(*g)) {
-                bool wasDying = g->IsDying();
-                k->InteractWith(*g);
-                if (!wasDying && g->IsDying()) score += 100;
-            }
+                if (g->IsActive() && !g->IsDying() && !g->IsUpsideDownDead() && k->Overlaps(*g)) {
+                    bool wasDying = g->IsDying();
+                    bool wasUpsideDown = g->IsUpsideDownDead();
+                    k->InteractWith(*g);
+                    if ((!wasDying && g->IsDying()) || (!wasUpsideDown && g->IsUpsideDownDead())) {
+                        score += 100;
+                        scorePopups_.push_back({g->GetPosition(), 0.0f, 100});
+                    }
+                }
             }
         }
     }
@@ -871,7 +1025,10 @@ void GameplayState::Update(float deltaTime) {
             dragonBoss_ && dragonBoss_->IsActive() && k->Overlaps(*dragonBoss_)) {
             bool wasDead = dragonBoss_->IsDead();
             k->InteractWith(*dragonBoss_);
-            if (!wasDead && dragonBoss_->IsDead()) score += 1000;
+            if (!wasDead && dragonBoss_->IsDead()) {
+                score += 1000;
+                scorePopups_.push_back({dragonBoss_->GetPosition(), 0.0f, 1000});
+            }
         }
     }
 
@@ -884,7 +1041,10 @@ void GameplayState::Update(float deltaTime) {
                 if (CheckCollisionRecs(p->GetPhysicsBody().GetRect(), cRect)) {
                     coin->SetActive(false);
                     AudioManager::PlaySFX(AudioKey::HIT_COIN);
-                    if (coin->AwardsScoreOnCollect()) score += 100;
+                    if (coin->AwardsScoreOnCollect()) {
+                        score += 200; // Original mario coin gives 200 score
+                        scorePopups_.push_back({coin->GetPosition(), 0.0f, 200});
+                    }
                     break;
                 }
             }
@@ -1240,9 +1400,36 @@ void GameplayState::Draw() {
             m->Draw();
         }
     }
+    for (auto& s : starmen_) {
+        if (s->IsActive()) {
+            s->Draw();
+        }
+    }
+    for (auto& f : fireFlowers_) {
+        if (f->IsActive()) {
+            f->Draw();
+        }
+    }
+    for (auto& fb : playerFireballs_) {
+        if (fb->IsActive()) {
+            fb->Draw();
+        }
+    }
 
     for (const auto& d : debrisList_) {
         d.Draw();
+    }
+
+    for (const auto& popup : scorePopups_) {
+        float alpha = 1.0f - (popup.timer / 1.0f);
+        if (alpha < 0.0f) alpha = 0.0f;
+        float offsetY = -60.0f * popup.timer;
+        int fontSize = 24;
+        const char* popupText = TextFormat("+%d", popup.score);
+        int textW = MeasureText(popupText, fontSize);
+        int px = (int)(popup.position.x - textW / 2.0f);
+        int py = (int)(popup.position.y + offsetY);
+        DrawText(popupText, px, py, fontSize, Fade(YELLOW, alpha));
     }
 
     // Draw Boss Battle Doors (reDoor and Door via BossBattleController)
@@ -1293,6 +1480,7 @@ void GameplayState::Draw() {
 }
 
 void GameplayState::Cleanup() {
+    AudioManager::StopStarmanBGM();
     goombas_.clear();
     koopas_.clear();
     buzzyBeetles_.clear();
@@ -1306,6 +1494,9 @@ void GameplayState::Cleanup() {
     flyingBridges_.clear();
     goalPipe_.reset();
     mushrooms_.clear();
+    fireFlowers_.clear();
+    starmen_.clear();
+    playerFireballs_.clear();
     fires_.clear();
     player2_.reset();
 
