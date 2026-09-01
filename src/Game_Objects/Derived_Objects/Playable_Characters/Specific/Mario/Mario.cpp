@@ -21,8 +21,8 @@ static const Animation marioFirePoseAnim("fire_mario_pose", 61, 94, 0, 2, {3.0f,
 static const Animation marioFireWalkAnim("fire_mario_walk", 49, 82, 0, 3, {0.1f}); // 148x82 / 3 = 49 (same as before)
 static const Animation marioFireJumpAnim("fire_mario_jump", 46, 84, 0, 1, {1.0f});
 static const Animation marioFireSlideAnim("fire_mario_slide", 48, 90, 0, 1, {1.0f});
-static const Animation marioFireSitAnim("fire_mario_sit", 102, 164, 0, 1, {1.0f});
-static const Animation marioFireShootAnim("fire_mario_shoot", 54, 96, 0, 1, {1.0f}); // 54x96
+static const Animation marioFireSitAnim("fire_mario_sit", 82, 130, 0, 1, {1.0f});
+static const Animation marioFireShootAnim("fire_mario_shoot", 61, 94, 0, 1, {1.0f}); // using pose sprite
 
 const Animation* Mario::GetPoseAnimation() const {
     if (CanShootFireball()) return &marioFirePoseAnim;

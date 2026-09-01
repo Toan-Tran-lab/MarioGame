@@ -63,7 +63,7 @@ void GameplayState::SetMultiplayer(bool enabled) {
             player2_ = std::make_unique<Mario>();
         }
 
-        // P1 key bindings: WASD + Left Shift
+        // P1 key bindings: WASD + Left Shift + F
         physics::PlayerKeyBindings p1Bindings;
         p1Bindings.left    = KEY_A;
         p1Bindings.right   = KEY_D;
@@ -71,9 +71,10 @@ void GameplayState::SetMultiplayer(bool enabled) {
         p1Bindings.jump    = KEY_W;
         p1Bindings.jumpAlt = KEY_SPACE;
         p1Bindings.sprint  = KEY_LEFT_SHIFT;
+        p1Bindings.shoot   = KEY_F;
         player_->SetKeyBindings(p1Bindings);
 
-        // P2 key bindings: Arrow keys + Right Shift
+        // P2 key bindings: Arrow keys + Right Shift + J
         physics::PlayerKeyBindings p2Bindings;
         p2Bindings.left    = KEY_LEFT;
         p2Bindings.right   = KEY_RIGHT;
@@ -81,6 +82,7 @@ void GameplayState::SetMultiplayer(bool enabled) {
         p2Bindings.jump    = KEY_UP;
         p2Bindings.jumpAlt = 0; // no alt key
         p2Bindings.sprint  = KEY_RIGHT_SHIFT;
+        p2Bindings.shoot   = KEY_J;
         player2_->SetKeyBindings(p2Bindings);
     } else {
         player2_.reset();
@@ -179,6 +181,7 @@ void GameplayState::Initialize() {
     TextureManager::Load("luigi_walk", "assets/textures/Luigi/walk/luigi.png");
     TextureManager::Load("luigi_jump", "assets/textures/Luigi/jump/luigi.png");
     TextureManager::Load("luigi_slide", "assets/textures/Luigi/slide/luigi.png");
+    TextureManager::Load("luigi_sit", "assets/textures/Luigi/sit/luigi.png");
     TextureManager::Load("luigi_die", "assets/textures/Luigi/die/luigi.png");
     
     // Luigi Mini
@@ -1013,6 +1016,31 @@ void GameplayState::Update(float deltaTime) {
     for (auto& g : goombas_) if (g->IsActive() && !g->IsDying()) activeEnemies.push_back(g.get());
     for (auto& k : koopas_) if (k->IsActive()) activeEnemies.push_back(k.get());
     for (auto& b : buzzyBeetles_) if (b->IsActive()) activeEnemies.push_back(b.get());
+
+    // Fireball vs Enemy collision
+    for (auto& fb : playerFireballs_) {
+        if (fb->IsActive() && !fb->IsExploded()) {
+            for (auto* e : activeEnemies) {
+                if (CheckCollisionRecs(fb->GetRect(), e->GetRect())) {
+                    if (auto* k = dynamic_cast<KoopaShell*>(e)) {
+                        fb->OnHitShell(*k);
+                        score += 100;
+                        scorePopups_.push_back({k->GetPosition(), 0.0f, 100});
+                        AudioManager::PlaySFX(AudioKey::HIT_ENEMY);
+                    } else if (auto* b = dynamic_cast<BuzzyBeetle*>(e)) {
+                        fb->OnHitEnemy(*b);
+                        AudioManager::PlaySFX(AudioKey::HIT_ENEMY);
+                    } else {
+                        fb->OnHitEnemy(*e);
+                        score += 100;
+                        scorePopups_.push_back({e->GetPosition(), 0.0f, 100});
+                        AudioManager::PlaySFX(AudioKey::HIT_ENEMY);
+                    }
+                    break;
+                }
+            }
+        }
+    }
 
     for (size_t i = 0; i < activeEnemies.size(); ++i) {
         for (size_t j = i + 1; j < activeEnemies.size(); ++j) {
