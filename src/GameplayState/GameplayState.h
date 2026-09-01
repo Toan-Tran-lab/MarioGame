@@ -12,6 +12,7 @@
 #include "Game_Objects/Derived_Objects/Enemies/Piranha/Piranha.h"
 #include "Game_Objects/Derived_Objects/Enemies/Boss/SpecificBoss/DragonBoss/DragonBoss.h"
 #include "Game_Objects/Derived_Objects/Projectiles/Fireball/Fireball.h"
+#include "Game_Objects/Derived_Objects/Enemies/Bullet/Bullet.h"
 #include "Game_Objects/Derived_Objects/Static_Objects/Princess/Princess.h"
 #include "Game_Objects/Derived_Objects/Static_Objects/Block/Block.h"
 #include "Game_Objects/Derived_Objects/Static_Objects/Luckyblock/Luckyblock.h"
@@ -27,6 +28,13 @@
 #include <vector>
 #include <memory>
 
+struct BulletTrigger {
+    float triggerX = 0.0f;
+    float spawnY = 0.0f;
+    float direction = 1.0f; // 1.0f = from left to right, -1.0f = from right to left
+    bool triggered = false;
+};
+
 class GameplayState : public IGameState {
 private:
     TileMap tileMap;
@@ -39,6 +47,8 @@ private:
     std::vector<std::unique_ptr<Piranha>> piranhas_;
     std::unique_ptr<DragonBoss> dragonBoss_;
     std::vector<std::unique_ptr<Fireball>> fireballs_;
+    std::vector<std::unique_ptr<Bullet>> bullets_;
+    std::vector<BulletTrigger> bulletTriggers_;
     std::vector<std::unique_ptr<Coin>> coins_;
     std::vector<DebrisPiece> debrisList_;
     std::unique_ptr<Princess> princess_;

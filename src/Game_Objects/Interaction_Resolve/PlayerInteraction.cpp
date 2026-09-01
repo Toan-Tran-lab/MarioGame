@@ -3,6 +3,7 @@
 #include "Game_Objects/Derived_Objects/Enemies/KoopaShell/KoopaShell.h"
 #include "Game_Objects/Derived_Objects/Enemies/BuzzyBeetle/BuzzyBeetle.h"
 #include "Game_Objects/Derived_Objects/Enemies/Piranha/Piranha.h"
+#include "Game_Objects/Derived_Objects/Enemies/Bullet/Bullet.h"
 #include "Game_Objects/Derived_Objects/Enemies/Boss/BossEnemy/Boss.h"
 #include "Game_Objects/Derived_Objects/Enemies/Boss/BossEnemy/BossState.h"
 #include "Game_Objects/Derived_Objects/Playable_Characters/Player/Player.h"
@@ -156,6 +157,23 @@ void PlayerInteraction::Visit(Piranha& p) {
     if (!p.IsExposedOrMoving()) return;
     // Touching a Piranha plant always damages the player (cannot be stomped)
     self.TakeDamage();
+}
+
+void PlayerInteraction::Visit(Bullet& b) {
+    if (!b.IsActive()) return;
+
+    const float playerBottom = self.GetPosition().y + self.GetSize().y;
+    const float bulletTop = b.GetPosition().y;
+    const bool aboveBullet = (playerBottom <= bulletTop + 10.0f);
+
+    if (aboveBullet) {
+        // Riding / standing on top of the bullet like a FlyingBridge — no damage taken!
+        return;
+    } else {
+        // Side/bottom contact: causes damage like a sliding Koopa shell
+        b.SetActive(false);
+        self.TakeDamage();
+    }
 }
 
 void PlayerInteraction::Visit(Boss& b) {

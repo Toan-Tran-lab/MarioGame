@@ -196,6 +196,7 @@ void GameplayState::Initialize() {
     TextureManager::Load("buzzy_walk",    "assets/textures/BuzzyBeetle/walk/enemies.png");
     TextureManager::Load("buzzy_hide",    "assets/textures/BuzzyBeetle/hide/enemies.png");
     TextureManager::Load("piranha",       "assets/textures/Piranha/enemies.png");
+    TextureManager::Load("bullet",        "assets/textures/Bullet/enemies.png");
     TextureManager::Load("coin", "assets/textures/coin/coin.png");
     TextureManager::Load("mushroom", "assets/textures/Items/items.png");
     TextureManager::Load("luckyblock", "assets/textures/Luckyblock/luckyblock.png");
@@ -228,6 +229,8 @@ void GameplayState::Initialize() {
     koopas_.clear();
     buzzyBeetles_.clear();
     piranhas_.clear();
+    bullets_.clear();
+    bulletTriggers_.clear();
     dragonBoss_.reset();
     fireballs_.clear();
     coins_.clear();
@@ -334,6 +337,12 @@ void GameplayState::Initialize() {
                 bridge->SetPatrolBounds(0.0f, (float)tileMap.GetPixelWidth());
                 bridge->SetBlockGrid(&tileMap.GetBlockGrid());
                 flyingBridges_.push_back(std::move(bridge));
+            } else if (ent.id == "BulletLeft" || ent.id == "Bullet_Left" || ent.id == "bulletleft" || ent.id == "bullet_left") {
+                // BulletLeft: Shoots to the LEFT (-1.0f)
+                bulletTriggers_.push_back({ ent.position.x, ent.position.y, -1.0f, false });
+            } else if (ent.id == "BulletRight" || ent.id == "Bullet_Right" || ent.id == "bulletright" || ent.id == "bullet_right") {
+                // BulletRight: Shoots to the RIGHT (+1.0f)
+                bulletTriggers_.push_back({ ent.position.x, ent.position.y, 1.0f, false });
             } else if (ent.id == "GoalPipe") {
                 goalPipe_ = std::make_unique<GoalPipe>();
                 goalPipe_->SetPosition(ent.position);
@@ -425,16 +434,49 @@ void GameplayState::Update(float deltaTime) {
         if (isMultiplayer_) CheckAndCarry(player2_.get());
     }
 
-    // Inject all bridge rects as dynamic solid platforms into the player's collision pass.
+    // Move bullets and carry players standing on them like FlyingBridge
+    for (auto& bullet : bullets_) {
+        if (!bullet->IsActive()) continue;
+        float oldX = bullet->GetPosition().x;
+        bullet->Update(deltaTime);
+        float deltaX = bullet->GetPosition().x - oldX;
+
+        auto CheckAndCarryBullet = [&](Player* p) {
+            if (!p || p->IsDead()) return;
+            Rectangle pRect = p->GetPhysicsBody().GetRect();
+            Rectangle bRect = bullet->GetRect();
+            float pBottom = pRect.y + pRect.height;
+            float bTop    = bRect.y;
+            bool hOverlap = (pRect.x + pRect.width > bRect.x) && (pRect.x < bRect.x + bRect.width);
+            bool onTop = (pBottom >= bTop - 8.0f) && (pBottom <= bTop + 8.0f);
+            
+            if (hOverlap && onTop && deltaX != 0.0f) {
+                Vector2 pos = p->GetPosition();
+                pos.x += deltaX;
+                p->SetPosition(pos);
+                p->SyncPhysicsBody();
+            }
+        };
+
+        CheckAndCarryBullet(player_.get());
+        if (isMultiplayer_) CheckAndCarryBullet(player2_.get());
+    }
+
+    // Inject all bridge and bullet rects as dynamic solid platforms into the player's collision pass.
     {
-        std::vector<Rectangle> bridgeRects;
-        bridgeRects.reserve(flyingBridges_.size());
+        std::vector<Rectangle> platformRects;
+        platformRects.reserve(flyingBridges_.size() + bullets_.size());
         for (auto& bridge : flyingBridges_) {
-            bridgeRects.push_back(bridge->GetRect());
+            platformRects.push_back(bridge->GetRect());
         }
-        player_->SetDynamicPlatforms(bridgeRects);
+        for (auto& bullet : bullets_) {
+            if (bullet->IsActive()) {
+                platformRects.push_back(bullet->GetRect());
+            }
+        }
+        player_->SetDynamicPlatforms(platformRects);
         if (isMultiplayer_ && player2_) {
-            player2_->SetDynamicPlatforms(bridgeRects);
+            player2_->SetDynamicPlatforms(platformRects);
         }
     }
 
@@ -697,6 +739,11 @@ void GameplayState::Update(float deltaTime) {
                 p->InteractWith(*pir);
             }
         }
+        for (auto& b : bullets_) {
+            if (b->IsActive() && p->Overlaps(*b)) {
+                p->InteractWith(*b);
+            }
+        }
         for (auto& m : mushrooms_) {
             if (m->IsActive() && p->Overlaps(*m)) {
                 p->InteractWith(*m);
@@ -799,6 +846,11 @@ void GameplayState::Update(float deltaTime) {
                     k->InteractWith(*pir);
                 }
             }
+            for (auto& b : bullets_) {
+                if (b->IsActive() && k->Overlaps(*b)) {
+                    k->InteractWith(*b);
+                }
+            }
         }
         if (k->IsActive() && k->GetState() == KoopaShellState::Sliding &&
             dragonBoss_ && dragonBoss_->IsActive() && k->Overlaps(*dragonBoss_)) {
@@ -896,6 +948,55 @@ void GameplayState::Update(float deltaTime) {
             }
         }
     }
+
+    // Trigger and spawn Bullets when player reaches trigger X
+    for (auto& trigger : bulletTriggers_) {
+        if (!trigger.triggered) {
+            for (Player* p : activePlayers) {
+                if (p->GetPosition().x >= trigger.triggerX) {
+                    trigger.triggered = true;
+
+                    const Camera2D& cam = view.GetRawCamera();
+                    float cameraZoom = (cam.zoom > 0.0f) ? cam.zoom : 1.0f;
+                    float worldWidth = (float)GetScreenWidth() / cameraZoom;
+                    float bulletWidth = 16.0f * Global::GAME_SCALE;
+
+                    float spawnX = 0.0f;
+                    if (trigger.direction > 0.0f) {
+                        // Shoot from left outside of camera view towards right
+                        spawnX = view.GetWorldLeft() - bulletWidth - 10.0f;
+                    } else {
+                        // Shoot from right outside of camera view towards left
+                        spawnX = view.GetWorldLeft() + worldWidth + 10.0f;
+                    }
+
+                    auto bullet = std::make_unique<Bullet>(Vector2{ spawnX, trigger.spawnY }, trigger.direction);
+                    bullets_.push_back(std::move(bullet));
+                    break;
+                }
+            }
+        }
+    }
+
+    // Resolve Bullet block collisions
+    for (auto& bullet : bullets_) {
+        if (!bullet->IsActive()) continue;
+
+        Rectangle bRect = bullet->GetRect();
+
+        // Map geometry (Solid blocks) -> Disappear on hit
+        // Only check block collision if the bullet is within map horizontal bounds
+        if (bullet->GetPosition().x >= 0.0f && bullet->GetPosition().x + bullet->GetSize().x <= tileMap.GetPixelWidth()) {
+            if (RectOverlapsSolidBlock(bRect, tileMap.GetBlockGrid())) {
+                bullet->OnHitSolid();
+                continue;
+            }
+        }
+    }
+
+    // Cleanup inactive bullets
+    bullets_.erase(std::remove_if(bullets_.begin(), bullets_.end(),
+        [](const std::unique_ptr<Bullet>& b) { return !b->IsActive(); }), bullets_.end());
 
     // Cleanup dead fireballs
     fireballs_.erase(std::remove_if(fireballs_.begin(), fireballs_.end(),[](const std::unique_ptr<Fireball>& fb) { return !fb->IsActive(); }), fireballs_.end());
@@ -1108,6 +1209,9 @@ void GameplayState::Draw() {
     for (auto& fb : fireballs_) {
         if (fb->IsActive()) fb->Draw();
     }
+    for (auto& bullet : bullets_) {
+        if (bullet->IsActive()) bullet->Draw();
+    }
     for (auto& bridge : flyingBridges_) {
         bridge->Draw();
     }
@@ -1172,6 +1276,8 @@ void GameplayState::Cleanup() {
     koopas_.clear();
     buzzyBeetles_.clear();
     piranhas_.clear();
+    bullets_.clear();
+    bulletTriggers_.clear();
     dragonBoss_.reset();
     fireballs_.clear();
     coins_.clear();
