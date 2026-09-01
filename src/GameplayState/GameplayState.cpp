@@ -427,7 +427,6 @@ void GameplayState::Initialize() {
     // Initialize camera
     view = View(16.0f, (float)tileMap.GetTileSize());
     view.Init((float)tileMap.GetPixelWidth(), (float)tileMap.GetPixelHeight());
-    view.SetAllowBackwardScroll(isSandboxMode_ || currentLevel.GetLevelNumber() == 3);
 
     // Auto-save logic
     if (!isSandboxMode_) {
@@ -447,7 +446,7 @@ void GameplayState::Initialize() {
 
     smoothedCamX_ = player_->GetPosition().x;
     smoothedCamY_ = player_->GetPosition().y;
-    view.Update(smoothedCamX_, smoothedCamY_, 1.0f);
+    view.Update(smoothedCamX_, smoothedCamY_, 1.0f, false);
     firstCameraInit_ = false;
 }
 
@@ -591,9 +590,9 @@ void GameplayState::Update(float deltaTime) {
         float px = p->GetPosition().x;
         float pWidth = p->GetSize().x;
         
-        // Left constraint: prevents moving beyond left edge of the map
-        if (px < 0.0f) {
-            p->SetPosition({0.0f, p->GetPosition().y});
+        // Left constraint: prevents moving beyond left edge of the camera view
+        if (px < cameraLeft) {
+            p->SetPosition({cameraLeft, p->GetPosition().y});
             p->SyncPhysicsBody();
             if (p->GetPhysicsBody().velocity.x < 0) {
                 p->GetPhysicsBody().velocity.x = 0.0f;
@@ -1577,8 +1576,8 @@ void GameplayState::Update(float deltaTime) {
         smoothedCamX_ += (camTargetX - smoothedCamX_) * camLerpSpeed * deltaTime;
         smoothedCamY_ += (camTargetY - smoothedCamY_) * camLerpSpeed * deltaTime;
     }
-    
-    view.Update(smoothedCamX_, smoothedCamY_, camZoomMult);
+    bool clampCameraForward = (bossBattleCtrl_.GetPhase() == BossBattlePhase::Waiting);
+    view.Update(smoothedCamX_, smoothedCamY_, camZoomMult, clampCameraForward);
 }
 
 void GameplayState::Draw() {

@@ -23,7 +23,7 @@ void View::Init(float mapPixelW, float mapPixelH) {
     maxTargetX = 0.0f;
 }
 
-void View::Update(float targetX, float targetY, float zoomMultiplier) {
+void View::Update(float targetX, float targetY, float zoomMultiplier, bool clampToMax) {
     float screenW = (float)GetScreenWidth();
     float screenH = (float)GetScreenHeight();
 
@@ -34,13 +34,16 @@ void View::Update(float targetX, float targetY, float zoomMultiplier) {
 
     camera.offset = { floorf(screenW / 2.0f), floorf(screenH / 2.0f) };
 
-    // Enforce one-way scrolling if not allowed to move backward
-    if (!allowBackwardScroll) {
+    if (clampToMax) {
+        // Enforce one-way scrolling
         if (targetX > maxTargetX) {
             maxTargetX = targetX;
         } else {
             targetX = maxTargetX;
         }
+    } else {
+        // Cutscene mode: move freely but update maxTargetX so when lock resumes, it starts from here
+        maxTargetX = targetX;
     }
 
     // Track target
