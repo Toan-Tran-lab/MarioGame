@@ -42,9 +42,8 @@ void ShellInteraction::Visit(Mushroom& m) {
 }
 
 void ShellInteraction::Visit(BuzzyBeetle& b) {
-    if (self.GetState() == KoopaShellState::Sliding && !b.IsDefeated()) {
-        b.Defeat();
-    }
+    // BuzzyBeetle is invincible — shell bounces off, no effect.
+    (void)b;
 }
 
 void ShellInteraction::Visit(Boss& b) {

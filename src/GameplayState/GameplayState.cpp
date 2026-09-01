@@ -194,7 +194,7 @@ void GameplayState::Initialize() {
     TextureManager::Load("koopa_walk",     "assets/textures/Koopa/walk/enemies.png");
     TextureManager::Load("koopa_hide",     "assets/textures/Koopa/hide/enemies.png");
     TextureManager::Load("buzzy_walk",    "assets/textures/BuzzyBeetle/walk/enemies.png");
-    TextureManager::Load("buzzy_flipped", "assets/textures/BuzzyBeetle/flipped/enemies.png");
+    TextureManager::Load("buzzy_hide",    "assets/textures/BuzzyBeetle/hide/enemies.png");
     TextureManager::Load("coin", "assets/textures/coin/coin.png");
     TextureManager::Load("mushroom", "assets/textures/Items/items.png");
     TextureManager::Load("luckyblock", "assets/textures/Luckyblock/luckyblock.png");
@@ -670,6 +670,11 @@ void GameplayState::Update(float deltaTime) {
                 }
             }
         }
+        for (auto& b : buzzyBeetles_) {
+            if (b->IsActive() && p->Overlaps(*b)) {
+                p->InteractWith(*b);
+            }
+        }
         for (auto& m : mushrooms_) {
             if (m->IsActive() && p->Overlaps(*m)) {
                 p->InteractWith(*m);
@@ -686,7 +691,7 @@ void GameplayState::Update(float deltaTime) {
     std::vector<GroundEnemy*> activeEnemies;
     for (auto& g : goombas_) if (g->IsActive() && !g->IsDying()) activeEnemies.push_back(g.get());
     for (auto& k : koopas_) if (k->IsActive()) activeEnemies.push_back(k.get());
-    for (auto& b : buzzyBeetles_) if (b->IsActive() && !b->IsDefeated()) activeEnemies.push_back(b.get());
+    for (auto& b : buzzyBeetles_) if (b->IsActive()) activeEnemies.push_back(b.get());
 
     for (size_t i = 0; i < activeEnemies.size(); ++i) {
         for (size_t j = i + 1; j < activeEnemies.size(); ++j) {
@@ -763,10 +768,8 @@ void GameplayState::Update(float deltaTime) {
     for (auto& k : koopas_) {
         if (k->IsActive() && k->GetState() == KoopaShellState::Sliding) {
             for (auto& b : buzzyBeetles_) {
-                if (b->IsActive() && !b->IsDefeated() && k->Overlaps(*b)) {
-                    bool wasDefeated = b->IsDefeated();
-                    k->InteractWith(*b);
-                    if (!wasDefeated && b->IsDefeated()) score += 100;
+                if (b->IsActive() && k->Overlaps(*b)) {
+                    k->InteractWith(*b); // BuzzyBeetle is invincible — shell bounces off
                 }
             }
         }
@@ -831,7 +834,7 @@ void GameplayState::Update(float deltaTime) {
         }
         if (!justExploded) {
             for (auto& b : buzzyBeetles_) {
-                if (b->IsActive() && !b->IsDefeated() && CheckCollisionRecs(fbRect, b->GetRect())) {
+                if (b->IsActive() && CheckCollisionRecs(fbRect, b->GetRect())) {
                     fb->OnHitEnemy(*b);
                     justExploded = true;
                     break;
