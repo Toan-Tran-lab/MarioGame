@@ -12,6 +12,8 @@ namespace Global {
     KeyBindings keys;
     Font titleFont;
     Font baseFont;
+    int settingsVolume = 80;
+    bool settingsMuted = false;
 
     void Init() {
         InitAudioDevice();

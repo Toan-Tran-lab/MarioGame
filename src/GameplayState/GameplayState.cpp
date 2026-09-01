@@ -427,6 +427,7 @@ void GameplayState::Initialize() {
     // Initialize camera
     view = View(16.0f, (float)tileMap.GetTileSize());
     view.Init((float)tileMap.GetPixelWidth(), (float)tileMap.GetPixelHeight());
+    view.SetAllowBackwardScroll(isSandboxMode_ || currentLevel.GetLevelNumber() == 3);
 
     // Auto-save logic
     if (!isSandboxMode_) {
@@ -459,6 +460,7 @@ void GameplayState::Update(float deltaTime) {
     if (isGameOver || isGameWon) {
         if (IsKeyPressed(KEY_ENTER)) {
             Global::gameStateManager->PopState(); // Or go to Game Over screen
+
         }
         return;
     }
@@ -985,7 +987,12 @@ void GameplayState::Update(float deltaTime) {
         }
         for (auto& pir : piranhas_) {
             if (pir->IsActive() && p->Overlaps(*pir)) {
+                bool wasActive = pir->IsActive();
                 p->InteractWith(*pir);
+                if (wasActive && !pir->IsActive()) {
+                    score += 200;
+                    scorePopups_.push_back({pir->GetPosition(), 0.0f, 200});
+                }
             }
         }
         for (auto& b : bullets_) {
@@ -1059,6 +1066,18 @@ void GameplayState::Update(float deltaTime) {
                         AudioManager::PlaySFX(AudioKey::HIT_ENEMY);
                     }
                     break;
+                }
+            }
+            if (!fb->IsExploded()) {
+                for (auto& pir : piranhas_) {
+                    if (pir->IsActive() && pir->IsExposedOrMoving() && CheckCollisionRecs(fb->GetRect(), pir->GetRect())) {
+                        fb->Explode();
+                        pir->SetActive(false); // Disappear instantly
+                        score += 200;
+                        scorePopups_.push_back({pir->GetPosition(), 0.0f, 200});
+                        AudioManager::PlaySFX(AudioKey::HIT_ENEMY);
+                        break;
+                    }
                 }
             }
 

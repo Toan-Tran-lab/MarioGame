@@ -17,13 +17,17 @@ void LevelCompleteState::Initialize() {
     selectedButton = 0;
 }
 
-// Returns the screen rect for button at 'index' (0=NEXT LEVEL, 1=RETURN TO MENU)
 Rectangle LevelCompleteState::GetButtonRect(int index, float sw, float sh) const {
-    float itemW = sw * 0.35f;
-    float itemH = sh * 0.065f;
+    float cardW = sw * 0.6f;
+    float cardH = sh * 0.8f;
+    float cardY = sh * 0.1f;
+    
+    float itemW = cardW * 0.7f;
+    float itemH = cardH * 0.08f;
     float itemX = (sw - itemW) * 0.5f;
-    float startY = sh * 0.62f;
-    float gap = sh * 0.03f;
+    
+    float startY = cardY + cardH * 0.72f;
+    float gap = cardH * 0.03f;
     return { itemX, startY + index * (itemH + gap), itemW, itemH };
 }
 
@@ -112,20 +116,19 @@ void LevelCompleteState::Draw() {
     UIUtils::DrawMenuBackground(sw, sh);
 
     // Panel card
-    float cardW = sw * 0.5f;
-    float cardH = sh * 0.75f;
+    float cardW = sw * 0.6f;
+    float cardH = sh * 0.8f;
     float cardX = (sw - cardW) * 0.5f;
-    float cardY = sh * 0.12f;
+    float cardY = sh * 0.1f;
     DrawRectangleRounded({ cardX, cardY, cardW, cardH }, 0.08f, 12, Color{ 30, 18, 45, 220 });
     DrawRectangleRoundedLines({ cardX, cardY, cardW, cardH }, 0.08f, 12, Color{ 180, 150, 220, 200 });
 
     // Title: "LEVEL COMPLETE" — styled like the main menu logo
-    // White text with thick red outline using SuperMario256 font
     const char* titleText = "LEVEL COMPLETE";
-    int titleSize = (int)(sh * 0.072f);
+    int titleSize = (int)(sh * 0.065f); // slightly smaller to fit better
     Vector2 titleMeasure = MeasureTextEx(Global::titleFont, titleText, (float)titleSize, 1.0f);
     float titleX = (sw - titleMeasure.x) / 2.0f;
-    float titleY = sh * 0.165f;
+    float titleY = cardY + cardH * 0.05f;
 
     // Thick outline: draw 8 offset copies in dark red/brown
     int outlineRadius = (int)(titleSize * 0.09f);
@@ -139,13 +142,14 @@ void LevelCompleteState::Draw() {
     // White fill on top
     DrawTextEx(Global::titleFont, titleText, { titleX, titleY }, (float)titleSize, 1.0f, WHITE);
 
-    // Divider line
-    DrawLineEx({ cardX + cardW * 0.1f, sh * 0.29f }, { cardX + cardW * 0.9f, sh * 0.29f }, 2.0f, Color{ 180, 150, 220, 120 });
+    // Divider line 1
+    float div1Y = cardY + cardH * 0.22f;
+    DrawLineEx({ cardX + cardW * 0.1f, div1Y }, { cardX + cardW * 0.9f, div1Y }, 2.0f, Color{ 180, 150, 220, 120 });
 
     // Stats
-    int statSize = (int)(sh * 0.04f);
-    int statGap  = (int)(sh * 0.07f);
-    int statY    = (int)(sh * 0.33f);
+    int statSize = (int)(cardH * 0.06f);
+    int statGap  = (int)(cardH * 0.12f);
+    int statY    = (int)(cardY + cardH * 0.28f);
 
     std::string levelText = "LEVEL  " + std::to_string(levelId);
     std::string scoreText = "SCORE  " + std::to_string(score);
@@ -155,17 +159,23 @@ void LevelCompleteState::Draw() {
     UIUtils::DrawCenteredText(scoreText.c_str(), statY + statGap,   statSize, WHITE,  (int)sw);
     UIUtils::DrawCenteredText(timeText.c_str(),  statY + statGap*2, statSize, WHITE,  (int)sw);
 
-    // Divider line
-    DrawLineEx({ cardX + cardW * 0.1f, sh * 0.585f }, { cardX + cardW * 0.9f, sh * 0.585f }, 2.0f, Color{ 180, 150, 220, 120 });
+    // Divider line 2
+    float div2Y = cardY + cardH * 0.65f;
+    DrawLineEx({ cardX + cardW * 0.1f, div2Y }, { cardX + cardW * 0.9f, div2Y }, 2.0f, Color{ 180, 150, 220, 120 });
 
     // Buttons
     DrawButtons(sw, sh);
 
     // Key hint bar at the bottom of the card
-    int hintSize = (int)(sh * 0.028f);
+    int hintSize = (int)(sh * 0.025f);
     float hintX = cardX + cardW * 0.1f;
-    float hintY = cardY + cardH - sh * 0.065f;
-    UIUtils::DrawKeyPrompt("ENTER", "Select", hintX, hintY, hintSize, (int)(sw * 0.18f));
+    float hintY = cardY + cardH - sh * 0.05f;
+    
+    // Instead of using spacing arg, we manually calculate the next X pos to avoid overlap
+    int enterW = MeasureText("ENTER", hintSize);
+    int selW = MeasureText("Select", hintSize);
+    UIUtils::DrawKeyPrompt("ENTER", "Select", hintX, hintY, hintSize, 0);
+    hintX += enterW + selW + 25; // Add extra margin
     UIUtils::DrawKeyPrompt("ESC", "Menu",     hintX, hintY, hintSize, 0);
 }
 
