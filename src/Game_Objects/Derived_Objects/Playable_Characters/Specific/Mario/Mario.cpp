@@ -16,13 +16,13 @@ static const Animation marioMiniSlideAnim("mario_mini_slide", 16, 16, 0, 1, {1.0
 static const Animation marioMiniSitAnim("mario_mini_sit", 16, 16, 0, 1, {1.0f}); // if exists
 static const Animation marioMiniDieAnim("mario_mini_die", 16, 16, 0, 1, {1.0f});
 
-// Fire Mario Animations (updated to match re-exported PNG sizes)
-static const Animation marioFirePoseAnim("fire_mario_pose", 61, 94, 0, 2, {3.0f, 0.8f}); // 122x94 / 2 = 61
-static const Animation marioFireWalkAnim("fire_mario_walk", 49, 82, 0, 3, {0.1f}); // 148x82 / 3 = 49 (same as before)
+// Fire Mario Animations (updated to match new file dimensions)
+static const Animation marioFirePoseAnim("fire_mario_pose", 87, 157, 0, 2, {3.0f, 0.8f});
+static const Animation marioFireWalkAnim("fire_mario_walk", 49, 82, 0, 3, {0.1f});
 static const Animation marioFireJumpAnim("fire_mario_jump", 46, 84, 0, 1, {1.0f});
 static const Animation marioFireSlideAnim("fire_mario_slide", 48, 90, 0, 1, {1.0f});
 static const Animation marioFireSitAnim("fire_mario_sit", 82, 130, 0, 1, {1.0f});
-static const Animation marioFireShootAnim("fire_mario_shoot", 61, 94, 0, 1, {1.0f}); // using pose sprite
+static const Animation marioFireShootAnim("fire_mario_shoot", 76, 138, 0, 1, {1.0f});
 
 const Animation* Mario::GetPoseAnimation() const {
     if (CanShootFireball()) return &marioFirePoseAnim;
