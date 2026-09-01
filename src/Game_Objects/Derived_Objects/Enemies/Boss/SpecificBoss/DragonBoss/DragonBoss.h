@@ -35,11 +35,11 @@ private:
     int HpBucket() const;
 
 public:
-    static constexpr int kMaxHp = 20;
+    static constexpr int kMaxHp = 60;
     static constexpr int kStompDamage = 2;
     static constexpr int kShellDamage = 5;
     static constexpr float kEnrageMultiplier = 0.65f;
-    static constexpr int kDeathCoinCount = 20;
+    static constexpr int kDeathCoinCount = 30;
 
     DragonBoss();
     ~DragonBoss() override;
@@ -71,6 +71,7 @@ public:
 
     void Update(float dt) override;
     float GetFloorYUnderFeet() const;
+    bool CanMoveHorizontal(float nextX) const;
 
     void SetCollisionGrid(class BlockGrid* grid) { collisionGrid_ = grid; }
     class BlockGrid* GetCollisionGrid() const { return collisionGrid_; }

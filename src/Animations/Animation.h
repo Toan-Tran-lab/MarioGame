@@ -44,6 +44,7 @@ public:
     int GetCurrentFrameIndex() const {
         return currentAnim ? (currentAnim->startFrame + currentFrameOffset) : 0;
     }
+    void SetCurrentFrameOffset(int offset) { currentFrameOffset = offset; }
 
     void Update(float dt);
     void Draw(const Vector2& position, FacingDirection facing, const Vector2& scale, Color tint = WHITE);

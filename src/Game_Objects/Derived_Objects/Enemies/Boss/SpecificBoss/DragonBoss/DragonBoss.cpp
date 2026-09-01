@@ -181,6 +181,29 @@ float DragonBoss::GetFloorYUnderFeet() const {
     return -1.0f;
 }
 
+bool DragonBoss::CanMoveHorizontal(float nextX) const {
+    if (!collisionGrid_) return true;
+    int tileSize = collisionGrid_->GetTileSize();
+    if (tileSize <= 0) return true;
+
+    // Check leading edge according to direction of movement
+    bool movingRight = (nextX > position_.x);
+    float checkX = movingRight ? (nextX + size_.x - 4.0f) : (nextX + 4.0f);
+    int col = (int)(checkX / tileSize);
+    if (col < 0 || col >= collisionGrid_->GetWidth()) return false;
+
+    // Check solid collision across the body's vertical height
+    int startRow = std::max(0, (int)((position_.y + 8.0f) / tileSize));
+    int endRow = std::min(collisionGrid_->GetHeight() - 1, (int)((position_.y + size_.y - 8.0f) / tileSize));
+
+    for (int r = startRow; r <= endRow; ++r) {
+        if (collisionGrid_->IsSolidAt(col, r) || collisionGrid_->GetBlock(col, r) != nullptr) {
+            return false; // Blocked by wall, door, or solid obstacle
+        }
+    }
+    return true;
+}
+
 void DragonBoss::Update(float dt) {
     if (invulnTimer_ > 0.0f) {
         invulnTimer_ -= dt;
@@ -217,27 +240,12 @@ void DragonBoss::OnEnrageTriggered() {
 }
 
 Rectangle DragonBoss::GetRect() const {
-    float baseH = 40.0f * Global::GAME_SCALE;
-    float scale = (baseH > 0.0f) ? (size_.y / baseH) : 1.0f;
-
-    // Normal insets at scale 1.0x
     float frontInset = 6.0f * Global::GAME_SCALE;
     float backInset = 2.0f * Global::GAME_SCALE; // Wider hitbox towards the back
-    float topInset = 0.0f;
-
-    // When scaled up (e.g. 1.0x -> 2.0x during fire breath):
-    // Prevent hitbox from ballooning out too far
-    if (scale > 1.05f) {
-        float extra = scale - 1.0f; // 0.0 to 1.0
-        frontInset += extra * 18.0f * Global::GAME_SCALE;
-        backInset += extra * 8.0f * Global::GAME_SCALE;
-        topInset = extra * 10.0f * Global::GAME_SCALE;
-    }
-
     if (facing_ == FacingDirection::Left) {
-        return Rectangle{ position_.x + frontInset, position_.y + topInset, size_.x - (frontInset + backInset), size_.y - topInset };
+        return Rectangle{ position_.x + frontInset, position_.y, size_.x - (frontInset + backInset), size_.y };
     } else {
-        return Rectangle{ position_.x + backInset, position_.y + topInset, size_.x - (frontInset + backInset), size_.y - topInset };
+        return Rectangle{ position_.x + backInset, position_.y, size_.x - (frontInset + backInset), size_.y };
     }
 }
 
