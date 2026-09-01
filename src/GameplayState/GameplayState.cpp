@@ -695,6 +695,15 @@ void GameplayState::Update(float deltaTime) {
             AudioManager::PlaySFX(AudioKey::POWERUP_APPEARS);
         }
 
+        if (dragonBoss_->ConsumeMushroomDropRequest()) {
+            Vector2 origin = dragonBoss_->GetPosition();
+            auto m = std::make_unique<Mushroom>();
+            m->Spawn({ origin.x + dragonBoss_->GetSize().x / 2.0f - 16.0f, dragonBoss_->GetGroundY() - 32.0f });
+            m->SetCollisionGrid(&tileMap.GetBlockGrid());
+            mushrooms_.push_back(std::move(m));
+            AudioManager::PlaySFX(AudioKey::POWERUP_APPEARS);
+        }
+
         if (dragonBoss_->ConsumeFireFlowerDropRequest()) {
             Vector2 origin = dragonBoss_->GetPosition();
             auto f = std::make_unique<FireFlower>();

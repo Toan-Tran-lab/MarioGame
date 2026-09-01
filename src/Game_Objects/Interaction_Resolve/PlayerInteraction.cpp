@@ -227,8 +227,8 @@ void PlayerInteraction::Visit(Boss& b) {
                 state->OnStomped(b); // only IdleState reacts (flinch); attack states ignore it
             }
             if (auto* dragon = dynamic_cast<DragonBoss*>(&b)) {
-                if (GetRandomValue(1, 100) <= DragonBoss::kFireDropChance) {
-                    dragon->RequestFireFlowerDrop();
+                if (GetRandomValue(1, 100) <= DragonBoss::kMushroomDropChance) {
+                    dragon->RequestMushroomDrop();
                 }
             }
             AudioManager::PlaySFX(AudioKey::HIT_ENEMY);

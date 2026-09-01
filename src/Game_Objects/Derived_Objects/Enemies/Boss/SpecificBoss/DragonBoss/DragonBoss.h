@@ -15,6 +15,7 @@ private:
     bool pendingItemScatter_ = false;
     bool pendingCoinBurst_ = false;
     bool pendingFireFlowerDrop_ = false;
+    bool pendingMushroomDrop_ = false;
 
     bool pendingFlameSpawn_ = false;
     Vector2 pendingFlameOrigin_{ 0.0f, 0.0f };
@@ -106,6 +107,14 @@ public:
     bool ConsumeFireFlowerDropRequest() {
         bool v = pendingFireFlowerDrop_;
         pendingFireFlowerDrop_ = false;
+        return v;
+    }
+
+    static constexpr int kMushroomDropChance = 25; // 25% chance to drop a Mushroom when stomped
+    void RequestMushroomDrop() { pendingMushroomDrop_ = true; }
+    bool ConsumeMushroomDropRequest() {
+        bool v = pendingMushroomDrop_;
+        pendingMushroomDrop_ = false;
         return v;
     }
 
