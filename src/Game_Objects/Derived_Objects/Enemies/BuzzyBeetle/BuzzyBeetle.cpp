@@ -36,6 +36,35 @@ void BuzzyBeetle::CeilingPatrolLogic(float dt) {
     physicsBody_.velocity.y = 0.0f;
     position_.y = spawnPosition_.y;
 
+    // Check ceiling blocks ahead: only patrol along blocks where ceiling blocks exist!
+    if (collisionGrid_) {
+        float tileSize = (float)collisionGrid_->GetTileSize();
+        if (tileSize <= 0.0f) tileSize = 16.0f * Global::GAME_SCALE;
+
+        // Front X probe depending on direction
+        float frontX = (physicsBody_.aiDirection > 0)
+            ? (position_.x + size_.x + 2.0f)
+            : (position_.x - 2.0f);
+
+        // Ceiling probe point: directly above Buzzy's top
+        float ceilingY = position_.y - 2.0f;
+        // Wall probe point: at Buzzy's center height
+        float wallY = position_.y + size_.y / 2.0f;
+
+        int ceilingCol = (int)std::floor(frontX / tileSize);
+        int ceilingRow = (int)std::floor(ceilingY / tileSize);
+        int wallCol = (int)std::floor(frontX / tileSize);
+        int wallRow = (int)std::floor(wallY / tileSize);
+
+        bool hasCeiling = collisionGrid_->IsSolidAt(ceilingCol, ceilingRow);
+        bool hasWall = collisionGrid_->IsSolidAt(wallCol, wallRow);
+
+        if (!hasCeiling || hasWall || frontX < 0.0f || (frontX >= collisionGrid_->GetWidth() * tileSize)) {
+            physicsBody_.aiDirection = -physicsBody_.aiDirection;
+            facing_ = (physicsBody_.aiDirection > 0) ? FacingDirection::Right : FacingDirection::Left;
+        }
+    }
+
     // Patrol horizontally at constant speed.
     physicsBody_.velocity.x = physicsBody_.aiDirection * kCeilingSpeed;
 

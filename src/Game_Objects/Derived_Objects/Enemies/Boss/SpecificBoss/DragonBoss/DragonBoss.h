@@ -14,6 +14,7 @@ private:
     bool pendingEnrageSignal_ = false;
     bool pendingItemScatter_ = false;
     bool pendingCoinBurst_ = false;
+    bool pendingFireFlowerDrop_ = false;
 
     bool pendingFlameSpawn_ = false;
     Vector2 pendingFlameOrigin_{ 0.0f, 0.0f };
@@ -99,6 +100,14 @@ public:
     bool ConsumeItemScatterRequest();
     bool ConsumeCoinBurstRequest();
     int GetDeathCoinCount() const { return kDeathCoinCount; }
+
+    static constexpr int kFireDropChance = 50; // 50% chance to drop a FireFlower when stomped
+    void RequestFireFlowerDrop() { pendingFireFlowerDrop_ = true; }
+    bool ConsumeFireFlowerDropRequest() {
+        bool v = pendingFireFlowerDrop_;
+        pendingFireFlowerDrop_ = false;
+        return v;
+    }
 
 protected:
     void OnDamaged() override;

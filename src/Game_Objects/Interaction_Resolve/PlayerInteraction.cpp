@@ -6,12 +6,14 @@
 #include "Game_Objects/Derived_Objects/Enemies/Bullet/Bullet.h"
 #include "Game_Objects/Derived_Objects/Enemies/Boss/BossEnemy/Boss.h"
 #include "Game_Objects/Derived_Objects/Enemies/Boss/BossEnemy/BossState.h"
+#include "Game_Objects/Derived_Objects/Enemies/Boss/SpecificBoss/DragonBoss/DragonBoss.h"
 #include "Game_Objects/Derived_Objects/Playable_Characters/Player/Player.h"
 #include "Game_Objects/Derived_Objects/Items/Mushroom/Mushroom.h"
 #include "Game_Objects/Derived_Objects/Items/FireFlower/FireFlower.h"
 #include "Game_Objects/Derived_Objects/Items/Starman/Starman.h"
 #include "Game_Objects/Derived_Objects/Playable_Characters/Player/PlayerState.h"
 #include "AudioManager/AudioManager.h"
+#include "raylib.h"
 #include <cmath>
 
 namespace {
@@ -177,6 +179,13 @@ void PlayerInteraction::Visit(BuzzyBeetle& b) {
 
 void PlayerInteraction::Visit(Piranha& p) {
     if (!p.IsExposedOrMoving()) return;
+    
+    if (self.IsInvincible()) {
+        p.SetActive(false);
+        AudioManager::PlaySFX(AudioKey::HIT_ENEMY);
+        return;
+    }
+    
     // Touching a Piranha plant always damages the player (cannot be stomped)
     self.TakeDamage();
 }
@@ -216,6 +225,11 @@ void PlayerInteraction::Visit(Boss& b) {
         if (b.TakeDamage(b.GetStompDamage())) {
             if (BossState* state = b.GetState()) {
                 state->OnStomped(b); // only IdleState reacts (flinch); attack states ignore it
+            }
+            if (auto* dragon = dynamic_cast<DragonBoss*>(&b)) {
+                if (GetRandomValue(1, 100) <= DragonBoss::kFireDropChance) {
+                    dragon->RequestFireFlowerDrop();
+                }
             }
             AudioManager::PlaySFX(AudioKey::HIT_ENEMY);
         }

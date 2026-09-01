@@ -22,4 +22,5 @@ public:
     void Explode() override;
     void OnHitShell(KoopaShell& shell) override;
     void OnHitEnemy(GroundEnemy& enemy) override;
+    void OnHitBoss(class Boss& boss);
 };

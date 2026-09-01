@@ -103,7 +103,7 @@ void BossBattleController::Update(float dt, const std::vector<Player*>& activePl
     switch (phase_) {
         case BossBattlePhase::Waiting: {
             bool trigger = false;
-            // Immediate trigger if map has startbattle / boss, or when player reaches startBattleX_
+            // Only trigger when player actually reaches the startBattle trigger line
             if (hasStartBattle_) {
                 for (Player* p : activePlayers) {
                     if (p && !p->IsDead() && p->GetPosition().x >= startBattleX_) {
@@ -111,10 +111,13 @@ void BossBattleController::Update(float dt, const std::vector<Player*>& activePl
                         break;
                     }
                 }
-                // Also auto trigger on map load for quick testing
-                trigger = true;
             } else if (boss && boss->IsActive()) {
-                trigger = true;
+                for (Player* p : activePlayers) {
+                    if (p && !p->IsDead() && std::abs(p->GetPosition().x - boss->GetPosition().x) < 400.0f) {
+                        trigger = true;
+                        break;
+                    }
+                }
             }
 
             if (trigger) {

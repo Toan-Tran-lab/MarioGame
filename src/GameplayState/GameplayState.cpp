@@ -136,6 +136,16 @@ SaveData GameplayState::GetSaveData() const {
     return data;
 }
 
+void GameplayState::SpawnBoss() {
+    if (!hasBossSpawn_ || dragonBoss_) return;
+    dragonBoss_ = std::make_unique<DragonBoss>();
+    dragonBoss_->SetPosition(bossSpawnPos_);
+    dragonBoss_->SetGroundY(bossSpawnPos_.y);
+    dragonBoss_->SetPlayerRef(player_.get());
+    dragonBoss_->SetCollisionGrid(&tileMap.GetBlockGrid());
+    dragonBoss_->BeginSpawn();
+}
+
 void GameplayState::Initialize() {
     firstCameraInit_ = true;
     winningPlayer_ = nullptr;
@@ -250,6 +260,8 @@ void GameplayState::Initialize() {
     piranhas_.clear();
     bullets_.clear();
     bulletTriggers_.clear();
+    hasBossSpawn_ = false;
+    bossSpawnPos_ = { 0.0f, 0.0f };
     dragonBoss_.reset();
     dragonFlames_.clear();
     shockwaveManager_.Clear();
@@ -354,12 +366,11 @@ void GameplayState::Initialize() {
                 int row = (int)(ent.position.y / tileMap.GetTileSize());
                 tileMap.GetBlockGrid().SetBlock(col, row, std::move(block));
             } else if (id == "dragonboss" || id == "dragon_boss" || id == "boss") {
-                dragonBoss_ = std::make_unique<DragonBoss>();
-                dragonBoss_->SetPosition(ent.position);
-                dragonBoss_->SetGroundY(ent.position.y);
-                dragonBoss_->SetPlayerRef(player_.get());
-                dragonBoss_->SetCollisionGrid(&tileMap.GetBlockGrid());
-                dragonBoss_->BeginSpawn();
+                hasBossSpawn_ = true;
+                bossSpawnPos_ = ent.position;
+                if (!bossBattleCtrl_.HasStartBattle()) {
+                    bossBattleCtrl_.SetStartBattle(Vector2{ ent.position.x - 350.0f, ent.position.y });
+                }
             } else if (id == "princess") {
                 princess_ = std::make_unique<Princess>();
                 princess_->SetPosition(ent.position);
@@ -416,6 +427,7 @@ void GameplayState::Initialize() {
     // Initialize camera
     view = View(16.0f, (float)tileMap.GetTileSize());
     view.Init((float)tileMap.GetPixelWidth(), (float)tileMap.GetPixelHeight());
+    view.SetAllowBackwardScroll(isSandboxMode_ || currentLevel.GetLevelNumber() == 3);
 
     // Auto-save logic
     if (!isSandboxMode_) {
@@ -451,6 +463,9 @@ void GameplayState::Initialize() {
         AudioManager::PlayBGM(Level::GetLevel(1).GetBGMKey());
     }
 
+    smoothedCamX_ = player_->GetPosition().x;
+    smoothedCamY_ = player_->GetPosition().y;
+    view.Update(smoothedCamX_, smoothedCamY_, 1.0f);
     firstCameraInit_ = false;
 }
 
@@ -463,6 +478,7 @@ void GameplayState::Update(float deltaTime) {
     if (isGameOver || isGameWon) {
         if (IsKeyPressed(KEY_ENTER)) {
             Global::gameStateManager->PopState(); // Or go to Game Over screen
+
         }
         return;
     }
@@ -549,10 +565,17 @@ void GameplayState::Update(float deltaTime) {
             }
         }
 
-        // Add map Door blocks into dynamic solid platforms (Exit door opens on RoomCleared)
+        // Add map Door blocks into dynamic solid platforms (Entrance door opens on Waiting/RoomCleared, Exit door opens on RoomCleared)
         for (const auto& dRect : mapDoorBlocks_) {
-            bool isExitDoor = (bossBattleCtrl_.HasDoor() && dRect.x >= bossBattleCtrl_.GetDoorPos().x - 10.0f);
-            bool isOpen = isExitDoor && (bossBattleCtrl_.GetPhase() == BossBattlePhase::RoomCleared);
+            bool isExitDoor = (bossBattleCtrl_.HasDoor() && dRect.x >= bossBattleCtrl_.GetDoorPos().x - 50.0f);
+            bool isOpen = false;
+            if (isExitDoor) {
+                isOpen = (bossBattleCtrl_.GetPhase() == BossBattlePhase::RoomCleared);
+            } else {
+                // Entrance door (reDoor) is open before battle triggers (Waiting) and after clearing
+                isOpen = (bossBattleCtrl_.GetPhase() == BossBattlePhase::Waiting || bossBattleCtrl_.GetPhase() == BossBattlePhase::RoomCleared);
+            }
+
             if (!isOpen) {
                 platformRects.push_back(dRect);
             }
@@ -687,6 +710,14 @@ void GameplayState::Update(float deltaTime) {
             m->SetCollisionGrid(&tileMap.GetBlockGrid());
             m->SetActive(true);
             mushrooms_.push_back(std::move(m));
+            AudioManager::PlaySFX(AudioKey::POWERUP_APPEARS);
+        }
+
+        if (dragonBoss_->ConsumeFireFlowerDropRequest()) {
+            Vector2 origin = dragonBoss_->GetPosition();
+            auto f = std::make_unique<FireFlower>();
+            f->Spawn({ origin.x + dragonBoss_->GetSize().x / 2.0f - 24.0f, dragonBoss_->GetGroundY() - 48.0f });
+            fireFlowers_.push_back(std::move(f));
             AudioManager::PlaySFX(AudioKey::POWERUP_APPEARS);
         }
 
@@ -938,7 +969,11 @@ void GameplayState::Update(float deltaTime) {
     if (isMultiplayer_ && player2_ && !player2_->IsDead()) activePlayers.push_back(player2_.get());
 
     // Update Boss Battle State Machine
+    BossBattlePhase prevPhase = bossBattleCtrl_.GetPhase();
     bossBattleCtrl_.Update(deltaTime, activePlayers, dragonBoss_.get());
+    if (prevPhase == BossBattlePhase::Waiting && bossBattleCtrl_.GetPhase() != BossBattlePhase::Waiting) {
+        SpawnBoss();
+    }
 
     // Entity interaction: players vs goombas/koopas/mushroom/boss
     for (Player* p : activePlayers) {
@@ -970,7 +1005,12 @@ void GameplayState::Update(float deltaTime) {
         }
         for (auto& pir : piranhas_) {
             if (pir->IsActive() && p->Overlaps(*pir)) {
+                bool wasActive = pir->IsActive();
                 p->InteractWith(*pir);
+                if (wasActive && !pir->IsActive()) {
+                    score += 200;
+                    scorePopups_.push_back({pir->GetPosition(), 0.0f, 200});
+                }
             }
         }
         for (auto& b : bullets_) {
@@ -1044,6 +1084,31 @@ void GameplayState::Update(float deltaTime) {
                         AudioManager::PlaySFX(AudioKey::HIT_ENEMY);
                     }
                     break;
+                }
+            }
+            if (!fb->IsExploded()) {
+                for (auto& pir : piranhas_) {
+                    if (pir->IsActive() && pir->IsExposedOrMoving() && CheckCollisionRecs(fb->GetRect(), pir->GetRect())) {
+                        fb->Explode();
+                        pir->SetActive(false); // Disappear instantly
+                        score += 200;
+                        scorePopups_.push_back({pir->GetPosition(), 0.0f, 200});
+                        AudioManager::PlaySFX(AudioKey::HIT_ENEMY);
+                        break;
+                    }
+                }
+            }
+
+            // Fireball vs DragonBoss collision
+            if (fb->IsActive() && !fb->IsExploded() && dragonBoss_ && dragonBoss_->IsActive() && !dragonBoss_->IsDead()) {
+                if (CheckCollisionRecs(fb->GetRect(), dragonBoss_->GetRect())) {
+                    bool wasDead = dragonBoss_->IsDead();
+                    fb->OnHitBoss(*dragonBoss_);
+                    AudioManager::PlaySFX(AudioKey::HIT_ENEMY);
+                    if (!wasDead && dragonBoss_->IsDead()) {
+                        score += 1000;
+                        scorePopups_.push_back({dragonBoss_->GetPosition(), 0.0f, 1000});
+                    }
                 }
             }
         }
@@ -1280,18 +1345,27 @@ void GameplayState::Update(float deltaTime) {
         }
     }
 
-    // Resolve Bullet block collisions
-    for (auto& bullet : bullets_) {
-        if (!bullet->IsActive()) continue;
+    // Bullet bounds check (passes through solid blocks, despawns when out of screen)
+    {
+        const Camera2D& cam = view.GetRawCamera();
+        float cameraZoom = (cam.zoom > 0.0f) ? cam.zoom : 1.0f;
+        float worldWidth = (float)GetScreenWidth() / cameraZoom;
+        float camLeft = view.GetWorldLeft();
 
-        Rectangle bRect = bullet->GetRect();
+        for (auto& bullet : bullets_) {
+            if (!bullet->IsActive()) continue;
 
-        // Map geometry (Solid blocks) -> Disappear on hit
-        // Only check block collision if the bullet is within map horizontal bounds
-        if (bullet->GetPosition().x >= 0.0f && bullet->GetPosition().x + bullet->GetSize().x <= tileMap.GetPixelWidth()) {
-            if (RectOverlapsSolidBlock(bRect, tileMap.GetBlockGrid())) {
-                bullet->OnHitSolid();
-                continue;
+            float bulletX = bullet->GetPosition().x;
+            if (bullet->GetDirection() < 0.0f) {
+                // Moving left: despawn when beyond left of camera view or map
+                if (bulletX + bullet->GetSize().x < camLeft - 200.0f || bulletX + bullet->GetSize().x < -200.0f) {
+                    bullet->SetActive(false);
+                }
+            } else {
+                // Moving right: despawn when beyond right of camera view or map
+                if (bulletX > camLeft + worldWidth + 200.0f || bulletX > (float)tileMap.GetPixelWidth() + 200.0f) {
+                    bullet->SetActive(false);
+                }
             }
         }
     }
@@ -1622,13 +1696,20 @@ void GameplayState::Draw() {
 
     // Draw all map Door blocks directly from map entities
     for (const auto& rect : mapDoorBlocks_) {
-        bool isExitDoor = (bossBattleCtrl_.HasDoor() && rect.x >= bossBattleCtrl_.GetDoorPos().x - 10.0f);
-        bool isOpen = isExitDoor && (bossBattleCtrl_.GetPhase() == BossBattlePhase::RoomCleared);
-        if (isOpen) {
-            // Open illuminated doorway
-            DrawRectangle((int)rect.x, (int)rect.y, (int)rect.width, (int)rect.height, Color{ 25, 15, 35, 200 });
-            DrawRectangleLines((int)rect.x, (int)rect.y, (int)rect.width, (int)rect.height, GOLD);
+        bool isExitDoor = (bossBattleCtrl_.HasDoor() && rect.x >= bossBattleCtrl_.GetDoorPos().x - 50.0f);
+        bool isOpen = false;
+        if (isExitDoor) {
+            isOpen = (bossBattleCtrl_.GetPhase() == BossBattlePhase::RoomCleared);
         } else {
+            isOpen = (bossBattleCtrl_.GetPhase() == BossBattlePhase::Waiting || bossBattleCtrl_.GetPhase() == BossBattlePhase::RoomCleared);
+        }
+
+        if (isOpen) {
+            // Open doorway (illuminated / see-through doorway)
+            DrawRectangle((int)rect.x, (int)rect.y, (int)rect.width, (int)rect.height, Color{ 25, 15, 35, 120 });
+            DrawRectangleLines((int)rect.x, (int)rect.y, (int)rect.width, (int)rect.height, Fade(GOLD, 0.6f));
+        } else {
+            // Closed solid door
             DrawRectangle((int)rect.x, (int)rect.y, (int)rect.width, (int)rect.height, Color{ 90, 50, 25, 255 });
             DrawRectangle((int)rect.x + 3, (int)rect.y + 3, (int)rect.width - 6, (int)rect.height - 6, Color{ 120, 70, 35, 255 });
             DrawRectangleLines((int)rect.x, (int)rect.y, (int)rect.width, (int)rect.height, Color{ 40, 20, 10, 255 });
@@ -1691,6 +1772,8 @@ void GameplayState::Cleanup() {
     piranhas_.clear();
     bullets_.clear();
     bulletTriggers_.clear();
+    hasBossSpawn_ = false;
+    bossSpawnPos_ = { 0.0f, 0.0f };
     dragonBoss_.reset();
     dragonFlames_.clear();
     shockwaveManager_.Clear();
