@@ -103,37 +103,26 @@ DragonAction DragonBossBrain::DecideNextAction(DragonBoss& boss, const std::vect
         return DragonAction::Jump;
     }
 
-    // 3. Player is far away: Fire ranged breath, Jump, or Scream
-    if (distX > 220.0f) {
-        int choice = attackCounter_ % 4;
-        switch (choice) {
-            case 0: return DragonAction::Fire;
-            case 1: return DragonAction::Scream;
-            case 2: return DragonAction::Jump;
-            default: return DragonAction::Fire;
-        }
-    }
-
-    // 4. Player is in close-medium range
+    // 3. Enraged rotation (faster, aggressive)
     if (isEnraged) {
-        // Enraged rotation: frequent screams, fast jumps, and fire
-        int choice = attackCounter_ % 4;
+        int choice = attackCounter_ % 5;
         switch (choice) {
             case 0: return DragonAction::Scream;
             case 1: return DragonAction::Jump;
             case 2: return DragonAction::Fire;
+            case 3: return DragonAction::Walk;
             default: return DragonAction::Scream;
         }
     }
 
-    // Standard rotation: balanced mix with frequent Scream actions
+    // 4. Standard rotation: balanced cycle with Walk, Fire, Scream, Jump
     int choice = attackCounter_ % 6;
     switch (choice) {
-        case 0: return DragonAction::Scream;
-        case 1: return DragonAction::Fire;
-        case 2: return DragonAction::Jump;
-        case 3: return DragonAction::Scream;
-        case 4: return DragonAction::Fire;
-        default: return DragonAction::Walk;
+        case 0: return DragonAction::Walk;   // March forward
+        case 1: return DragonAction::Fire;   // Fire stream
+        case 2: return DragonAction::Scream; // Shockwave roar
+        case 3: return DragonAction::Jump;   // Jump slam
+        case 4: return DragonAction::Scream; // Shockwave roar
+        default: return DragonAction::Fire;  // Fire stream
     }
 }
