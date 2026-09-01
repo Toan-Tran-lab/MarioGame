@@ -12,6 +12,7 @@ protected:
     const physics::PhysicsBody* playerBody_ = nullptr;
     const BlockGrid* collisionGrid_ = nullptr;
     AnimationState animState;
+    bool upsideDownDead_ = false;
 
     // How close the player must get before this enemy starts chasing.
     virtual float GetDetectionRadius() const { return 300.0f; }
@@ -31,6 +32,14 @@ protected:
 public:
     void SetPlayerBody(const physics::PhysicsBody* player) { playerBody_ = player; }
     void SetCollisionGrid(const BlockGrid* grid) { collisionGrid_ = grid; }
+
+    virtual void TriggerUpsideDownDeath(bool hitFromLeft);
+    bool IsUpsideDownDead() const { return upsideDownDead_; }
+
+    Rectangle GetRect() const override {
+        if (upsideDownDead_) return {0, 0, 0, 0}; // No collisions while dying upside down
+        return GameObject::GetRect();
+    }
 
     // Enemies don't initiate interaction; the player drives resolution via visitor.
     void InteractWith(Character& other) override { (void)other; }

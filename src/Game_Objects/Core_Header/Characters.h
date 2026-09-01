@@ -30,7 +30,6 @@ public:
 
     physics::PhysicsBody& GetPhysicsBody() { return physicsBody_; }
     const physics::PhysicsBody& GetPhysicsBody() const { return physicsBody_; }
-    Rectangle GetRect() const { return { position_.x, position_.y, size_.x, size_.y }; }
 
     // Entity-vs-entity overlap check (axis-aligned). Used to drive interactions.
     bool Overlaps(const Character& other) const {

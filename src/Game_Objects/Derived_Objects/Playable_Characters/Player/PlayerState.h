@@ -18,6 +18,7 @@ public:
     virtual void UpdateState(Player& player, float dt);
 
     virtual bool IsProjectileImmune() const { return false; }
+    virtual bool CanShootFireball() const { return false; }
 };
 
 class SmallState : public PlayerState {
@@ -38,10 +39,12 @@ public:
 
 class FireState : public PlayerState {
 public:
+    void Enter(Player& player) override;
     void OnHit(Player& player) override;      // classic Mario rule: Fire -> Small directly, skips Super
     void OnPowerup(Player& player, PowerupType type) override; // already max state; Star still applies
 
     bool IsProjectileImmune() const override { return true; }
+    bool CanShootFireball() const override { return true; }
 };
 
 class StarState : public PlayerState {

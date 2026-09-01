@@ -16,4 +16,5 @@ public:
     const Animation* GetSlideAnimation() const override;
     const Animation* GetSitAnimation() const override;
     const Animation* GetDieAnimation() const override;
+    const Animation* GetShootAnimation() const override;
 };

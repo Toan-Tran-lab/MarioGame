@@ -160,13 +160,25 @@ void CharacterSelectState::Draw() {
 
     UIUtils::DrawKeyPrompt("ESC", "BACK", x, barY + 5, barFontSize, spacing);
 
-    // 2P mode indicator
     const char* modeLabel = isMultiplayer_ ? "2P MODE: ON" : "2P MODE: OFF";
     Color modeColor = isMultiplayer_ ? GREEN : GRAY;
     int modeLabelW = MeasureText(modeLabel, barFontSize);
-    DrawText(modeLabel, (int)(sw * 0.05f), barY + 5, barFontSize, modeColor);
-    int tabHintW = MeasureText("[TAB] TOGGLE", barFontSize);
-    DrawText("[TAB] TOGGLE", (int)(sw * 0.05f + modeLabelW + 16), barY + 5, barFontSize, LIGHTGRAY);
+    
+    // Draw 2P MODE and [TAB] TOGGLE above the line
+    int upperY = barY - barFontSize - 8;
+    DrawText(modeLabel, (int)(sw * 0.05f), upperY, barFontSize, modeColor);
+    int tabX = (int)(sw * 0.05f + modeLabelW + 16);
+    DrawText("[TAB] TOGGLE", tabX, upperY, barFontSize, LIGHTGRAY);
+    
+    if (isMultiplayer_) {
+        const char* p1Binds = "P1: WASD+LShift+F";
+        const char* p2Binds = "P2: Arrow+RShift+J";
+        
+        // Draw P1 and P2 on the bottom bar
+        DrawText(p1Binds, (int)(sw * 0.05f), barY + 5, barFontSize, RED);
+        int p1W = MeasureText(p1Binds, barFontSize);
+        DrawText(p2Binds, (int)(sw * 0.05f) + p1W + 15, barY + 5, barFontSize, GREEN);
+    }
 }
 
 void CharacterSelectState::Cleanup() {}

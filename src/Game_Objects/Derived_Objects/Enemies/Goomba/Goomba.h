@@ -18,6 +18,7 @@ public:
     // Called when stomped by the player — switches to Dying state
     void Stomp();
     bool IsDying() const { return state_ == GoombaState::Dying; }
+    void TriggerUpsideDownDeath(bool hitFromLeft) override;
 
     void AcceptInteract(CharacterVisitor& other) override;
     void Update(float dt) override;

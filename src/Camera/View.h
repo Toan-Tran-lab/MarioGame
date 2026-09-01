@@ -19,7 +19,7 @@ public:
     void Init(float mapPixelWidth, float mapPixelHeight);
 
     // Call this every frame with the target to track (e.g., Mario's position)
-    void Update(float targetX, float targetY);
+    void Update(float targetX, float targetY, float zoomMultiplier = 1.0f);
 
     void BeginDraw() const;
     void EndDraw() const;

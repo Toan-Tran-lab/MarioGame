@@ -23,6 +23,8 @@ protected:
 public:
     KoopaShell();
     ~KoopaShell();
+    
+    void TriggerUpsideDownDeath(bool hitFromLeft) override;
 
     // Called when stomped by the player.
     // If Walking -> Hiding

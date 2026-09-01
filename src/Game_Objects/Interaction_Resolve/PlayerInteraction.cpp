@@ -2,28 +2,39 @@
 #include "Game_Objects/Derived_Objects/Enemies/Goomba/Goomba.h"
 #include "Game_Objects/Derived_Objects/Enemies/KoopaShell/KoopaShell.h"
 #include "Game_Objects/Derived_Objects/Enemies/BuzzyBeetle/BuzzyBeetle.h"
+#include "Game_Objects/Derived_Objects/Enemies/Piranha/Piranha.h"
+#include "Game_Objects/Derived_Objects/Enemies/Bullet/Bullet.h"
 #include "Game_Objects/Derived_Objects/Enemies/Boss/BossEnemy/Boss.h"
 #include "Game_Objects/Derived_Objects/Enemies/Boss/BossEnemy/BossState.h"
 #include "Game_Objects/Derived_Objects/Playable_Characters/Player/Player.h"
 #include "Game_Objects/Derived_Objects/Items/Mushroom/Mushroom.h"
+#include "Game_Objects/Derived_Objects/Items/FireFlower/FireFlower.h"
+#include "Game_Objects/Derived_Objects/Items/Starman/Starman.h"
 #include "Game_Objects/Derived_Objects/Playable_Characters/Player/PlayerState.h"
 #include "AudioManager/AudioManager.h"
 #include <cmath>
 
 namespace {
 // How far below the enemy's top the player's bottom can overlap and still count as a stomp
-constexpr float kStompTolerance = 16.0f;
+constexpr float kStompTolerance = 20.0f;
 // Upward launch velocity applied to the player when they stomp an enemy
-constexpr float kStompBounceVelocity = -350.0f;
+constexpr float kStompBounceVelocity = -380.0f;
 // Distinct upward launch velocity applied to the player when they stomp a Buzzy Beetle
 constexpr float kBeetleBounceVelocity = -420.0f;
 constexpr float kBossKnockbackSpeed = 250.0f;
 }
 
 void PlayerInteraction::Visit(Goomba& g) {
+    if (self.IsInvincible()) {
+        bool hitFromLeft = self.GetPosition().x < g.GetPosition().x;
+        g.TriggerUpsideDownDeath(hitFromLeft);
+        AudioManager::PlaySFX(AudioKey::HIT_ENEMY);
+        return;
+    }
+
     const float playerBottom = self.GetPosition().y + self.GetSize().y;
     const float goombaTop = g.GetPosition().y;
-    const bool falling = self.GetVelocity().y > 0.0f;
+    const bool falling = self.GetVelocity().y >= -50.0f;
     const bool aboveGoomba = (playerBottom <= goombaTop + kStompTolerance);
 
     if (aboveGoomba && falling) {
@@ -47,9 +58,16 @@ void PlayerInteraction::Visit(Player& p) {
 }
 
 void PlayerInteraction::Visit(KoopaShell& k) {
+    if (self.IsInvincible()) {
+        bool hitFromLeft = self.GetPosition().x < k.GetPosition().x;
+        k.TriggerUpsideDownDeath(hitFromLeft);
+        AudioManager::PlaySFX(AudioKey::HIT_ENEMY);
+        return;
+    }
+
     const float playerBottom = self.GetPosition().y + self.GetSize().y;
     const float koopaTop = k.GetPosition().y;
-    const bool falling = self.GetVelocity().y > 0.0f;
+    const bool falling = self.GetVelocity().y >= -50.0f;
     const bool aboveKoopa = (playerBottom <= koopaTop + kStompTolerance);
 
     if (aboveKoopa && falling) {
@@ -127,17 +145,23 @@ void PlayerInteraction::Visit(KoopaShell& k) {
 }
 
 void PlayerInteraction::Visit(Mushroom& m) {
-    if (m.IsActive()) {
-        m.SetActive(false);
-        AudioManager::PlaySFX(AudioKey::POWER_UP);
-        self.TakePowerup(PowerupType::Mushroom);
-    }
+    if (!m.IsActive()) return;
+    m.SetActive(false);
+    AudioManager::PlaySFX(AudioKey::POWER_UP);
+    self.TakePowerup(PowerupType::Mushroom);
 }
 
 void PlayerInteraction::Visit(BuzzyBeetle& b) {
+    if (self.IsInvincible()) {
+        bool hitFromLeft = self.GetPosition().x < b.GetPosition().x;
+        b.TriggerUpsideDownDeath(hitFromLeft);
+        AudioManager::PlaySFX(AudioKey::HIT_ENEMY);
+        return;
+    }
+
     const float playerBottom = self.GetPosition().y + self.GetSize().y;
     const float beetleTop = b.GetPosition().y;
-    const bool falling = self.GetVelocity().y > 0.0f;
+    const bool falling = self.GetVelocity().y >= -50.0f;
     const bool aboveBeetle = (playerBottom <= beetleTop + kStompTolerance);
 
     if (aboveBeetle && falling) {
@@ -151,28 +175,71 @@ void PlayerInteraction::Visit(BuzzyBeetle& b) {
     }
 }
 
+void PlayerInteraction::Visit(Piranha& p) {
+    if (!p.IsExposedOrMoving()) return;
+    // Touching a Piranha plant always damages the player (cannot be stomped)
+    self.TakeDamage();
+}
+
+void PlayerInteraction::Visit(Bullet& b) {
+    if (!b.IsActive()) return;
+
+    const float playerBottom = self.GetPosition().y + self.GetSize().y;
+    const float bulletTop = b.GetPosition().y;
+    const bool aboveBullet = (playerBottom <= bulletTop + 10.0f);
+
+    if (aboveBullet) {
+        // Riding / standing on top of the bullet like a FlyingBridge — no damage taken!
+        return;
+    } else {
+        // Side/bottom contact: causes damage like a sliding Koopa shell
+        b.SetActive(false);
+        self.TakeDamage();
+    }
+}
+
 void PlayerInteraction::Visit(Boss& b) {
     if (b.IsDead()) return;
 
+    if (self.IsInvincible()) {
+        b.TakeDamage(1000); // Massive damage to boss
+        AudioManager::PlaySFX(AudioKey::HIT_ENEMY);
+        return;
+    }
+
     const float playerBottom = self.GetPosition().y + self.GetSize().y;
     const float bossTop = b.GetPosition().y;
-    const bool falling = self.GetVelocity().y > 0.0f;
-    const bool aboveBoss = (playerBottom <= bossTop + kStompTolerance);
+    const bool falling = self.GetVelocity().y >= -50.0f;
+    const bool aboveBoss = (playerBottom <= bossTop + 45.0f);
 
     if (aboveBoss && falling) {
         if (b.TakeDamage(b.GetStompDamage())) {
             if (BossState* state = b.GetState()) {
                 state->OnStomped(b); // only IdleState reacts (flinch); attack states ignore it
             }
-            float bossCenterX = b.GetPosition().x + b.GetSize().x / 2.0f;
-            float playerCenterX = self.GetPosition().x + self.GetSize().x / 2.0f;
-            float dir = (playerCenterX < bossCenterX) ? -1.0f : 1.0f;
-            Vector2 vel = self.GetVelocity();
-            vel.y = kStompBounceVelocity;
-            vel.x = dir * kBossKnockbackSpeed;
-            self.SetVelocity(vel);
+            AudioManager::PlaySFX(AudioKey::HIT_ENEMY);
         }
+        float bossCenterX = b.GetPosition().x + b.GetSize().x / 2.0f;
+        float playerCenterX = self.GetPosition().x + self.GetSize().x / 2.0f;
+        float dir = (playerCenterX < bossCenterX) ? -1.0f : 1.0f;
+        Vector2 vel = self.GetVelocity();
+        vel.y = -620.0f; // High upward bounce safely clear of boss
+        vel.x = dir * 280.0f; // Strong horizontal separation
+        self.SetVelocity(vel);
+        self.StartHitInvincibility(0.35f); // Brief i-frames right after stomp to prevent accidental damage
     } else {
         self.TakeDamage();
     }
+}
+
+void PlayerInteraction::Visit(FireFlower& f) {
+    self.TakePowerup(PowerupType::FireFlower);
+    AudioManager::PlaySFX(AudioKey::POWER_UP);
+    f.SetActive(false);
+}
+
+void PlayerInteraction::Visit(Starman& s) {
+    self.GrantStarman();
+    AudioManager::StartStarmanBGM();
+    s.SetActive(false);
 }

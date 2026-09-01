@@ -1,0 +1,128 @@
+#include "DragonBossBrain.h"
+#include "DragonBoss.h"
+#include "DragonBossState.h"
+#include "Game_Objects/Derived_Objects/Playable_Characters/Player/Player.h"
+#include <cmath>
+#include <algorithm>
+
+void DragonBossBrain::EvaluatePlayers(DragonBoss& boss, const std::vector<Player*>& players) {
+    primaryTarget_ = nullptr;
+    secondaryTarget_ = nullptr;
+    isPincerSituation_ = false;
+
+    std::vector<Player*> alivePlayers;
+    for (Player* p : players) {
+        if (p && !p->IsDead()) {
+            alivePlayers.push_back(p);
+        }
+    }
+
+    if (alivePlayers.empty()) {
+        return;
+    }
+
+    primaryTarget_ = alivePlayers[0];
+    if (alivePlayers.size() > 1) {
+        secondaryTarget_ = alivePlayers[1];
+
+        // Determine if primary target is the closer one
+        Vector2 bossCenter = {
+            boss.GetPosition().x + boss.GetSize().x / 2.0f,
+            boss.GetPosition().y + boss.GetSize().y / 2.0f
+        };
+        float d1 = std::abs(primaryTarget_->GetPosition().x - bossCenter.x);
+        float d2 = std::abs(secondaryTarget_->GetPosition().x - bossCenter.x);
+        if (d2 < d1) {
+            std::swap(primaryTarget_, secondaryTarget_);
+        }
+
+        float p1X = primaryTarget_->GetPosition().x + primaryTarget_->GetSize().x / 2.0f;
+        float p2X = secondaryTarget_->GetPosition().x + secondaryTarget_->GetSize().x / 2.0f;
+
+        // One player on left, one on right
+        if ((p1X < bossCenter.x && p2X > bossCenter.x) || (p2X < bossCenter.x && p1X > bossCenter.x)) {
+            isPincerSituation_ = true;
+        }
+    }
+}
+
+void DragonBossBrain::Update(DragonBoss& boss, const std::vector<Player*>& players, float dt) {
+    decisionTimer_ += dt;
+    EvaluatePlayers(boss, players);
+
+    // Update boss facing direction towards primary target ONLY when in Idle or Intro state
+    if (primaryTarget_) {
+        if (dynamic_cast<DragonIdleState*>(boss.GetState()) || dynamic_cast<DragonIntroState*>(boss.GetState())) {
+            float pX = primaryTarget_->GetPosition().x + primaryTarget_->GetSize().x / 2.0f;
+            float bossCenterX = boss.GetPosition().x + boss.GetSize().x / 2.0f;
+            float diffX = pX - bossCenterX;
+            // 20px deadzone to eliminate rapid flipping/jittering
+            if (std::abs(diffX) > 20.0f) {
+                if (diffX < 0.0f) {
+                    boss.SetFacing(FacingDirection::Left);
+                } else {
+                    boss.SetFacing(FacingDirection::Right);
+                }
+            }
+        }
+    }
+}
+
+DragonAction DragonBossBrain::DecideNextAction(DragonBoss& boss, const std::vector<Player*>& players) {
+    EvaluatePlayers(boss, players);
+    attackCounter_++;
+
+    if (!primaryTarget_) {
+        return DragonAction::Idle;
+    }
+
+    Vector2 bossCenter = {
+        boss.GetPosition().x + boss.GetSize().x / 2.0f,
+        boss.GetPosition().y + boss.GetSize().y / 2.0f
+    };
+    Vector2 pCenter = {
+        primaryTarget_->GetPosition().x + primaryTarget_->GetSize().x / 2.0f,
+        primaryTarget_->GetPosition().y + primaryTarget_->GetSize().y / 2.0f
+    };
+
+    float distX = std::abs(pCenter.x - bossCenter.x);
+    float distY = pCenter.y - bossCenter.y;
+    bool isEnraged = boss.IsEnraged();
+
+    // 1. Pincer situation with 2 players surrounding the boss
+    if (isPincerSituation_) {
+        if (attackCounter_ % 2 == 0) {
+            return DragonAction::Scream; // Shockwave expands both directions
+        } else {
+            return DragonAction::Jump;   // Jump over or reposition
+        }
+    }
+
+    // 2. Player is jumping above boss head: Jump up to contest / counter
+    if (distY < -40.0f && distX < 120.0f) {
+        return DragonAction::Jump;
+    }
+
+    // 3. Enraged rotation (faster, aggressive)
+    if (isEnraged) {
+        int choice = attackCounter_ % 5;
+        switch (choice) {
+            case 0: return DragonAction::Scream;
+            case 1: return DragonAction::Jump;
+            case 2: return DragonAction::Fire;
+            case 3: return DragonAction::Walk;
+            default: return DragonAction::Scream;
+        }
+    }
+
+    // 4. Standard rotation: balanced cycle with Walk, Fire, Scream, Jump
+    int choice = attackCounter_ % 6;
+    switch (choice) {
+        case 0: return DragonAction::Walk;   // March forward
+        case 1: return DragonAction::Fire;   // Fire stream
+        case 2: return DragonAction::Scream; // Shockwave roar
+        case 3: return DragonAction::Jump;   // Jump slam
+        case 4: return DragonAction::Scream; // Shockwave roar
+        default: return DragonAction::Fire;  // Fire stream
+    }
+}

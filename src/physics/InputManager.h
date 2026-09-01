@@ -11,6 +11,7 @@ namespace physics {
         bool jumpPressed = false;
         bool jumpHeld = false;
         bool sprint = false;
+        bool shootPressed = false;
         bool ignorePhysics = false; // Bypasses horizontal acceleration and friction for simple AI
     };
 
@@ -22,6 +23,7 @@ namespace physics {
         int jump   = KEY_W;
         int jumpAlt = KEY_SPACE; // Secondary jump key (0 = none)
         int sprint = KEY_LEFT_SHIFT;
+        int shoot  = KEY_F;
 
         // Internal tracker for simultaneous input (recent-key-wins)
         mutable int lastHorizontalDir = 0; // -1 for left, 1 for right, 0 for none

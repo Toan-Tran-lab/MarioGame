@@ -47,20 +47,4 @@ void Boss::Update(float dt) {
 
 void Boss::Draw() {
     DrawBoss();
-
-    if (!isDead_) {
-        float barWidth = size_.x * 1.5f;
-        float barHeight = 8.0f;
-        float barX = position_.x + size_.x / 2.0f - barWidth / 2.0f;
-        float barY = position_.y - 20.0f;
-        float hpRatio = (maxHp_ > 0) ? (float)hp_ / (float)maxHp_ : 0.0f;
-
-        DrawRectangle((int)barX, (int)barY, (int)barWidth, (int)barHeight, Color{60, 20, 20, 220});
-        DrawRectangle((int)barX, (int)barY, (int)(barWidth * hpRatio), (int)barHeight, Color{200, 40, 40, 255});
-        DrawRectangleLines((int)barX, (int)barY, (int)barWidth, (int)barHeight, BLACK);
-
-        if (IsInvulnerable()) {
-            DrawRectangle((int)position_.x, (int)position_.y, (int)size_.x, (int)size_.y, Fade(WHITE, 0.3f));
-        }
-    }
 }

@@ -14,12 +14,18 @@ constexpr float kPopupFontSize   = 24;
 // --- Static animation definitions (Flyweight) ---
 static const Animation goombaWalkAnim("goomba_walk", 16, 16, 0, 2, {kFrameDuration});
 static const Animation goombaDeadAnim("goomba_dead", 16, 16, 0, 1, {1.0f}); // single frame, no loop needed
+static const Animation goombaUpsideDownAnim("goomba_upsidedown", 74, 70, 0, 1, {1.0f}); // 74x70
 
 Goomba::Goomba() {
     animState.SetAnimation(&goombaWalkAnim);
 }
 
 Goomba::~Goomba() {}
+
+void Goomba::TriggerUpsideDownDeath(bool hitFromLeft) {
+    GroundEnemy::TriggerUpsideDownDeath(hitFromLeft);
+    animState.SetAnimation(&goombaUpsideDownAnim);
+}
 
 void Goomba::Stomp() {
     if (state_ == GoombaState::Dying) return; // already dying, ignore
@@ -51,26 +57,37 @@ void Goomba::Draw() {
     if (!TextureManager::Has("goomba_dead")) {
         TextureManager::Load("goomba_dead", "assets/textures/Goomba/dead/enemies.png");
     }
+    if (!TextureManager::Has("goomba_upsidedown")) {
+        TextureManager::Load("goomba_upsidedown", "assets/textures/Goomba/dead/enemies2.png");
+    }
+    if (!TextureManager::Has("goomba_dead")) {
+        TextureManager::Load("goomba_dead", "assets/textures/Goomba/dead/enemies.png");
+    }
 
     Vector2 drawPos = { position_.x, position_.y };
 
-    if (state_ == GoombaState::Dying) {
-        // Draw the squished dead sprite (centered vertically at the bottom half)
-        // The dead goomba is flat, so draw it at the bottom of the tile
-        float deadH = size_.y * 0.5f; // squished to half height
-        Vector2 deadPos = { drawPos.x, drawPos.y + size_.y - deadH };
-        Vector2 deadSize = { size_.x, deadH };
-        animState.Draw(deadPos, FacingDirection::Right, deadSize);
-
-        // Draw "+100" popup floating upward over time
-        float popupOffsetY = -kPopupSpeed * dyingTimer_;
-        float alpha = 1.0f - (dyingTimer_ / kDyingDuration); // fade out
-        int fontSize = kPopupFontSize;
-        const char* popupText = "+100";
-        int textW = MeasureText(popupText, fontSize);
-        int px = (int)(drawPos.x + size_.x / 2.0f - textW / 2.0f);
-        int py = (int)(drawPos.y + popupOffsetY);
-        DrawText(popupText, px, py, fontSize, Fade(YELLOW, alpha));
+    if (state_ == GoombaState::Dying || upsideDownDead_) {
+        if (state_ == GoombaState::Dying) {
+            // Draw the squished dead sprite (centered vertically at the bottom half)
+            // The dead goomba is flat, so draw it at the bottom of the tile
+            float deadH = size_.y * 0.5f; // squished to half height
+            Vector2 deadPos = { drawPos.x, drawPos.y + size_.y - deadH };
+            Vector2 deadSize = { size_.x, deadH };
+            animState.Draw(deadPos, FacingDirection::Right, deadSize);
+            
+            // Draw "+100" popup floating upward over time for stomp
+            float popupOffsetY = -kPopupSpeed * dyingTimer_;
+            float alpha = 1.0f - (dyingTimer_ / kDyingDuration); // fade out
+            if (alpha < 0.0f) alpha = 0.0f;
+            int fontSize = kPopupFontSize;
+            const char* popupText = "+100";
+            int textW = MeasureText(popupText, fontSize);
+            int px = (int)(drawPos.x + size_.x / 2.0f - textW / 2.0f);
+            int py = (int)(drawPos.y + popupOffsetY);
+            DrawText(popupText, px, py, fontSize, Fade(YELLOW, alpha));
+        } else {
+            animState.Draw(drawPos, facing_, size_);
+        }
     } else {
         animState.Draw(drawPos, facing_, size_);
     }

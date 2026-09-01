@@ -22,7 +22,9 @@ public:
     void SetVelocity(const Vector2& v) { velocity_ = v; }
     bool IsExploded() const { return exploded_; }
 
-    Rectangle GetRect() const { return { position_.x, position_.y, size_.x, size_.y }; }
+    bool Overlaps(const GameObject& other) const {
+        return CheckCollisionRecs(GetRect(), other.GetRect());
+    }
 
     virtual void OnHitSolid() { Explode(); }
     virtual void OnHitShell(KoopaShell&) { Explode(); }

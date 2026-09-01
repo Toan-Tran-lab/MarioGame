@@ -63,7 +63,7 @@ void GameplayState::SetMultiplayer(bool enabled) {
             player2_ = std::make_unique<Mario>();
         }
 
-        // P1 key bindings: WASD + Left Shift
+        // P1 key bindings: WASD + Left Shift + F
         physics::PlayerKeyBindings p1Bindings;
         p1Bindings.left    = KEY_A;
         p1Bindings.right   = KEY_D;
@@ -71,9 +71,10 @@ void GameplayState::SetMultiplayer(bool enabled) {
         p1Bindings.jump    = KEY_W;
         p1Bindings.jumpAlt = KEY_SPACE;
         p1Bindings.sprint  = KEY_LEFT_SHIFT;
+        p1Bindings.shoot   = KEY_F;
         player_->SetKeyBindings(p1Bindings);
 
-        // P2 key bindings: Arrow keys + Right Shift
+        // P2 key bindings: Arrow keys + Right Shift + J
         physics::PlayerKeyBindings p2Bindings;
         p2Bindings.left    = KEY_LEFT;
         p2Bindings.right   = KEY_RIGHT;
@@ -81,6 +82,7 @@ void GameplayState::SetMultiplayer(bool enabled) {
         p2Bindings.jump    = KEY_UP;
         p2Bindings.jumpAlt = 0; // no alt key
         p2Bindings.sprint  = KEY_RIGHT_SHIFT;
+        p2Bindings.shoot   = KEY_J;
         player2_->SetKeyBindings(p2Bindings);
     } else {
         player2_.reset();
@@ -166,13 +168,22 @@ void GameplayState::Initialize() {
     TextureManager::Load("mario_mini_die", "assets/textures/Mario-mini/die/mario.png");
     TextureManager::Load("mario_mini_sit", "assets/textures/Mario/sit/mario.png"); // using normal sit if mini sit isn't provided
 
+    // Fire Mario
+    TextureManager::Load("fire_mario_pose", "assets/textures/Fire Mario/pose/fireMario.png");
+    TextureManager::Load("fire_mario_walk", "assets/textures/Fire Mario/walk/fireMario.png");
+    TextureManager::Load("fire_mario_jump", "assets/textures/Fire Mario/jump/fireMario.png");
+    TextureManager::Load("fire_mario_slide", "assets/textures/Fire Mario/slide/fireMario.png");
+    TextureManager::Load("fire_mario_sit", "assets/textures/Fire Mario/sit/fireMario.png");
+    TextureManager::Load("fire_mario_shoot", "assets/textures/Fire Mario/shoot/fireMario.png");
+
     // Luigi Normal
     TextureManager::Load("luigi_pose", "assets/textures/Luigi/pose/luigi.png");
     TextureManager::Load("luigi_walk", "assets/textures/Luigi/walk/luigi.png");
     TextureManager::Load("luigi_jump", "assets/textures/Luigi/jump/luigi.png");
     TextureManager::Load("luigi_slide", "assets/textures/Luigi/slide/luigi.png");
     TextureManager::Load("luigi_sit", "assets/textures/Luigi/sit/luigi.png");
-
+    TextureManager::Load("luigi_die", "assets/textures/Luigi/die/luigi.png");
+    
     // Luigi Mini
     TextureManager::Load("luigi_mini_pose", "assets/textures/Luigi-mini/pose/luigi.png");
     TextureManager::Load("luigi_mini_walk", "assets/textures/Luigi-mini/walk/luigi.png");
@@ -180,6 +191,14 @@ void GameplayState::Initialize() {
     TextureManager::Load("luigi_mini_slide", "assets/textures/Luigi-mini/slide/luigi.png");
     TextureManager::Load("luigi_mini_die", "assets/textures/Luigi-mini/die/luigi.png");
     TextureManager::Load("luigi_mini_sit", "assets/textures/Luigi/sit/luigi.png"); // fallback
+
+    // Fire Luigi
+    TextureManager::Load("fire_luigi_pose", "assets/textures/Fire Luigi/pose/fireLuigi.png");
+    TextureManager::Load("fire_luigi_walk", "assets/textures/Fire Luigi/walk/fireLuigi.png");
+    TextureManager::Load("fire_luigi_jump", "assets/textures/Fire Luigi/jump/fireLuigi.png");
+    TextureManager::Load("fire_luigi_slide", "assets/textures/Fire Luigi/slide/fireLuigi.png");
+    TextureManager::Load("fire_luigi_sit", "assets/textures/Fire Luigi/sit/fireLuigi.png");
+    TextureManager::Load("fire_luigi_shoot", "assets/textures/Fire Luigi/shoot/fireLuigi.png");
 
     // Items
     TextureManager::Load("mushroom", "assets/textures/mushroom/mushroom.png");
@@ -194,7 +213,9 @@ void GameplayState::Initialize() {
     TextureManager::Load("koopa_walk",     "assets/textures/Koopa/walk/enemies.png");
     TextureManager::Load("koopa_hide",     "assets/textures/Koopa/hide/enemies.png");
     TextureManager::Load("buzzy_walk",    "assets/textures/BuzzyBeetle/walk/enemies.png");
-    TextureManager::Load("buzzy_flipped", "assets/textures/BuzzyBeetle/flipped/enemies.png");
+    TextureManager::Load("buzzy_hide",    "assets/textures/BuzzyBeetle/hide/enemies.png");
+    TextureManager::Load("piranha",       "assets/textures/Piranha/enemies.png");
+    TextureManager::Load("bullet",        "assets/textures/Bullet/enemies.png");
     TextureManager::Load("coin", "assets/textures/coin/coin.png");
     TextureManager::Load("mushroom", "assets/textures/Items/items.png");
     TextureManager::Load("luckyblock", "assets/textures/Luckyblock/luckyblock.png");
@@ -226,15 +247,26 @@ void GameplayState::Initialize() {
     goombas_.clear();
     koopas_.clear();
     buzzyBeetles_.clear();
+    piranhas_.clear();
+    bullets_.clear();
+    bulletTriggers_.clear();
     dragonBoss_.reset();
+    dragonFlames_.clear();
+    shockwaveManager_.Clear();
     fireballs_.clear();
     coins_.clear();
     princess_.reset();
     goalPipe_.reset();
     flagpole_.reset();
     mushrooms_.clear();
+    fireFlowers_.clear();
+    starmen_.clear();
+    playerFireballs_.clear();
     flyingBridges_.clear();
     fires_.clear();
+    mapDoorBlocks_.clear();
+
+    bossBattleCtrl_.Reset();
 
     if (isSandboxMode_) {
         // Spawn Goombas and Coins based on Sandbox coordinates
@@ -274,76 +306,107 @@ void GameplayState::Initialize() {
         }
     } else {
         // Normal level entity spawn from TileMap
+        auto ToLowerStr = [](std::string s) {
+            for (char& c : s) c = (char)std::tolower((unsigned char)c);
+            return s;
+        };
+
         const auto& entities = tileMap.GetEntities();
         for (const auto& ent : entities) {
-            if (ent.id == "Goomba") {
+            std::string id = ToLowerStr(ent.id);
+
+            if (id == "goomba") {
                 auto g = std::make_unique<Goomba>();
                 g->SetPosition(ent.position);
                 g->SetSize({ Global::TILE_SIZE * Global::GAME_SCALE, Global::TILE_SIZE * Global::GAME_SCALE });
                 g->SetPlayerBody(&player_->GetPhysicsBody());
                 g->SetCollisionGrid(&tileMap.GetBlockGrid());
                 goombas_.push_back(std::move(g));
-            } else if (ent.id == "KoopaShell") {
+            } else if (id == "koopashell" || id == "koopa") {
                 auto k = std::make_unique<KoopaShell>();
-                // Normal KoopaShell size is 16x24. We scale it.
-                // Notice: position Y might need adjustment because its height is 24, not 16.
                 k->SetPosition({ ent.position.x, ent.position.y - 8.0f * Global::GAME_SCALE });
                 k->SetSize({ 16.0f * Global::GAME_SCALE, 24.0f * Global::GAME_SCALE });
                 k->SetPlayerBody(&player_->GetPhysicsBody());
                 k->SetCollisionGrid(&tileMap.GetBlockGrid());
                 koopas_.push_back(std::move(k));
-            } else if (ent.id == "BuzzyBeetle") {
+            } else if (id == "buzzybeetle" || id == "buzzy") {
                 auto b = std::make_unique<BuzzyBeetle>();
                 b->SetPosition(ent.position);
                 b->SetSize({ Global::TILE_SIZE * Global::GAME_SCALE, Global::TILE_SIZE * Global::GAME_SCALE });
                 b->SetPlayerBody(&player_->GetPhysicsBody());
                 b->SetCollisionGrid(&tileMap.GetBlockGrid());
                 buzzyBeetles_.push_back(std::move(b));
-            } else if (ent.id == "Coin") {
+            } else if (id == "piranha" || id == "piranhaplant") {
+                auto p = std::make_unique<Piranha>();
+                Vector2 spawnPos = { ent.position.x + (float)tileMap.GetTileSize() / 2.0f, ent.position.y + 25 - tileMap.GetTileSize()};
+                p->SetPosition(spawnPos);
+                p->SetPlayerBody(&player_->GetPhysicsBody());
+                piranhas_.push_back(std::move(p));
+            } else if (id == "coin") {
                 auto c_coin = std::make_unique<Coin>();
                 c_coin->SetPosition(ent.position);
                 c_coin->SetSize({ 16.0f * Global::GAME_SCALE, 16.0f * Global::GAME_SCALE });
                 coins_.push_back(std::move(c_coin));
-            } else if (ent.id == "Luckyblock") {
+            } else if (id == "luckyblock") {
                 auto block = std::make_unique<Luckyblock>();
                 block->SetPosition(ent.position);
                 int col = (int)(ent.position.x / tileMap.GetTileSize());
                 int row = (int)(ent.position.y / tileMap.GetTileSize());
                 tileMap.GetBlockGrid().SetBlock(col, row, std::move(block));
-            } else if (ent.id == "DragonBoss") {
+            } else if (id == "dragonboss" || id == "dragon_boss" || id == "boss") {
                 dragonBoss_ = std::make_unique<DragonBoss>();
-                dragonBoss_->SetSize({ 256.0f * Global::GAME_SCALE, 256.0f * Global::GAME_SCALE }); // placeholder — tune once art exists
                 dragonBoss_->SetPosition(ent.position);
+                dragonBoss_->SetGroundY(ent.position.y);
                 dragonBoss_->SetPlayerRef(player_.get());
+                dragonBoss_->SetCollisionGrid(&tileMap.GetBlockGrid());
                 dragonBoss_->BeginSpawn();
-            } else if (ent.id == "Princess") {
+            } else if (id == "princess") {
                 princess_ = std::make_unique<Princess>();
                 princess_->SetPosition(ent.position);
                 princess_->SetSize({ 16.0f * Global::GAME_SCALE, 32.0f * Global::GAME_SCALE }); // tune to art
-            } else if (ent.id == "FlyingBridge") {
+            } else if (id == "flyingbridge") {
                 auto bridge = std::make_unique<FlyingBridge>();
                 bridge->SetPosition(ent.position);
                 bridge->SetPatrolBounds(0.0f, (float)tileMap.GetPixelWidth());
                 bridge->SetBlockGrid(&tileMap.GetBlockGrid());
                 flyingBridges_.push_back(std::move(bridge));
-            } else if (ent.id == "GoalPipe") {
+            } else if (id == "bulletleft" || id == "bullet_left") {
+                bulletTriggers_.push_back({ ent.position.x, ent.position.y, -1.0f, false });
+            } else if (id == "bulletright" || id == "bullet_right") {
+                bulletTriggers_.push_back({ ent.position.x, ent.position.y, 1.0f, false });
+            } else if (id == "goalpipe") {
                 goalPipe_ = std::make_unique<GoalPipe>();
                 goalPipe_->SetPosition(ent.position);
-            } else if (ent.id == "FlagPole") {
+            } else if (id == "flagpole") {
                 if (!flagpole_) flagpole_ = std::make_unique<Flagpole>();
                 flagpole_->AddPoleSegment(ent.position);
-            } else if (ent.id == "Flag") {
+            } else if (id == "flag") {
                 if (!flagpole_) flagpole_ = std::make_unique<Flagpole>();
                 flagpole_->SetFlagPosition(ent.position);
-            } else if (ent.id == "Fire") {
+            } else if (id == "fire") {
                 auto fire = std::make_unique<Fire>();
                 fire->SetPosition(ent.position);
                 fires_.push_back(std::move(fire));
+            } else if (id == "door" || id == "bossdoor" || id == "boss_door" || id == "redoor" || id == "re_door") {
+                float tileSize = (float)tileMap.GetTileSize();
+                mapDoorBlocks_.push_back(Rectangle{ ent.position.x, ent.position.y, tileSize, tileSize });
+            } else if (id == "startbattle" || id == "start_battle") {
+                bossBattleCtrl_.SetStartBattle(ent.position);
             }
         }
         
         if (flagpole_) {
             flagpole_->Finalize();
+        }
+
+        // Configure Boss Room Door bounds from map Door blocks
+        if (!mapDoorBlocks_.empty()) {
+            float maxX = mapDoorBlocks_[0].x;
+            Vector2 maxPos = { mapDoorBlocks_[0].x, mapDoorBlocks_[0].y };
+            for (const auto& r : mapDoorBlocks_) {
+                if (r.x > maxX) { maxX = r.x; maxPos = { r.x, r.y }; }
+            }
+            bossBattleCtrl_.SetDoor(maxPos);
         }
     }
 
@@ -366,8 +429,22 @@ void GameplayState::Initialize() {
         Global::hasSaveGame = true;
     }
 
-    // Start the BGM for this level (stops any previously playing track)
-    AudioManager::PlayBGM(currentLevel.GetBGMKey());
+    std::vector<Player*> activePlayers;
+    if (player_) activePlayers.push_back(player_.get());
+    if (isMultiplayer_ && player2_) activePlayers.push_back(player2_.get());
+
+    if (dragonBoss_) {
+        bossBattleCtrl_.BeginIntro(activePlayers);
+        Vector2 bPos = dragonBoss_->GetPosition();
+        smoothedCamX_ = bPos.x + dragonBoss_->GetSize().x * 0.5f;
+        smoothedCamY_ = bPos.y + dragonBoss_->GetSize().y * 0.45f;
+        view.Update(smoothedCamX_, smoothedCamY_, 1.6f);
+    } else {
+        smoothedCamX_ = player_->GetPosition().x;
+        smoothedCamY_ = player_->GetPosition().y;
+        view.Update(smoothedCamX_, smoothedCamY_, 1.0f);
+    }
+    firstCameraInit_ = false;
 }
 
 void GameplayState::Update(float deltaTime) {
@@ -388,6 +465,13 @@ void GameplayState::Update(float deltaTime) {
         timeLeft = 0;
         isGameOver = true;
         AudioManager::StopBGM();
+    }
+
+    // Monitor starman invincibility and audio
+    bool anyStarActive = (player_ && player_->IsInvincible() && !player_->IsDead()) ||
+                         (player2_ && player2_->IsInvincible() && !player2_->IsDead());
+    if (AudioManager::IsStarmanBGMPlaying() && !anyStarActive) {
+        AudioManager::StopStarmanBGM();
     }
 
     // Move bridges first so their position is current when Player::Update() runs.
@@ -417,20 +501,72 @@ void GameplayState::Update(float deltaTime) {
         if (isMultiplayer_) CheckAndCarry(player2_.get());
     }
 
-    // Inject all bridge rects as dynamic solid platforms into the player's collision pass.
+    // Move bullets and carry players standing on them like FlyingBridge
+    for (auto& bullet : bullets_) {
+        if (!bullet->IsActive()) continue;
+        float oldX = bullet->GetPosition().x;
+        bullet->Update(deltaTime);
+        float deltaX = bullet->GetPosition().x - oldX;
+
+        auto CheckAndCarryBullet = [&](Player* p) {
+            if (!p || p->IsDead()) return;
+            Rectangle pRect = p->GetPhysicsBody().GetRect();
+            Rectangle bRect = bullet->GetRect();
+            float pBottom = pRect.y + pRect.height;
+            float bTop    = bRect.y;
+            bool hOverlap = (pRect.x + pRect.width > bRect.x) && (pRect.x < bRect.x + bRect.width);
+            bool onTop = (pBottom >= bTop - 8.0f) && (pBottom <= bTop + 8.0f);
+            
+            if (hOverlap && onTop && deltaX != 0.0f) {
+                Vector2 pos = p->GetPosition();
+                pos.x += deltaX;
+                p->SetPosition(pos);
+                p->SyncPhysicsBody();
+            }
+        };
+
+        CheckAndCarryBullet(player_.get());
+        if (isMultiplayer_) CheckAndCarryBullet(player2_.get());
+    }
+
+    // Inject all bridge, bullet, and boss door rects as dynamic solid platforms
     {
-        std::vector<Rectangle> bridgeRects;
-        bridgeRects.reserve(flyingBridges_.size());
+        std::vector<Rectangle> platformRects;
+        platformRects.reserve(flyingBridges_.size() + bullets_.size() + 2);
         for (auto& bridge : flyingBridges_) {
-            bridgeRects.push_back(bridge->GetRect());
+            platformRects.push_back(bridge->GetRect());
         }
-        player_->SetDynamicPlatforms(bridgeRects);
+        for (auto& bullet : bullets_) {
+            if (bullet->IsActive()) {
+                platformRects.push_back(bullet->GetRect());
+            }
+        }
+
+        // Add map Door blocks into dynamic solid platforms (Exit door opens on RoomCleared)
+        for (const auto& dRect : mapDoorBlocks_) {
+            bool isExitDoor = (bossBattleCtrl_.HasDoor() && dRect.x >= bossBattleCtrl_.GetDoorPos().x - 10.0f);
+            bool isOpen = isExitDoor && (bossBattleCtrl_.GetPhase() == BossBattlePhase::RoomCleared);
+            if (!isOpen) {
+                platformRects.push_back(dRect);
+            }
+        }
+
+        // Add reDoor and Door solid collision boxes based on Boss Battle State
+        bossBattleCtrl_.AppendDynamicBarriers(platformRects, dragonBoss_.get());
+
+        player_->SetDynamicPlatforms(platformRects);
         if (isMultiplayer_ && player2_) {
-            player2_->SetDynamicPlatforms(bridgeRects);
+            player2_->SetDynamicPlatforms(platformRects);
         }
     }
 
     player_->Update(deltaTime);
+    if (bossBattleCtrl_.GetPhase() == BossBattlePhase::Intro) {
+        player_->GetPhysicsBody().velocity.x = 0.0f;
+        if (isMultiplayer_ && player2_) {
+            player2_->GetPhysicsBody().velocity.x = 0.0f;
+        }
+    }
 
     // Screen bounds constraints
     float cameraLeft = view.GetWorldLeft();
@@ -443,20 +579,11 @@ void GameplayState::Update(float deltaTime) {
         float px = p->GetPosition().x;
         float pWidth = p->GetSize().x;
         
-        // Left constraint: prevents moving backwards off-screen
-        if (px < cameraLeft) {
-            p->SetPosition({cameraLeft, p->GetPosition().y});
+        // Left constraint: prevents moving beyond left edge of the map
+        if (px < 0.0f) {
+            p->SetPosition({0.0f, p->GetPosition().y});
             p->SyncPhysicsBody();
             if (p->GetPhysicsBody().velocity.x < 0) {
-                p->GetPhysicsBody().velocity.x = 0.0f;
-            }
-        }
-        
-        // Right constraint: prevents moving forward off-screen.
-        if (px + pWidth > cameraRight) {
-            p->SetPosition({cameraRight - pWidth, p->GetPosition().y});
-            p->SyncPhysicsBody();
-            if (p->GetPhysicsBody().velocity.x > 0) {
                 p->GetPhysicsBody().velocity.x = 0.0f;
             }
         }
@@ -518,8 +645,23 @@ void GameplayState::Update(float deltaTime) {
         }
     }
 
+    // Update Piranha Plants
+    for (auto& p : piranhas_) {
+        if (p->IsActive()) {
+            Player* target = GetTargetPlayer(p->GetPosition());
+            p->SetPlayerBody(target ? &target->GetPhysicsBody() : nullptr);
+            p->Update(deltaTime);
+        }
+    }
+
+    // Gather active players for boss and entity updates
+    std::vector<Player*> currentActivePlayers;
+    if (player_ && !player_->IsDead()) currentActivePlayers.push_back(player_.get());
+    if (isMultiplayer_ && player2_ && !player2_->IsDead()) currentActivePlayers.push_back(player2_.get());
+
     if (dragonBoss_ && dragonBoss_->IsActive()) {
         dragonBoss_->SetPlayerRef(GetTargetPlayer(dragonBoss_->GetPosition()));
+        dragonBoss_->UpdateAI(currentActivePlayers, deltaTime);
         dragonBoss_->Update(deltaTime);
 
         if (dragonBoss_->ConsumeItemScatterRequest()) {
@@ -553,11 +695,56 @@ void GameplayState::Update(float deltaTime) {
             }
         }
 
+        Vector2 flameMouth;
+        float flameDir = -1.0f;
+        float flameGrowth = 0.0f;
+        bool flameEnded = false;
+        if (dragonBoss_->GetFlameStreamUpdate(flameMouth, flameDir, flameGrowth, flameEnded)) {
+            if (flameEnded) {
+                dragonFlames_.clear();
+            } else {
+                if (dragonFlames_.empty()) {
+                    dragonFlames_.push_back(std::make_unique<DragonFlame>(flameMouth, flameDir));
+                }
+                if (!dragonFlames_.empty()) {
+                    dragonFlames_[0]->SetMouthAnchor(flameMouth, flameDir, flameGrowth);
+                }
+            }
+        }
+
+        Vector2 flameOrigin;
+        float flameDirLegacy = -1.0f;
+        if (dragonBoss_->ConsumeFlameRequest(flameOrigin, flameDirLegacy)) {
+            dragonFlames_.push_back(std::make_unique<DragonFlame>(flameOrigin, flameDirLegacy));
+        }
+
+        Vector2 swOrigin;
+        float swFloorY = 0.0f;
+        if (dragonBoss_->ConsumeShockwaveRequest(swOrigin, swFloorY)) {
+            shockwaveManager_.Trigger(swOrigin, swFloorY, 800.0f, 440.0f);
+        }
+
         Vector2 fbOrigin;
         if (dragonBoss_->ConsumeFireballRequest(fbOrigin)) {
             fireballs_.push_back(std::make_unique<Fireball>(fbOrigin, -1.0f));
         }
     }
+
+    // Update shockwave ripple across blocks and players
+    shockwaveManager_.Update(deltaTime, tileMap.GetBlockGrid(), currentActivePlayers);
+
+    // Update dragon flames
+    for (auto& flame : dragonFlames_) {
+        if (!flame->IsActive()) continue;
+        flame->Update(deltaTime);
+        for (Player* p : currentActivePlayers) {
+            if (p && !p->IsDead() && flame->CanHurtPlayer(*p) && flame->Overlaps(*p)) {
+                p->TakeDamage();
+            }
+        }
+    }
+    dragonFlames_.erase(std::remove_if(dragonFlames_.begin(), dragonFlames_.end(),
+        [](const std::unique_ptr<DragonFlame>& f) { return !f->IsActive(); }), dragonFlames_.end());
 
     
 
@@ -570,6 +757,13 @@ void GameplayState::Update(float deltaTime) {
     }
     debrisList_.erase(std::remove_if(debrisList_.begin(), debrisList_.end(),
         [](const DebrisPiece& d) { return !d.active; }), debrisList_.end());
+
+    // Update score popups
+    for (auto& popup : scorePopups_) {
+        popup.timer += deltaTime;
+    }
+    scorePopups_.erase(std::remove_if(scorePopups_.begin(), scorePopups_.end(),
+        [](const ScorePopup& p) { return p.timer >= 1.0f; }), scorePopups_.end());
 
     auto HandleBlockHit = [&](Player* p) {
         if (!p || p->IsDead() || !p->CanHitBlock() || !p->GetPhysicsBody().hitCeiling) return;
@@ -589,12 +783,31 @@ void GameplayState::Update(float deltaTime) {
                     auto* lucky = dynamic_cast<Luckyblock*>(block);
                     LuckyContents contents = lucky ? lucky->GetLastContents() : LuckyContents::Coin;
 
+                    float blockX = (float)(col * tileMap.GetTileSize());
+                    float blockTopY = (float)(row * tileMap.GetTileSize());
+
                     if (contents == LuckyContents::Mushroom) {
-                        auto m = std::make_unique<Mushroom>();
-                        m->SetPosition({ (float)(col * tileMap.GetTileSize()), hitRect.y - 16.0f * Global::GAME_SCALE });
-                        m->SetCollisionGrid(&tileMap.GetBlockGrid());
-                        m->SetActive(true);
-                        mushrooms_.push_back(std::move(m));
+                        if (!isSmall) {
+                            // Upgrade to FireFlower if player is not small
+                            auto f = std::make_unique<FireFlower>();
+                            f->SetPosition({ blockX, blockTopY });
+                            f->StartEmerging(blockTopY);
+                            fireFlowers_.push_back(std::move(f));
+                            AudioManager::PlaySFX(AudioKey::POWERUP_APPEARS);
+                        } else {
+                            auto m = std::make_unique<Mushroom>();
+                            m->SetPosition({ blockX, blockTopY });
+                            m->SetCollisionGrid(&tileMap.GetBlockGrid());
+                            m->StartEmerging(blockTopY);
+                            mushrooms_.push_back(std::move(m));
+                            AudioManager::PlaySFX(AudioKey::POWERUP_APPEARS);
+                        }
+                    } else if (contents == LuckyContents::Starman) {
+                        auto s = std::make_unique<Starman>();
+                        s->SetPosition({ blockX, blockTopY });
+                        s->SetCollisionGrid(&tileMap.GetBlockGrid());
+                        s->StartEmerging(blockTopY);
+                        starmen_.push_back(std::move(s));
                         AudioManager::PlaySFX(AudioKey::POWERUP_APPEARS);
                     } else {
                         auto c_coin = std::make_unique<Coin>();
@@ -640,10 +853,75 @@ void GameplayState::Update(float deltaTime) {
     if (isMultiplayer_ && player2_) {
         HandleBlockHit(player2_.get());
     }
+    
+    // Gather active players for shooting
+    std::vector<Player*> activePlayersForShoot;
+    if (player_ && !player_->IsDead()) activePlayersForShoot.push_back(player_.get());
+    if (isMultiplayer_ && player2_ && !player2_->IsDead()) activePlayersForShoot.push_back(player2_.get());
+
+    for (Player* p : activePlayersForShoot) {
+        if (p->WantsToShoot()) {
+            p->ConsumeShootRequest();
+            if (p->CanShootFireball()) {
+                // Limit to 2 player fireballs on screen total
+                if (playerFireballs_.size() < 2) {
+                    float dir = (p->GetFacing() == FacingDirection::Right) ? 1.0f : -1.0f;
+                    Vector2 spawnPos = { p->GetPosition().x + (p->GetSize().x / 2.0f) + (dir * 8.0f), p->GetPosition().y + p->GetSize().y / 2.0f };
+                    auto fb = std::make_unique<PlayerFireball>(spawnPos, dir);
+                    fb->SetActive(true);
+                    playerFireballs_.push_back(std::move(fb));
+                    AudioManager::PlaySFX(AudioKey::FIREBALL);
+                    p->PlayShootAnimation();
+                }
+            }
+        }
+    }
+
+    // Cleanup dead player fireballs before updating to maintain the 2-fireball limit correctly
+    playerFireballs_.erase(std::remove_if(playerFireballs_.begin(), playerFireballs_.end(),
+        [](const std::unique_ptr<PlayerFireball>& fb) { return !fb->IsActive(); }), playerFireballs_.end());
 
     for (auto& m : mushrooms_) {
         if (m->IsActive()) {
             m->Update(deltaTime);
+        }
+    }
+    for (auto& s : starmen_) {
+        if (s->IsActive()) {
+            s->Update(deltaTime);
+        }
+    }
+    for (auto& f : fireFlowers_) {
+        if (f->IsActive()) {
+            f->Update(deltaTime);
+        }
+    }
+    for (auto& fb : playerFireballs_) {
+        if (fb->IsActive()) {
+            fb->Update(deltaTime);
+            // Handle fireball bouncing
+            Rectangle fbRect = fb->GetRect();
+            int bcol = (int)(fbRect.x / tileMap.GetTileSize());
+            int brow = (int)((fbRect.y + fbRect.height) / tileMap.GetTileSize());
+            Block* floorBlock = tileMap.GetBlockGrid().GetBlock(bcol, brow);
+            if (floorBlock || fbRect.y + fbRect.height >= tileMap.GetPixelHeight()) {
+                // Bounce
+                Vector2 vel = fb->GetVelocity();
+                vel.y = -350.0f; // Bounce strength
+                fb->SetVelocity(vel);
+            }
+            
+            // Handle fireball hitting walls (destroy)
+            int sideCol = (fb->GetVelocity().x > 0) ? (int)((fbRect.x + fbRect.width) / tileMap.GetTileSize()) : (int)(fbRect.x / tileMap.GetTileSize());
+            int sideRow = (int)((fbRect.y + fbRect.height/2.0f) / tileMap.GetTileSize());
+            Block* wallBlock = tileMap.GetBlockGrid().GetBlock(sideCol, sideRow);
+            if (wallBlock) {
+                fb->Explode();
+            }
+            
+            // Advance position via velocity manually since Projectile isn't updated by PhysicsEngine
+            Vector2 pos = { fbRect.x + fb->GetVelocity().x * deltaTime, fbRect.y + fb->GetVelocity().y * deltaTime };
+            fb->SetPosition(pos);
         }
     }
 
@@ -652,33 +930,84 @@ void GameplayState::Update(float deltaTime) {
     if (player_ && !player_->IsDead()) activePlayers.push_back(player_.get());
     if (isMultiplayer_ && player2_ && !player2_->IsDead()) activePlayers.push_back(player2_.get());
 
+    // Update Boss Battle State Machine
+    bossBattleCtrl_.Update(deltaTime, activePlayers, dragonBoss_.get());
+
     // Entity interaction: players vs goombas/koopas/mushroom/boss
     for (Player* p : activePlayers) {
         for (auto& g : goombas_) {
-            if (g->IsActive() && !g->IsDying() && p->Overlaps(*g)) {
+            if (g->IsActive() && !g->IsDying() && !g->IsUpsideDownDead() && p->Overlaps(*g)) {
                 bool wasDying = g->IsDying();
+                bool wasUpsideDown = g->IsUpsideDownDead();
                 p->InteractWith(*g);
-                if (!wasDying && g->IsDying()) score += 100;
+                if ((!wasDying && g->IsDying()) || (!wasUpsideDown && g->IsUpsideDownDead())) {
+                    score += 100;
+                    scorePopups_.push_back({g->GetPosition(), 0.0f, 100});
+                }
             }
         }
         for (auto& k : koopas_) {
-            if (k->IsActive() && p->Overlaps(*k)) {
+            if (k->IsActive() && !k->IsUpsideDownDead() && p->Overlaps(*k)) {
                 KoopaShellState prevState = k->GetState();
+                bool wasUpsideDown = k->IsUpsideDownDead();
                 p->InteractWith(*k);
                 if (prevState != KoopaShellState::Hiding && k->GetState() == KoopaShellState::Hiding) {
                     score += 100;
                 }
             }
         }
+        for (auto& b : buzzyBeetles_) {
+            if (b->IsActive() && p->Overlaps(*b)) {
+                p->InteractWith(*b);
+            }
+        }
+        for (auto& pir : piranhas_) {
+            if (pir->IsActive() && p->Overlaps(*pir)) {
+                p->InteractWith(*pir);
+            }
+        }
+        for (auto& b : bullets_) {
+            if (b->IsActive() && p->Overlaps(*b)) {
+                p->InteractWith(*b);
+            }
+        }
         for (auto& m : mushrooms_) {
             if (m->IsActive() && p->Overlaps(*m)) {
+                bool wasActive = m->IsActive();
                 p->InteractWith(*m);
+                if (wasActive && !m->IsActive()) {
+                    score += 1000;
+                    scorePopups_.push_back({m->GetPosition(), 0.0f, 1000});
+                }
+            }
+        }
+        for (auto& s : starmen_) {
+            if (s->IsActive() && p->Overlaps(*s)) {
+                bool wasActive = s->IsActive();
+                p->InteractWith(*s);
+                if (wasActive && !s->IsActive()) {
+                    score += 1000;
+                    scorePopups_.push_back({s->GetPosition(), 0.0f, 1000});
+                }
+            }
+        }
+        for (auto& f : fireFlowers_) {
+            if (f->IsActive() && p->Overlaps(*f)) {
+                bool wasActive = f->IsActive();
+                p->InteractWith(*f);
+                if (wasActive && !f->IsActive()) {
+                    score += 1000;
+                    scorePopups_.push_back({f->GetPosition(), 0.0f, 1000});
+                }
             }
         }
         if (dragonBoss_ && dragonBoss_->IsActive() && !dragonBoss_->IsDead() && p->Overlaps(*dragonBoss_)) {
             bool wasDead = dragonBoss_->IsDead();
             p->InteractWith(*dragonBoss_);
-            if (!wasDead && dragonBoss_->IsDead()) score += 1000;
+            if (!wasDead && dragonBoss_->IsDead()) {
+                score += 1000;
+                scorePopups_.push_back({dragonBoss_->GetPosition(), 0.0f, 1000});
+            }
         }
     }
 
@@ -686,7 +1015,32 @@ void GameplayState::Update(float deltaTime) {
     std::vector<GroundEnemy*> activeEnemies;
     for (auto& g : goombas_) if (g->IsActive() && !g->IsDying()) activeEnemies.push_back(g.get());
     for (auto& k : koopas_) if (k->IsActive()) activeEnemies.push_back(k.get());
-    for (auto& b : buzzyBeetles_) if (b->IsActive() && !b->IsDefeated()) activeEnemies.push_back(b.get());
+    for (auto& b : buzzyBeetles_) if (b->IsActive()) activeEnemies.push_back(b.get());
+
+    // Fireball vs Enemy collision
+    for (auto& fb : playerFireballs_) {
+        if (fb->IsActive() && !fb->IsExploded()) {
+            for (auto* e : activeEnemies) {
+                if (CheckCollisionRecs(fb->GetRect(), e->GetRect())) {
+                    if (auto* k = dynamic_cast<KoopaShell*>(e)) {
+                        fb->OnHitShell(*k);
+                        score += 100;
+                        scorePopups_.push_back({k->GetPosition(), 0.0f, 100});
+                        AudioManager::PlaySFX(AudioKey::HIT_ENEMY);
+                    } else if (auto* b = dynamic_cast<BuzzyBeetle*>(e)) {
+                        fb->OnHitEnemy(*b);
+                        AudioManager::PlaySFX(AudioKey::HIT_ENEMY);
+                    } else {
+                        fb->OnHitEnemy(*e);
+                        score += 100;
+                        scorePopups_.push_back({e->GetPosition(), 0.0f, 100});
+                        AudioManager::PlaySFX(AudioKey::HIT_ENEMY);
+                    }
+                    break;
+                }
+            }
+        }
+    }
 
     for (size_t i = 0; i < activeEnemies.size(); ++i) {
         for (size_t j = i + 1; j < activeEnemies.size(); ++j) {
@@ -738,11 +1092,15 @@ void GameplayState::Update(float deltaTime) {
     for (auto& k : koopas_) {
         if (k->IsActive() && k->GetState() == KoopaShellState::Sliding) {
             for (auto& g : goombas_) {
-                if (g->IsActive() && !g->IsDying() && k->Overlaps(*g)) {
-                bool wasDying = g->IsDying();
-                k->InteractWith(*g);
-                if (!wasDying && g->IsDying()) score += 100;
-            }
+                if (g->IsActive() && !g->IsDying() && !g->IsUpsideDownDead() && k->Overlaps(*g)) {
+                    bool wasDying = g->IsDying();
+                    bool wasUpsideDown = g->IsUpsideDownDead();
+                    k->InteractWith(*g);
+                    if ((!wasDying && g->IsDying()) || (!wasUpsideDown && g->IsUpsideDownDead())) {
+                        score += 100;
+                        scorePopups_.push_back({g->GetPosition(), 0.0f, 100});
+                    }
+                }
             }
         }
     }
@@ -763,10 +1121,18 @@ void GameplayState::Update(float deltaTime) {
     for (auto& k : koopas_) {
         if (k->IsActive() && k->GetState() == KoopaShellState::Sliding) {
             for (auto& b : buzzyBeetles_) {
-                if (b->IsActive() && !b->IsDefeated() && k->Overlaps(*b)) {
-                    bool wasDefeated = b->IsDefeated();
+                if (b->IsActive() && k->Overlaps(*b)) {
+                    k->InteractWith(*b); // BuzzyBeetle is invincible — shell bounces off
+                }
+            }
+            for (auto& pir : piranhas_) {
+                if (pir->IsActive() && pir->IsExposedOrMoving() && k->Overlaps(*pir)) {
+                    k->InteractWith(*pir);
+                }
+            }
+            for (auto& b : bullets_) {
+                if (b->IsActive() && k->Overlaps(*b)) {
                     k->InteractWith(*b);
-                    if (!wasDefeated && b->IsDefeated()) score += 100;
                 }
             }
         }
@@ -774,7 +1140,10 @@ void GameplayState::Update(float deltaTime) {
             dragonBoss_ && dragonBoss_->IsActive() && k->Overlaps(*dragonBoss_)) {
             bool wasDead = dragonBoss_->IsDead();
             k->InteractWith(*dragonBoss_);
-            if (!wasDead && dragonBoss_->IsDead()) score += 1000;
+            if (!wasDead && dragonBoss_->IsDead()) {
+                score += 1000;
+                scorePopups_.push_back({dragonBoss_->GetPosition(), 0.0f, 1000});
+            }
         }
     }
 
@@ -787,7 +1156,10 @@ void GameplayState::Update(float deltaTime) {
                 if (CheckCollisionRecs(p->GetPhysicsBody().GetRect(), cRect)) {
                     coin->SetActive(false);
                     AudioManager::PlaySFX(AudioKey::HIT_COIN);
-                    if (coin->AwardsScoreOnCollect()) score += 100;
+                    if (coin->AwardsScoreOnCollect()) {
+                        score += 200; // Original mario coin gives 200 score
+                        scorePopups_.push_back({coin->GetPosition(), 0.0f, 200});
+                    }
                     break;
                 }
             }
@@ -831,7 +1203,7 @@ void GameplayState::Update(float deltaTime) {
         }
         if (!justExploded) {
             for (auto& b : buzzyBeetles_) {
-                if (b->IsActive() && !b->IsDefeated() && CheckCollisionRecs(fbRect, b->GetRect())) {
+                if (b->IsActive() && CheckCollisionRecs(fbRect, b->GetRect())) {
                     fb->OnHitEnemy(*b);
                     justExploded = true;
                     break;
@@ -866,6 +1238,60 @@ void GameplayState::Update(float deltaTime) {
             }
         }
     }
+
+    // Trigger and spawn Bullets when player's block column equals trigger's block column
+    float tileSize = (float)tileMap.GetTileSize();
+    if (tileSize <= 0.0f) tileSize = Global::TILE_SIZE * Global::GAME_SCALE;
+
+    for (auto& trigger : bulletTriggers_) {
+        if (!trigger.triggered) {
+            int triggerBlockX = (int)(trigger.triggerX / tileSize);
+            for (Player* p : activePlayers) {
+                int playerBlockX = (int)((p->GetPosition().x + p->GetSize().x / 2.0f) / tileSize);
+                if (playerBlockX == triggerBlockX) {
+                    trigger.triggered = true;
+
+                    const Camera2D& cam = view.GetRawCamera();
+                    float cameraZoom = (cam.zoom > 0.0f) ? cam.zoom : 1.0f;
+                    float worldWidth = (float)GetScreenWidth() / cameraZoom;
+                    float bulletWidth = 16.0f * Global::GAME_SCALE;
+
+                    float spawnX = 0.0f;
+                    if (trigger.direction > 0.0f) {
+                        // Shoot from left outside of camera view towards right
+                        spawnX = view.GetWorldLeft() - bulletWidth - 10.0f;
+                    } else {
+                        // Shoot from right outside of camera view towards left
+                        spawnX = view.GetWorldLeft() + worldWidth + 10.0f;
+                    }
+
+                    auto bullet = std::make_unique<Bullet>(Vector2{ spawnX, trigger.spawnY }, trigger.direction);
+                    bullets_.push_back(std::move(bullet));
+                    break;
+                }
+            }
+        }
+    }
+
+    // Resolve Bullet block collisions
+    for (auto& bullet : bullets_) {
+        if (!bullet->IsActive()) continue;
+
+        Rectangle bRect = bullet->GetRect();
+
+        // Map geometry (Solid blocks) -> Disappear on hit
+        // Only check block collision if the bullet is within map horizontal bounds
+        if (bullet->GetPosition().x >= 0.0f && bullet->GetPosition().x + bullet->GetSize().x <= tileMap.GetPixelWidth()) {
+            if (RectOverlapsSolidBlock(bRect, tileMap.GetBlockGrid())) {
+                bullet->OnHitSolid();
+                continue;
+            }
+        }
+    }
+
+    // Cleanup inactive bullets
+    bullets_.erase(std::remove_if(bullets_.begin(), bullets_.end(),
+        [](const std::unique_ptr<Bullet>& b) { return !b->IsActive(); }), bullets_.end());
 
     // Cleanup dead fireballs
     fireballs_.erase(std::remove_if(fireballs_.begin(), fireballs_.end(),[](const std::unique_ptr<Fireball>& fb) { return !fb->IsActive(); }), fireballs_.end());
@@ -994,39 +1420,93 @@ void GameplayState::Update(float deltaTime) {
         }
     }
 
-    // Shared camera: track midpoint between alive players in multiplayer, or just the surviving player
+    // Dynamic Camera: If in Intro cutscene, focus & zoom on boss then pan back to player; otherwise track fight/player
     float camTargetX = player_->GetPosition().x;
     float camTargetY = player_->GetPosition().y;
-    
-    bool p1Alive = player_ && !player_->IsDead();
-    bool p2Alive = isMultiplayer_ && player2_ && !player2_->IsDead();
+    float camZoomMult = 1.0f;
 
-    if (p1Alive && p2Alive) {
-        camTargetX = (player_->GetPosition().x + player2_->GetPosition().x) / 2.0f;
-        camTargetY = (player_->GetPosition().y + player2_->GetPosition().y) / 2.0f; // Track vertically as well just in case
-    } else if (p1Alive) {
-        camTargetX = player_->GetPosition().x;
-        camTargetY = player_->GetPosition().y;
-    } else if (p2Alive) {
-        camTargetX = player2_->GetPosition().x;
-        camTargetY = player2_->GetPosition().y;
+    bool isIntroCutscene = (bossBattleCtrl_.GetPhase() == BossBattlePhase::Intro) &&
+                           dragonBoss_ && dragonBoss_->IsActive();
+
+    if (isIntroCutscene) {
+        float elapsed = BossBattleController::kIntroDuration - bossBattleCtrl_.GetPhaseTimer();
+        Vector2 bPos = dragonBoss_->GetPosition();
+        Vector2 bSize = dragonBoss_->GetSize();
+        Vector2 bossCenter = { bPos.x + bSize.x * 0.5f, bPos.y + bSize.y * 0.45f };
+
+        Vector2 pPos = player_->GetPosition();
+        Vector2 pSize = player_->GetSize();
+        Vector2 playerCenter = { pPos.x + pSize.x * 0.5f, pPos.y + pSize.y * 0.5f };
+
+        if (elapsed < 1.8f) {
+            // Stage 1: Zoom in on Boss while it roars
+            camTargetX = bossCenter.x;
+            camTargetY = bossCenter.y;
+            camZoomMult = 1.6f;
+        } else {
+            // Stage 2: Smoothly glide camera from Boss to Player, and unzoom (1.6x -> 1.0x)
+            float t = (elapsed - 1.8f) / 1.8f;
+            t = (t < 0.0f) ? 0.0f : (t > 1.0f ? 1.0f : t);
+            float ease = t * t * (3.0f - 2.0f * t); // Smooth smoothstep
+            camTargetX = bossCenter.x + (playerCenter.x - bossCenter.x) * ease;
+            camTargetY = bossCenter.y + (playerCenter.y - bossCenter.y) * ease;
+            camZoomMult = 1.6f - 0.6f * ease;
+        }
     } else {
-        // Both dead: keep tracking P1 as they fall
-        camTargetX = player_->GetPosition().x;
-        camTargetY = player_->GetPosition().y;
+        bool inBossFight = (bossBattleCtrl_.GetPhase() == BossBattlePhase::Fighting) &&
+                            dragonBoss_ && dragonBoss_->IsActive() && !dragonBoss_->IsDead() &&
+                            (std::abs(player_->GetPosition().x - dragonBoss_->GetPosition().x) < 900.0f);
+
+        if (inBossFight) {
+            float sumX = dragonBoss_->GetPosition().x + dragonBoss_->GetSize().x / 2.0f;
+            float sumY = dragonBoss_->GetPosition().y + dragonBoss_->GetSize().y / 2.0f;
+            int count = 1;
+
+            if (player_ && !player_->IsDead()) {
+                sumX += player_->GetPosition().x + player_->GetSize().x / 2.0f;
+                sumY += player_->GetPosition().y + player_->GetSize().y / 2.0f;
+                count++;
+            }
+            if (isMultiplayer_ && player2_ && !player2_->IsDead()) {
+                sumX += player2_->GetPosition().x + player2_->GetSize().x / 2.0f;
+                sumY += player2_->GetPosition().y + player2_->GetSize().y / 2.0f;
+                count++;
+            }
+
+            camTargetX = sumX / (float)count;
+            camTargetY = sumY / (float)count;
+        } else {
+            bool p1Alive = player_ && !player_->IsDead();
+            bool p2Alive = isMultiplayer_ && player2_ && !player2_->IsDead();
+
+            if (p1Alive && p2Alive) {
+                camTargetX = (player_->GetPosition().x + player2_->GetPosition().x) / 2.0f;
+                camTargetY = (player_->GetPosition().y + player2_->GetPosition().y) / 2.0f;
+            } else if (p1Alive) {
+                camTargetX = player_->GetPosition().x;
+                camTargetY = player_->GetPosition().y;
+            } else if (p2Alive) {
+                camTargetX = player2_->GetPosition().x;
+                camTargetY = player2_->GetPosition().y;
+            } else {
+                camTargetX = player_->GetPosition().x;
+                camTargetY = player_->GetPosition().y;
+            }
+        }
     }
+
     if (firstCameraInit_) {
         smoothedCamX_ = camTargetX;
         smoothedCamY_ = camTargetY;
         firstCameraInit_ = false;
     } else {
-        // Smoothly interpolate towards the target to prevent sudden forward snaps when a player dies
-        float camLerpSpeed = 5.0f; 
+        // Smoothly interpolate towards the target
+        float camLerpSpeed = isIntroCutscene ? 10.0f : 6.0f; 
         smoothedCamX_ += (camTargetX - smoothedCamX_) * camLerpSpeed * deltaTime;
         smoothedCamY_ += (camTargetY - smoothedCamY_) * camLerpSpeed * deltaTime;
     }
     
-    view.Update(smoothedCamX_, smoothedCamY_);
+    view.Update(smoothedCamX_, smoothedCamY_, camZoomMult);
 }
 
 void GameplayState::Draw() {
@@ -1070,11 +1550,23 @@ void GameplayState::Draw() {
             b->Draw();
         }
     }
+    for (auto& p : piranhas_) {
+        if (p->IsActive()) {
+            p->Draw();
+        }
+    }
     if (dragonBoss_ && dragonBoss_->IsActive()) {
         dragonBoss_->Draw();
     }
+    shockwaveManager_.Draw();
+    for (auto& flame : dragonFlames_) {
+        if (flame->IsActive()) flame->Draw();
+    }
     for (auto& fb : fireballs_) {
         if (fb->IsActive()) fb->Draw();
+    }
+    for (auto& bullet : bullets_) {
+        if (bullet->IsActive()) bullet->Draw();
     }
     for (auto& bridge : flyingBridges_) {
         bridge->Draw();
@@ -1089,10 +1581,55 @@ void GameplayState::Draw() {
             m->Draw();
         }
     }
+    for (auto& s : starmen_) {
+        if (s->IsActive()) {
+            s->Draw();
+        }
+    }
+    for (auto& f : fireFlowers_) {
+        if (f->IsActive()) {
+            f->Draw();
+        }
+    }
+    for (auto& fb : playerFireballs_) {
+        if (fb->IsActive()) {
+            fb->Draw();
+        }
+    }
 
     for (const auto& d : debrisList_) {
         d.Draw();
     }
+
+    for (const auto& popup : scorePopups_) {
+        float alpha = 1.0f - (popup.timer / 1.0f);
+        if (alpha < 0.0f) alpha = 0.0f;
+        float offsetY = -60.0f * popup.timer;
+        int fontSize = 24;
+        const char* popupText = TextFormat("+%d", popup.score);
+        int textW = MeasureText(popupText, fontSize);
+        int px = (int)(popup.position.x - textW / 2.0f);
+        int py = (int)(popup.position.y + offsetY);
+        DrawText(popupText, px, py, fontSize, Fade(YELLOW, alpha));
+    }
+
+    // Draw all map Door blocks directly from map entities
+    for (const auto& rect : mapDoorBlocks_) {
+        bool isExitDoor = (bossBattleCtrl_.HasDoor() && rect.x >= bossBattleCtrl_.GetDoorPos().x - 10.0f);
+        bool isOpen = isExitDoor && (bossBattleCtrl_.GetPhase() == BossBattlePhase::RoomCleared);
+        if (isOpen) {
+            // Open illuminated doorway
+            DrawRectangle((int)rect.x, (int)rect.y, (int)rect.width, (int)rect.height, Color{ 25, 15, 35, 200 });
+            DrawRectangleLines((int)rect.x, (int)rect.y, (int)rect.width, (int)rect.height, GOLD);
+        } else {
+            DrawRectangle((int)rect.x, (int)rect.y, (int)rect.width, (int)rect.height, Color{ 90, 50, 25, 255 });
+            DrawRectangle((int)rect.x + 3, (int)rect.y + 3, (int)rect.width - 6, (int)rect.height - 6, Color{ 120, 70, 35, 255 });
+            DrawRectangleLines((int)rect.x, (int)rect.y, (int)rect.width, (int)rect.height, Color{ 40, 20, 10, 255 });
+        }
+    }
+
+    // Draw Boss Battle Doors (reDoor and Door via BossBattleController)
+    bossBattleCtrl_.DrawWorld(dragonBoss_.get());
 
     if (princess_) princess_->Draw();
     if (goalPipe_) goalPipe_->Draw();
@@ -1120,6 +1657,9 @@ void GameplayState::Draw() {
     DrawText(timeLabel, timeX, (int)(sh * 0.03f), fontSize, WHITE);
     DrawText(TextFormat("%03i", (int)timeLeft), timeX + 15, (int)(sh * 0.03f + fontSize + 4), fontSize, WHITE);
 
+    // Boss HP Bar (if in battle)
+    bossBattleCtrl_.DrawHUD(dragonBoss_.get(), sw, sh);
+
     if (isGameOver) {
         DrawRectangle(0, 0, sw, sh, Color{0, 0, 0, 150});
         
@@ -1136,16 +1676,27 @@ void GameplayState::Draw() {
 }
 
 void GameplayState::Cleanup() {
+    AudioManager::StopStarmanBGM();
     goombas_.clear();
     koopas_.clear();
     buzzyBeetles_.clear();
+    piranhas_.clear();
+    bullets_.clear();
+    bulletTriggers_.clear();
     dragonBoss_.reset();
+    dragonFlames_.clear();
+    shockwaveManager_.Clear();
     fireballs_.clear();
     coins_.clear();
     princess_.reset();
     flyingBridges_.clear();
     goalPipe_.reset();
     mushrooms_.clear();
+    fireFlowers_.clear();
+    starmen_.clear();
+    playerFireballs_.clear();
     fires_.clear();
     player2_.reset();
+
+    bossBattleCtrl_.Reset();
 }

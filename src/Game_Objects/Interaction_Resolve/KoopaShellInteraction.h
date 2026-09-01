@@ -13,6 +13,10 @@ public:
     void Visit(Player& p) override;
     void Visit(KoopaShell& k) override;
     void Visit(Mushroom& m) override;
+    void Visit(FireFlower& f) override;
+    void Visit(Starman& s) override;
     void Visit(BuzzyBeetle& b) override;
     void Visit(Boss& b) override;
+    void Visit(Piranha& p) override;
+    void Visit(Bullet& b) override;
 };
