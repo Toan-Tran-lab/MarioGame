@@ -1,5 +1,6 @@
 #include "DragonBossBrain.h"
 #include "DragonBoss.h"
+#include "DragonBossState.h"
 #include "Game_Objects/Derived_Objects/Playable_Characters/Player/Player.h"
 #include <cmath>
 #include <algorithm>
@@ -20,22 +21,20 @@ void DragonBossBrain::EvaluatePlayers(DragonBoss& boss, const std::vector<Player
         return;
     }
 
-    Vector2 bossCenter = {
-        boss.GetPosition().x + boss.GetSize().x / 2.0f,
-        boss.GetPosition().y + boss.GetSize().y / 2.0f
-    };
-
-    // Sort players by distance to boss center
-    std::sort(alivePlayers.begin(), alivePlayers.end(),
-        [&bossCenter](Player* a, Player* b) {
-            float da = std::abs(a->GetPosition().x + a->GetSize().x / 2.0f - bossCenter.x);
-            float db = std::abs(b->GetPosition().x + b->GetSize().x / 2.0f - bossCenter.x);
-            return da < db;
-        });
-
     primaryTarget_ = alivePlayers[0];
     if (alivePlayers.size() > 1) {
         secondaryTarget_ = alivePlayers[1];
+
+        // Determine if primary target is the closer one
+        Vector2 bossCenter = {
+            boss.GetPosition().x + boss.GetSize().x / 2.0f,
+            boss.GetPosition().y + boss.GetSize().y / 2.0f
+        };
+        float d1 = std::abs(primaryTarget_->GetPosition().x - bossCenter.x);
+        float d2 = std::abs(secondaryTarget_->GetPosition().x - bossCenter.x);
+        if (d2 < d1) {
+            std::swap(primaryTarget_, secondaryTarget_);
+        }
 
         float p1X = primaryTarget_->GetPosition().x + primaryTarget_->GetSize().x / 2.0f;
         float p2X = secondaryTarget_->GetPosition().x + secondaryTarget_->GetSize().x / 2.0f;
@@ -51,14 +50,20 @@ void DragonBossBrain::Update(DragonBoss& boss, const std::vector<Player*>& playe
     decisionTimer_ += dt;
     EvaluatePlayers(boss, players);
 
-    // Update boss facing direction towards primary target if not locked in an attack
+    // Update boss facing direction towards primary target ONLY when in Idle or Intro state
     if (primaryTarget_) {
-        float pX = primaryTarget_->GetPosition().x + primaryTarget_->GetSize().x / 2.0f;
-        float bossCenterX = boss.GetPosition().x + boss.GetSize().x / 2.0f;
-        if (pX < bossCenterX) {
-            boss.SetFacing(FacingDirection::Left);
-        } else {
-            boss.SetFacing(FacingDirection::Right);
+        if (dynamic_cast<DragonIdleState*>(boss.GetState()) || dynamic_cast<DragonIntroState*>(boss.GetState())) {
+            float pX = primaryTarget_->GetPosition().x + primaryTarget_->GetSize().x / 2.0f;
+            float bossCenterX = boss.GetPosition().x + boss.GetSize().x / 2.0f;
+            float diffX = pX - bossCenterX;
+            // 20px deadzone to eliminate rapid flipping/jittering
+            if (std::abs(diffX) > 20.0f) {
+                if (diffX < 0.0f) {
+                    boss.SetFacing(FacingDirection::Left);
+                } else {
+                    boss.SetFacing(FacingDirection::Right);
+                }
+            }
         }
     }
 }
@@ -93,38 +98,42 @@ DragonAction DragonBossBrain::DecideNextAction(DragonBoss& boss, const std::vect
         }
     }
 
-    // 2. Player is jumping above boss head
+    // 2. Player is jumping above boss head: Jump up to contest / counter
     if (distY < -40.0f && distX < 120.0f) {
-        return (attackCounter_ % 2 == 0) ? DragonAction::Jump : DragonAction::Walk;
+        return DragonAction::Jump;
     }
 
-    // 3. Player is far away
+    // 3. Player is far away: Fire ranged breath, Jump, or Scream
     if (distX > 220.0f) {
-        if (attackCounter_ % 3 == 0) {
-            return DragonAction::Walk; // Close the distance
-        } else {
-            return DragonAction::Fire; // Ranged attack
-        }
-    }
-
-    // 4. Player is in close-medium range
-    if (isEnraged) {
-        // Enraged rotation: fast mix of attacks
         int choice = attackCounter_ % 4;
         switch (choice) {
             case 0: return DragonAction::Fire;
             case 1: return DragonAction::Scream;
             case 2: return DragonAction::Jump;
-            default: return DragonAction::Walk;
+            default: return DragonAction::Fire;
         }
     }
 
-    // Standard rotation
-    int choice = attackCounter_ % 4;
+    // 4. Player is in close-medium range
+    if (isEnraged) {
+        // Enraged rotation: frequent screams, fast jumps, and fire
+        int choice = attackCounter_ % 4;
+        switch (choice) {
+            case 0: return DragonAction::Scream;
+            case 1: return DragonAction::Jump;
+            case 2: return DragonAction::Fire;
+            default: return DragonAction::Scream;
+        }
+    }
+
+    // Standard rotation: balanced mix with frequent Scream actions
+    int choice = attackCounter_ % 6;
     switch (choice) {
-        case 0: return DragonAction::Walk;
+        case 0: return DragonAction::Scream;
         case 1: return DragonAction::Fire;
-        case 2: return DragonAction::Walk;
-        default: return DragonAction::Scream;
+        case 2: return DragonAction::Jump;
+        case 3: return DragonAction::Scream;
+        case 4: return DragonAction::Fire;
+        default: return DragonAction::Walk;
     }
 }

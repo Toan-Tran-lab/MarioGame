@@ -79,6 +79,7 @@ private:
     std::unique_ptr<Player> player_;
     int characterId_ = 0;
 
+    std::vector<Rectangle> mapDoorBlocks_;
     BossBattleController bossBattleCtrl_;
 
     // --- 2-Player Co-op ---

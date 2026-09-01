@@ -16,9 +16,9 @@
 
 namespace {
 // How far below the enemy's top the player's bottom can overlap and still count as a stomp
-constexpr float kStompTolerance = 16.0f;
+constexpr float kStompTolerance = 20.0f;
 // Upward launch velocity applied to the player when they stomp an enemy
-constexpr float kStompBounceVelocity = -350.0f;
+constexpr float kStompBounceVelocity = -380.0f;
 // Distinct upward launch velocity applied to the player when they stomp a Buzzy Beetle
 constexpr float kBeetleBounceVelocity = -420.0f;
 constexpr float kBossKnockbackSpeed = 250.0f;
@@ -34,7 +34,7 @@ void PlayerInteraction::Visit(Goomba& g) {
 
     const float playerBottom = self.GetPosition().y + self.GetSize().y;
     const float goombaTop = g.GetPosition().y;
-    const bool falling = self.GetVelocity().y > 0.0f;
+    const bool falling = self.GetVelocity().y >= -50.0f;
     const bool aboveGoomba = (playerBottom <= goombaTop + kStompTolerance);
 
     if (aboveGoomba && falling) {
@@ -67,7 +67,7 @@ void PlayerInteraction::Visit(KoopaShell& k) {
 
     const float playerBottom = self.GetPosition().y + self.GetSize().y;
     const float koopaTop = k.GetPosition().y;
-    const bool falling = self.GetVelocity().y > 0.0f;
+    const bool falling = self.GetVelocity().y >= -50.0f;
     const bool aboveKoopa = (playerBottom <= koopaTop + kStompTolerance);
 
     if (aboveKoopa && falling) {
@@ -145,11 +145,10 @@ void PlayerInteraction::Visit(KoopaShell& k) {
 }
 
 void PlayerInteraction::Visit(Mushroom& m) {
-    if (m.IsActive()) {
-        m.SetActive(false);
-        AudioManager::PlaySFX(AudioKey::POWER_UP);
-        self.TakePowerup(PowerupType::Mushroom);
-    }
+    if (!m.IsActive()) return;
+    m.SetActive(false);
+    AudioManager::PlaySFX(AudioKey::POWER_UP);
+    self.TakePowerup(PowerupType::Mushroom);
 }
 
 void PlayerInteraction::Visit(BuzzyBeetle& b) {
@@ -162,7 +161,7 @@ void PlayerInteraction::Visit(BuzzyBeetle& b) {
 
     const float playerBottom = self.GetPosition().y + self.GetSize().y;
     const float beetleTop = b.GetPosition().y;
-    const bool falling = self.GetVelocity().y > 0.0f;
+    const bool falling = self.GetVelocity().y >= -50.0f;
     const bool aboveBeetle = (playerBottom <= beetleTop + kStompTolerance);
 
     if (aboveBeetle && falling) {
@@ -210,22 +209,24 @@ void PlayerInteraction::Visit(Boss& b) {
 
     const float playerBottom = self.GetPosition().y + self.GetSize().y;
     const float bossTop = b.GetPosition().y;
-    const bool falling = self.GetVelocity().y > 0.0f;
-    const bool aboveBoss = (playerBottom <= bossTop + kStompTolerance);
+    const bool falling = self.GetVelocity().y >= -50.0f;
+    const bool aboveBoss = (playerBottom <= bossTop + 45.0f);
 
     if (aboveBoss && falling) {
         if (b.TakeDamage(b.GetStompDamage())) {
             if (BossState* state = b.GetState()) {
                 state->OnStomped(b); // only IdleState reacts (flinch); attack states ignore it
             }
-            float bossCenterX = b.GetPosition().x + b.GetSize().x / 2.0f;
-            float playerCenterX = self.GetPosition().x + self.GetSize().x / 2.0f;
-            float dir = (playerCenterX < bossCenterX) ? -1.0f : 1.0f;
-            Vector2 vel = self.GetVelocity();
-            vel.y = kStompBounceVelocity;
-            vel.x = dir * kBossKnockbackSpeed;
-            self.SetVelocity(vel);
+            AudioManager::PlaySFX(AudioKey::HIT_ENEMY);
         }
+        float bossCenterX = b.GetPosition().x + b.GetSize().x / 2.0f;
+        float playerCenterX = self.GetPosition().x + self.GetSize().x / 2.0f;
+        float dir = (playerCenterX < bossCenterX) ? -1.0f : 1.0f;
+        Vector2 vel = self.GetVelocity();
+        vel.y = -620.0f; // High upward bounce safely clear of boss
+        vel.x = dir * 280.0f; // Strong horizontal separation
+        self.SetVelocity(vel);
+        self.StartHitInvincibility(0.35f); // Brief i-frames right after stomp to prevent accidental damage
     } else {
         self.TakeDamage();
     }

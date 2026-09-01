@@ -7,17 +7,44 @@ namespace {
 static Animation s_dragonFlameAnim("boss_flame", 24, 18, 0, 2, {0.12f});
 }
 
-DragonFlame::DragonFlame(Vector2 startPos, float directionX) {
+DragonFlame::DragonFlame(Vector2 mouthPos, float directionX) {
     if (!TextureManager::Has("boss_flame")) {
         TextureManager::Load("boss_flame", "assets/textures/Boss/flame/boss.png");
     }
 
-    position_ = startPos;
-    size_ = { 24.0f * Global::GAME_SCALE, 18.0f * Global::GAME_SCALE };
-    velocity_ = { kSpeed * directionX, 0.0f };
+    directionX_ = directionX;
+    mouthPos_ = mouthPos;
+    growth_ = 0.1f;
+    facing_ = (directionX < 0.0f) ? FacingDirection::Left : FacingDirection::Right;
+    animState_.SetAnimation(&s_dragonFlameAnim);
+    SetMouthAnchor(mouthPos, directionX, 0.1f);
+}
+
+void DragonFlame::SetMouthAnchor(Vector2 mouthPos, float directionX, float growth) {
+    mouthPos_ = mouthPos;
+    directionX_ = directionX;
+    growth_ = (growth < 0.0f) ? 0.0f : (growth > 1.0f ? 1.0f : growth);
     facing_ = (directionX < 0.0f) ? FacingDirection::Left : FacingDirection::Right;
 
-    animState_.SetAnimation(&s_dragonFlameAnim);
+    // Base size 24x18 scales up horizontally to simulate expanding fire breath
+    float baseW = 24.0f * Global::GAME_SCALE;
+    float baseH = 18.0f * Global::GAME_SCALE;
+
+    // Width expands from 1.0x to 3.2x as flame breath progresses
+    float currentW = baseW * (1.0f + growth_ * 2.2f);
+    float currentH = baseH * (1.0f + growth_ * 0.6f);
+
+    size_ = { currentW, currentH };
+
+    if (directionX_ < 0.0f) {
+        position_ = { mouthPos_.x - currentW, mouthPos_.y - currentH * 0.5f };
+    } else {
+        position_ = { mouthPos_.x, mouthPos_.y - currentH * 0.5f };
+    }
+}
+
+void DragonFlame::StopBreathing() {
+    SetActive(false);
 }
 
 bool DragonFlame::CanHurtPlayer(const Player& player) const {
@@ -25,33 +52,13 @@ bool DragonFlame::CanHurtPlayer(const Player& player) const {
 }
 
 void DragonFlame::Update(float dt) {
-    if (exploded_) {
-        explodeTimer_ += dt;
-        if (explodeTimer_ >= kExplodeDuration) {
-            SetActive(false);
-        }
-        return;
-    }
-
+    if (!IsActive()) return;
     animState_.Update(dt);
-    position_.x += velocity_.x * dt;
-    position_.y += velocity_.y * dt;
-
-    lifeTimer_ += dt;
-    if (lifeTimer_ >= kMaxLifetime) {
-        SetActive(false);
-    }
 }
 
 void DragonFlame::Draw() {
     if (!IsActive()) return;
 
-    if (exploded_) {
-        float t = explodeTimer_ / kExplodeDuration;
-        DrawCircle((int)(position_.x + size_.x / 2.0f), (int)(position_.y + size_.y / 2.0f),
-                   (size_.x / 2.0f) * (1.0f - t * 0.5f), Fade(RED, 1.0f - t));
-        return;
-    }
-
-    animState_.Draw(position_, facing_, size_);
+    FacingDirection renderFacing = (facing_ == FacingDirection::Left) ? FacingDirection::Right : FacingDirection::Left;
+    animState_.Draw(position_, renderFacing, size_);
 }

@@ -4,17 +4,19 @@
 
 class DragonFlame : public Projectile {
 private:
-    float lifeTimer_ = 0.0f;
-    static constexpr float kSpeed = 240.0f;
-    static constexpr float kMaxLifetime = 6.0f;
-    static constexpr float kExplodeDuration = 0.25f;
+    float growth_ = 0.0f;
+    Vector2 mouthPos_{ 0.0f, 0.0f };
+    float directionX_ = -1.0f;
 
     AnimationState animState_;
     FacingDirection facing_ = FacingDirection::Left;
 
 public:
-    DragonFlame(Vector2 startPos, float directionX);
+    DragonFlame(Vector2 mouthPos, float directionX);
     ~DragonFlame() override = default;
+
+    void SetMouthAnchor(Vector2 mouthPos, float directionX, float growth);
+    void StopBreathing();
 
     bool CanHurtPlayer(const Player& player) const override;
 

@@ -261,6 +261,7 @@ void GameplayState::Initialize() {
     playerFireballs_.clear();
     flyingBridges_.clear();
     fires_.clear();
+    mapDoorBlocks_.clear();
 
     bossBattleCtrl_.Reset();
 
@@ -302,94 +303,107 @@ void GameplayState::Initialize() {
         }
     } else {
         // Normal level entity spawn from TileMap
+        auto ToLowerStr = [](std::string s) {
+            for (char& c : s) c = (char)std::tolower((unsigned char)c);
+            return s;
+        };
+
         const auto& entities = tileMap.GetEntities();
         for (const auto& ent : entities) {
-            if (ent.id == "Goomba") {
+            std::string id = ToLowerStr(ent.id);
+
+            if (id == "goomba") {
                 auto g = std::make_unique<Goomba>();
                 g->SetPosition(ent.position);
                 g->SetSize({ Global::TILE_SIZE * Global::GAME_SCALE, Global::TILE_SIZE * Global::GAME_SCALE });
                 g->SetPlayerBody(&player_->GetPhysicsBody());
                 g->SetCollisionGrid(&tileMap.GetBlockGrid());
                 goombas_.push_back(std::move(g));
-            } else if (ent.id == "KoopaShell") {
+            } else if (id == "koopashell" || id == "koopa") {
                 auto k = std::make_unique<KoopaShell>();
-                // Normal KoopaShell size is 16x24. We scale it.
-                // Notice: position Y might need adjustment because its height is 24, not 16.
                 k->SetPosition({ ent.position.x, ent.position.y - 8.0f * Global::GAME_SCALE });
                 k->SetSize({ 16.0f * Global::GAME_SCALE, 24.0f * Global::GAME_SCALE });
                 k->SetPlayerBody(&player_->GetPhysicsBody());
                 k->SetCollisionGrid(&tileMap.GetBlockGrid());
                 koopas_.push_back(std::move(k));
-            } else if (ent.id == "BuzzyBeetle") {
+            } else if (id == "buzzybeetle" || id == "buzzy") {
                 auto b = std::make_unique<BuzzyBeetle>();
                 b->SetPosition(ent.position);
                 b->SetSize({ Global::TILE_SIZE * Global::GAME_SCALE, Global::TILE_SIZE * Global::GAME_SCALE });
                 b->SetPlayerBody(&player_->GetPhysicsBody());
                 b->SetCollisionGrid(&tileMap.GetBlockGrid());
                 buzzyBeetles_.push_back(std::move(b));
-            } else if (ent.id == "Piranha" || ent.id == "PiranhaPlant") {
+            } else if (id == "piranha" || id == "piranhaplant") {
                 auto p = std::make_unique<Piranha>();
                 Vector2 spawnPos = { ent.position.x + (float)tileMap.GetTileSize() / 2.0f, ent.position.y + 25 - tileMap.GetTileSize()};
                 p->SetPosition(spawnPos);
                 p->SetPlayerBody(&player_->GetPhysicsBody());
                 piranhas_.push_back(std::move(p));
-            } else if (ent.id == "Coin") {
+            } else if (id == "coin") {
                 auto c_coin = std::make_unique<Coin>();
                 c_coin->SetPosition(ent.position);
                 c_coin->SetSize({ 16.0f * Global::GAME_SCALE, 16.0f * Global::GAME_SCALE });
                 coins_.push_back(std::move(c_coin));
-            } else if (ent.id == "Luckyblock") {
+            } else if (id == "luckyblock") {
                 auto block = std::make_unique<Luckyblock>();
                 block->SetPosition(ent.position);
                 int col = (int)(ent.position.x / tileMap.GetTileSize());
                 int row = (int)(ent.position.y / tileMap.GetTileSize());
                 tileMap.GetBlockGrid().SetBlock(col, row, std::move(block));
-            } else if (ent.id == "DragonBoss") {
+            } else if (id == "dragonboss" || id == "dragon_boss" || id == "boss") {
                 dragonBoss_ = std::make_unique<DragonBoss>();
                 dragonBoss_->SetPosition(ent.position);
                 dragonBoss_->SetGroundY(ent.position.y);
                 dragonBoss_->SetPlayerRef(player_.get());
+                dragonBoss_->SetCollisionGrid(&tileMap.GetBlockGrid());
                 dragonBoss_->BeginSpawn();
-            } else if (ent.id == "Princess") {
+            } else if (id == "princess") {
                 princess_ = std::make_unique<Princess>();
                 princess_->SetPosition(ent.position);
                 princess_->SetSize({ 16.0f * Global::GAME_SCALE, 32.0f * Global::GAME_SCALE }); // tune to art
-            } else if (ent.id == "FlyingBridge") {
+            } else if (id == "flyingbridge") {
                 auto bridge = std::make_unique<FlyingBridge>();
                 bridge->SetPosition(ent.position);
                 bridge->SetPatrolBounds(0.0f, (float)tileMap.GetPixelWidth());
                 bridge->SetBlockGrid(&tileMap.GetBlockGrid());
                 flyingBridges_.push_back(std::move(bridge));
-            } else if (ent.id == "BulletLeft" || ent.id == "Bullet_Left" || ent.id == "bulletleft" || ent.id == "bullet_left") {
-                // BulletLeft: Shoots to the LEFT (-1.0f)
+            } else if (id == "bulletleft" || id == "bullet_left") {
                 bulletTriggers_.push_back({ ent.position.x, ent.position.y, -1.0f, false });
-            } else if (ent.id == "BulletRight" || ent.id == "Bullet_Right" || ent.id == "bulletright" || ent.id == "bullet_right") {
-                // BulletRight: Shoots to the RIGHT (+1.0f)
+            } else if (id == "bulletright" || id == "bullet_right") {
                 bulletTriggers_.push_back({ ent.position.x, ent.position.y, 1.0f, false });
-            } else if (ent.id == "GoalPipe") {
+            } else if (id == "goalpipe") {
                 goalPipe_ = std::make_unique<GoalPipe>();
                 goalPipe_->SetPosition(ent.position);
-            } else if (ent.id == "FlagPole") {
+            } else if (id == "flagpole") {
                 if (!flagpole_) flagpole_ = std::make_unique<Flagpole>();
                 flagpole_->AddPoleSegment(ent.position);
-            } else if (ent.id == "Flag") {
+            } else if (id == "flag") {
                 if (!flagpole_) flagpole_ = std::make_unique<Flagpole>();
                 flagpole_->SetFlagPosition(ent.position);
-            } else if (ent.id == "Fire") {
+            } else if (id == "fire") {
                 auto fire = std::make_unique<Fire>();
                 fire->SetPosition(ent.position);
                 fires_.push_back(std::move(fire));
-            } else if (ent.id == "reDoor" || ent.id == "ReDoor" || ent.id == "redoor" || ent.id == "re_door") {
-                bossBattleCtrl_.SetReDoor(ent.position);
-            } else if (ent.id == "Door" || ent.id == "door" || ent.id == "BossDoor" || ent.id == "boss_door") {
-                bossBattleCtrl_.SetDoor(ent.position);
-            } else if (ent.id == "StartBattle" || ent.id == "startbattle" || ent.id == "Start_Battle" || ent.id == "start_battle") {
-                bossBattleCtrl_.SetStartBattle(ent.position.x);
+            } else if (id == "door" || id == "bossdoor" || id == "boss_door" || id == "redoor" || id == "re_door") {
+                float tileSize = (float)tileMap.GetTileSize();
+                mapDoorBlocks_.push_back(Rectangle{ ent.position.x, ent.position.y, tileSize, tileSize });
+            } else if (id == "startbattle" || id == "start_battle") {
+                bossBattleCtrl_.SetStartBattle(ent.position);
             }
         }
         
         if (flagpole_) {
             flagpole_->Finalize();
+        }
+
+        // Configure Boss Room Door bounds from map Door blocks
+        if (!mapDoorBlocks_.empty()) {
+            float maxX = mapDoorBlocks_[0].x;
+            Vector2 maxPos = { mapDoorBlocks_[0].x, mapDoorBlocks_[0].y };
+            for (const auto& r : mapDoorBlocks_) {
+                if (r.x > maxX) { maxX = r.x; maxPos = { r.x, r.y }; }
+            }
+            bossBattleCtrl_.SetDoor(maxPos);
         }
     }
 
@@ -412,8 +426,22 @@ void GameplayState::Initialize() {
         Global::hasSaveGame = true;
     }
 
-    // Start the BGM for this level (stops any previously playing track)
-    AudioManager::PlayBGM(currentLevel.GetBGMKey());
+    std::vector<Player*> activePlayers;
+    if (player_) activePlayers.push_back(player_.get());
+    if (isMultiplayer_ && player2_) activePlayers.push_back(player2_.get());
+
+    if (dragonBoss_) {
+        bossBattleCtrl_.BeginIntro(activePlayers);
+        Vector2 bPos = dragonBoss_->GetPosition();
+        smoothedCamX_ = bPos.x + dragonBoss_->GetSize().x * 0.5f;
+        smoothedCamY_ = bPos.y + dragonBoss_->GetSize().y * 0.45f;
+        view.Update(smoothedCamX_, smoothedCamY_, 1.6f);
+    } else {
+        smoothedCamX_ = player_->GetPosition().x;
+        smoothedCamY_ = player_->GetPosition().y;
+        view.Update(smoothedCamX_, smoothedCamY_, 1.0f);
+    }
+    firstCameraInit_ = false;
 }
 
 void GameplayState::Update(float deltaTime) {
@@ -511,6 +539,15 @@ void GameplayState::Update(float deltaTime) {
             }
         }
 
+        // Add map Door blocks into dynamic solid platforms (Exit door opens on RoomCleared)
+        for (const auto& dRect : mapDoorBlocks_) {
+            bool isExitDoor = (bossBattleCtrl_.HasDoor() && dRect.x >= bossBattleCtrl_.GetDoorPos().x - 10.0f);
+            bool isOpen = isExitDoor && (bossBattleCtrl_.GetPhase() == BossBattlePhase::RoomCleared);
+            if (!isOpen) {
+                platformRects.push_back(dRect);
+            }
+        }
+
         // Add reDoor and Door solid collision boxes based on Boss Battle State
         bossBattleCtrl_.AppendDynamicBarriers(platformRects, dragonBoss_.get());
 
@@ -521,6 +558,12 @@ void GameplayState::Update(float deltaTime) {
     }
 
     player_->Update(deltaTime);
+    if (bossBattleCtrl_.GetPhase() == BossBattlePhase::Intro) {
+        player_->GetPhysicsBody().velocity.x = 0.0f;
+        if (isMultiplayer_ && player2_) {
+            player2_->GetPhysicsBody().velocity.x = 0.0f;
+        }
+    }
 
     // Screen bounds constraints
     float cameraLeft = view.GetWorldLeft();
@@ -533,20 +576,11 @@ void GameplayState::Update(float deltaTime) {
         float px = p->GetPosition().x;
         float pWidth = p->GetSize().x;
         
-        // Left constraint: prevents moving backwards off-screen
-        if (px < cameraLeft) {
-            p->SetPosition({cameraLeft, p->GetPosition().y});
+        // Left constraint: prevents moving beyond left edge of the map
+        if (px < 0.0f) {
+            p->SetPosition({0.0f, p->GetPosition().y});
             p->SyncPhysicsBody();
             if (p->GetPhysicsBody().velocity.x < 0) {
-                p->GetPhysicsBody().velocity.x = 0.0f;
-            }
-        }
-        
-        // Right constraint: prevents moving forward off-screen.
-        if (px + pWidth > cameraRight) {
-            p->SetPosition({cameraRight - pWidth, p->GetPosition().y});
-            p->SyncPhysicsBody();
-            if (p->GetPhysicsBody().velocity.x > 0) {
                 p->GetPhysicsBody().velocity.x = 0.0f;
             }
         }
@@ -658,10 +692,27 @@ void GameplayState::Update(float deltaTime) {
             }
         }
 
-        Vector2 flameOrigin;
+        Vector2 flameMouth;
         float flameDir = -1.0f;
-        if (dragonBoss_->ConsumeFlameRequest(flameOrigin, flameDir)) {
-            dragonFlames_.push_back(std::make_unique<DragonFlame>(flameOrigin, flameDir));
+        float flameGrowth = 0.0f;
+        bool flameEnded = false;
+        if (dragonBoss_->GetFlameStreamUpdate(flameMouth, flameDir, flameGrowth, flameEnded)) {
+            if (flameEnded) {
+                dragonFlames_.clear();
+            } else {
+                if (dragonFlames_.empty()) {
+                    dragonFlames_.push_back(std::make_unique<DragonFlame>(flameMouth, flameDir));
+                }
+                if (!dragonFlames_.empty()) {
+                    dragonFlames_[0]->SetMouthAnchor(flameMouth, flameDir, flameGrowth);
+                }
+            }
+        }
+
+        Vector2 flameOrigin;
+        float flameDirLegacy = -1.0f;
+        if (dragonBoss_->ConsumeFlameRequest(flameOrigin, flameDirLegacy)) {
+            dragonFlames_.push_back(std::make_unique<DragonFlame>(flameOrigin, flameDirLegacy));
         }
 
         Vector2 swOrigin;
@@ -685,7 +736,6 @@ void GameplayState::Update(float deltaTime) {
         flame->Update(deltaTime);
         for (Player* p : currentActivePlayers) {
             if (p && !p->IsDead() && flame->CanHurtPlayer(*p) && flame->Overlaps(*p)) {
-                flame->Explode();
                 p->TakeDamage();
             }
         }
@@ -1161,11 +1211,16 @@ void GameplayState::Update(float deltaTime) {
         }
     }
 
-    // Trigger and spawn Bullets when player reaches trigger X
+    // Trigger and spawn Bullets when player's block column equals trigger's block column
+    float tileSize = (float)tileMap.GetTileSize();
+    if (tileSize <= 0.0f) tileSize = Global::TILE_SIZE * Global::GAME_SCALE;
+
     for (auto& trigger : bulletTriggers_) {
         if (!trigger.triggered) {
+            int triggerBlockX = (int)(trigger.triggerX / tileSize);
             for (Player* p : activePlayers) {
-                if (p->GetPosition().x >= trigger.triggerX) {
+                int playerBlockX = (int)((p->GetPosition().x + p->GetSize().x / 2.0f) / tileSize);
+                if (playerBlockX == triggerBlockX) {
                     trigger.triggered = true;
 
                     const Camera2D& cam = view.GetRawCamera();
@@ -1334,39 +1389,93 @@ void GameplayState::Update(float deltaTime) {
         }
     }
 
-    // Shared camera: track midpoint between alive players in multiplayer, or just the surviving player
+    // Dynamic Camera: If in Intro cutscene, focus & zoom on boss then pan back to player; otherwise track fight/player
     float camTargetX = player_->GetPosition().x;
     float camTargetY = player_->GetPosition().y;
-    
-    bool p1Alive = player_ && !player_->IsDead();
-    bool p2Alive = isMultiplayer_ && player2_ && !player2_->IsDead();
+    float camZoomMult = 1.0f;
 
-    if (p1Alive && p2Alive) {
-        camTargetX = (player_->GetPosition().x + player2_->GetPosition().x) / 2.0f;
-        camTargetY = (player_->GetPosition().y + player2_->GetPosition().y) / 2.0f; // Track vertically as well just in case
-    } else if (p1Alive) {
-        camTargetX = player_->GetPosition().x;
-        camTargetY = player_->GetPosition().y;
-    } else if (p2Alive) {
-        camTargetX = player2_->GetPosition().x;
-        camTargetY = player2_->GetPosition().y;
+    bool isIntroCutscene = (bossBattleCtrl_.GetPhase() == BossBattlePhase::Intro) &&
+                           dragonBoss_ && dragonBoss_->IsActive();
+
+    if (isIntroCutscene) {
+        float elapsed = BossBattleController::kIntroDuration - bossBattleCtrl_.GetPhaseTimer();
+        Vector2 bPos = dragonBoss_->GetPosition();
+        Vector2 bSize = dragonBoss_->GetSize();
+        Vector2 bossCenter = { bPos.x + bSize.x * 0.5f, bPos.y + bSize.y * 0.45f };
+
+        Vector2 pPos = player_->GetPosition();
+        Vector2 pSize = player_->GetSize();
+        Vector2 playerCenter = { pPos.x + pSize.x * 0.5f, pPos.y + pSize.y * 0.5f };
+
+        if (elapsed < 1.8f) {
+            // Stage 1: Zoom in on Boss while it roars
+            camTargetX = bossCenter.x;
+            camTargetY = bossCenter.y;
+            camZoomMult = 1.6f;
+        } else {
+            // Stage 2: Smoothly glide camera from Boss to Player, and unzoom (1.6x -> 1.0x)
+            float t = (elapsed - 1.8f) / 1.8f;
+            t = (t < 0.0f) ? 0.0f : (t > 1.0f ? 1.0f : t);
+            float ease = t * t * (3.0f - 2.0f * t); // Smooth smoothstep
+            camTargetX = bossCenter.x + (playerCenter.x - bossCenter.x) * ease;
+            camTargetY = bossCenter.y + (playerCenter.y - bossCenter.y) * ease;
+            camZoomMult = 1.6f - 0.6f * ease;
+        }
     } else {
-        // Both dead: keep tracking P1 as they fall
-        camTargetX = player_->GetPosition().x;
-        camTargetY = player_->GetPosition().y;
+        bool inBossFight = (bossBattleCtrl_.GetPhase() == BossBattlePhase::Fighting) &&
+                            dragonBoss_ && dragonBoss_->IsActive() && !dragonBoss_->IsDead() &&
+                            (std::abs(player_->GetPosition().x - dragonBoss_->GetPosition().x) < 900.0f);
+
+        if (inBossFight) {
+            float sumX = dragonBoss_->GetPosition().x + dragonBoss_->GetSize().x / 2.0f;
+            float sumY = dragonBoss_->GetPosition().y + dragonBoss_->GetSize().y / 2.0f;
+            int count = 1;
+
+            if (player_ && !player_->IsDead()) {
+                sumX += player_->GetPosition().x + player_->GetSize().x / 2.0f;
+                sumY += player_->GetPosition().y + player_->GetSize().y / 2.0f;
+                count++;
+            }
+            if (isMultiplayer_ && player2_ && !player2_->IsDead()) {
+                sumX += player2_->GetPosition().x + player2_->GetSize().x / 2.0f;
+                sumY += player2_->GetPosition().y + player2_->GetSize().y / 2.0f;
+                count++;
+            }
+
+            camTargetX = sumX / (float)count;
+            camTargetY = sumY / (float)count;
+        } else {
+            bool p1Alive = player_ && !player_->IsDead();
+            bool p2Alive = isMultiplayer_ && player2_ && !player2_->IsDead();
+
+            if (p1Alive && p2Alive) {
+                camTargetX = (player_->GetPosition().x + player2_->GetPosition().x) / 2.0f;
+                camTargetY = (player_->GetPosition().y + player2_->GetPosition().y) / 2.0f;
+            } else if (p1Alive) {
+                camTargetX = player_->GetPosition().x;
+                camTargetY = player_->GetPosition().y;
+            } else if (p2Alive) {
+                camTargetX = player2_->GetPosition().x;
+                camTargetY = player2_->GetPosition().y;
+            } else {
+                camTargetX = player_->GetPosition().x;
+                camTargetY = player_->GetPosition().y;
+            }
+        }
     }
+
     if (firstCameraInit_) {
         smoothedCamX_ = camTargetX;
         smoothedCamY_ = camTargetY;
         firstCameraInit_ = false;
     } else {
-        // Smoothly interpolate towards the target to prevent sudden forward snaps when a player dies
-        float camLerpSpeed = 5.0f; 
+        // Smoothly interpolate towards the target
+        float camLerpSpeed = isIntroCutscene ? 10.0f : 6.0f; 
         smoothedCamX_ += (camTargetX - smoothedCamX_) * camLerpSpeed * deltaTime;
         smoothedCamY_ += (camTargetY - smoothedCamY_) * camLerpSpeed * deltaTime;
     }
     
-    view.Update(smoothedCamX_, smoothedCamY_);
+    view.Update(smoothedCamX_, smoothedCamY_, camZoomMult);
 }
 
 void GameplayState::Draw() {
@@ -1471,6 +1580,21 @@ void GameplayState::Draw() {
         int px = (int)(popup.position.x - textW / 2.0f);
         int py = (int)(popup.position.y + offsetY);
         DrawText(popupText, px, py, fontSize, Fade(YELLOW, alpha));
+    }
+
+    // Draw all map Door blocks directly from map entities
+    for (const auto& rect : mapDoorBlocks_) {
+        bool isExitDoor = (bossBattleCtrl_.HasDoor() && rect.x >= bossBattleCtrl_.GetDoorPos().x - 10.0f);
+        bool isOpen = isExitDoor && (bossBattleCtrl_.GetPhase() == BossBattlePhase::RoomCleared);
+        if (isOpen) {
+            // Open illuminated doorway
+            DrawRectangle((int)rect.x, (int)rect.y, (int)rect.width, (int)rect.height, Color{ 25, 15, 35, 200 });
+            DrawRectangleLines((int)rect.x, (int)rect.y, (int)rect.width, (int)rect.height, GOLD);
+        } else {
+            DrawRectangle((int)rect.x, (int)rect.y, (int)rect.width, (int)rect.height, Color{ 90, 50, 25, 255 });
+            DrawRectangle((int)rect.x + 3, (int)rect.y + 3, (int)rect.width - 6, (int)rect.height - 6, Color{ 120, 70, 35, 255 });
+            DrawRectangleLines((int)rect.x, (int)rect.y, (int)rect.width, (int)rect.height, Color{ 40, 20, 10, 255 });
+        }
     }
 
     // Draw Boss Battle Doors (reDoor and Door via BossBattleController)

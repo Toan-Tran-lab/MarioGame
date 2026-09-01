@@ -9,19 +9,13 @@
 void BossBattleController::Reset() {
     phase_ = BossBattlePhase::Waiting;
     hasBattle_ = false;
-    hasReDoor_ = false;
-    reDoorPos_ = { 0.0f, 0.0f };
     hasDoor_ = false;
     doorPos_ = { 0.0f, 0.0f };
     hasStartBattle_ = false;
+    startBattlePos_ = { 0.0f, 0.0f };
     startBattleX_ = 0.0f;
     phaseTimer_ = 0.0f;
-}
-
-void BossBattleController::SetReDoor(Vector2 pos) {
-    reDoorPos_ = pos;
-    hasReDoor_ = true;
-    hasBattle_ = true;
+    introRoarStarted_ = false;
 }
 
 void BossBattleController::SetDoor(Vector2 pos) {
@@ -30,18 +24,86 @@ void BossBattleController::SetDoor(Vector2 pos) {
     hasBattle_ = true;
 }
 
+void BossBattleController::SetStartBattle(Vector2 pos) {
+    startBattlePos_ = pos;
+    startBattleX_ = pos.x;
+    hasStartBattle_ = true;
+    hasBattle_ = true;
+}
+
 void BossBattleController::SetStartBattle(float x) {
+    startBattlePos_ = { x, 0.0f };
     startBattleX_ = x;
     hasStartBattle_ = true;
     hasBattle_ = true;
 }
 
+void BossBattleController::TeleportPlayers(const std::vector<Player*>& activePlayers) {
+    if (!hasStartBattle_ || activePlayers.empty()) return;
+
+    float tileSize = Global::TILE_SIZE * Global::GAME_SCALE; // Tile size in world coordinates
+
+    for (size_t i = 0; i < activePlayers.size(); ++i) {
+        Player* p = activePlayers[i];
+        if (p && !p->IsDead()) {
+            float playerHeight = p->GetSize().y;
+            // Align player bottom with tile bottom: Y_bottom = startBattlePos_.y + tileSize
+            float alignedY = startBattlePos_.y + tileSize - playerHeight;
+            float alignedX = startBattlePos_.x + (float)i * 36.0f;
+            p->SetPosition({ alignedX, alignedY });
+            p->GetPhysicsBody().velocity = { 0.0f, 0.0f };
+            p->GetPhysicsBody().isGrounded = true;
+            p->SyncPhysicsBody();
+        }
+    }
+}
+
+void BossBattleController::BeginIntro(const std::vector<Player*>& activePlayers) {
+    hasBattle_ = true;
+    phase_ = BossBattlePhase::Intro;
+    phaseTimer_ = kIntroDuration;
+    introRoarStarted_ = false;
+    TeleportPlayers(activePlayers);
+}
+
+void BossBattleController::StartBattle(const std::vector<Player*>& activePlayers) {
+    hasBattle_ = true;
+    phase_ = BossBattlePhase::Fighting;
+    AudioManager::PlayBGM(AudioKey::BGM_DRAGON_BOSS);
+    TeleportPlayers(activePlayers);
+}
+
 void BossBattleController::Update(float dt, const std::vector<Player*>& activePlayers, DragonBoss* boss) {
     if (!hasBattle_ && !boss) return;
+
+    // Confine boss strictly within arena boundaries between left and right doors
+    if (boss && boss->IsActive()) {
+        float doorW = 16.0f * Global::GAME_SCALE;
+        float minX = -1.0f;
+        float maxX = -1.0f;
+
+        if (hasStartBattle_) {
+            minX = startBattleX_;
+        }
+        if (hasDoor_) {
+            maxX = doorPos_.x;
+        }
+
+        Vector2 bPos = boss->GetPosition();
+        if (minX > 0.0f && bPos.x < minX) {
+            bPos.x = minX;
+            boss->SetPosition(bPos);
+        }
+        if (maxX > 0.0f && bPos.x + boss->GetSize().x > maxX) {
+            bPos.x = maxX - boss->GetSize().x;
+            boss->SetPosition(bPos);
+        }
+    }
 
     switch (phase_) {
         case BossBattlePhase::Waiting: {
             bool trigger = false;
+            // Immediate trigger if map has startbattle / boss, or when player reaches startBattleX_
             if (hasStartBattle_) {
                 for (Player* p : activePlayers) {
                     if (p && !p->IsDead() && p->GetPosition().x >= startBattleX_) {
@@ -49,19 +111,17 @@ void BossBattleController::Update(float dt, const std::vector<Player*>& activePl
                         break;
                     }
                 }
+                // Also auto trigger on map load for quick testing
+                trigger = true;
             } else if (boss && boss->IsActive()) {
-                for (Player* p : activePlayers) {
-                    if (p && !p->IsDead() && p->GetPosition().x >= boss->GetPosition().x - 400.0f) {
-                        trigger = true;
-                        break;
-                    }
-                }
+                trigger = true;
             }
 
             if (trigger) {
                 phase_ = BossBattlePhase::Intro;
                 phaseTimer_ = kIntroDuration;
-                AudioManager::PlayBGM(AudioKey::BGM_DRAGON_BOSS);
+                introRoarStarted_ = false;
+                TeleportPlayers(activePlayers);
             }
             break;
         }
@@ -70,6 +130,7 @@ void BossBattleController::Update(float dt, const std::vector<Player*>& activePl
             phaseTimer_ -= dt;
             if (phaseTimer_ <= 0.0f) {
                 phase_ = BossBattlePhase::Fighting;
+                AudioManager::PlayBGM(AudioKey::BGM_DRAGON_BOSS);
             }
             break;
         }
@@ -98,24 +159,13 @@ void BossBattleController::Update(float dt, const std::vector<Player*>& activePl
 }
 
 void BossBattleController::AppendDynamicBarriers(std::vector<Rectangle>& platforms, DragonBoss* boss) const {
-    float doorW = 16.0f * Global::GAME_SCALE;
-    float doorH = 48.0f * Global::GAME_SCALE;
-
-    // 1. reDoor: When closed (Intro, Fighting, BossDefeated, RoomCleared), prevents retreating left
-    if (hasReDoor_ && phase_ != BossBattlePhase::Waiting) {
-        platforms.push_back(Rectangle{ reDoorPos_.x, reDoorPos_.y, doorW, doorH });
-    }
-
-    // 2. Door: Locked until RoomCleared
-    if (hasDoor_ && phase_ != BossBattlePhase::RoomCleared) {
-        platforms.push_back(Rectangle{ doorPos_.x, doorPos_.y, doorW, doorH });
-    }
+    // Dynamic collision for doors is provided by mapDoorBlocks_ in GameplayState
 }
 
 bool BossBattleController::GetCameraBounds(float& minWorldX, float& maxWorldX) const {
     if (phase_ == BossBattlePhase::Fighting || phase_ == BossBattlePhase::Intro || phase_ == BossBattlePhase::BossDefeated) {
-        if (hasReDoor_ && hasDoor_) {
-            minWorldX = reDoorPos_.x;
+        if (hasStartBattle_ && hasDoor_) {
+            minWorldX = startBattleX_;
             maxWorldX = doorPos_.x;
             return true;
         }
@@ -123,48 +173,50 @@ bool BossBattleController::GetCameraBounds(float& minWorldX, float& maxWorldX) c
     return false;
 }
 
-void BossBattleController::DrawWorld(DragonBoss* boss) const {
-    float doorW = 16.0f * Global::GAME_SCALE;
-    float doorH = 48.0f * Global::GAME_SCALE;
+bool BossBattleController::GetRoomCenter(Vector2& outCenter, DragonBoss* boss) const {
+    if (phase_ == BossBattlePhase::Waiting && !hasBattle_ && !boss) return false;
 
-    // --- Draw reDoor (Entrance Gate) ---
-    if (hasReDoor_) {
-        bool isClosed = (phase_ != BossBattlePhase::Waiting);
-        if (isClosed) {
-            // Closed iron portcullis gate
-            DrawRectangle((int)reDoorPos_.x, (int)reDoorPos_.y, (int)doorW, (int)doorH, Color{ 50, 45, 45, 255 });
-            for (float y = reDoorPos_.y; y < reDoorPos_.y + doorH; y += 16.0f * Global::GAME_SCALE) {
-                DrawRectangle((int)reDoorPos_.x + 4, (int)y + 4, (int)doorW - 8, (int)(16.0f * Global::GAME_SCALE) - 8, Color{ 80, 75, 75, 255 });
-            }
-            for (float x = reDoorPos_.x + 8; x < reDoorPos_.x + doorW; x += 12) {
-                DrawRectangle((int)x, (int)reDoorPos_.y, 4, (int)doorH, Color{ 130, 120, 120, 255 });
-            }
-            DrawRectangleLines((int)reDoorPos_.x, (int)reDoorPos_.y, (int)doorW, (int)doorH, Color{ 30, 25, 25, 255 });
-        } else {
-            // Open gate frame outline
-            DrawRectangleLines((int)reDoorPos_.x, (int)reDoorPos_.y, (int)doorW, (int)doorH, Color{ 90, 80, 80, 150 });
-        }
+    float leftX = 0.0f;
+    float rightX = 0.0f;
+    bool hasLeft = false;
+    bool hasRight = false;
+
+    if (hasStartBattle_) {
+        leftX = startBattleX_;
+        hasLeft = true;
     }
 
-    // --- Draw Door (Exit Door) ---
     if (hasDoor_) {
-        bool isOpen = (phase_ == BossBattlePhase::RoomCleared);
-        if (!isOpen) {
-            // Locked wooden/iron door with golden lock
-            DrawRectangle((int)doorPos_.x, (int)doorPos_.y, (int)doorW, (int)doorH, Color{ 90, 50, 25, 255 });
-            DrawRectangle((int)doorPos_.x + 4, (int)doorPos_.y + 4, (int)doorW - 8, (int)doorH - 8, Color{ 120, 70, 35, 255 });
-            // Iron bands
-            DrawRectangle((int)doorPos_.x + 2, (int)doorPos_.y + 20, (int)doorW - 4, 10, Color{ 60, 60, 65, 255 });
-            DrawRectangle((int)doorPos_.x + 2, (int)doorPos_.y + (int)doorH - 30, (int)doorW - 4, 10, Color{ 60, 60, 65, 255 });
-            // Golden lock
-            DrawRectangle((int)doorPos_.x + (int)(doorW / 2) - 8, (int)doorPos_.y + (int)(doorH / 2) - 8, 16, 16, Color{ 230, 190, 40, 255 });
-            DrawRectangleLines((int)doorPos_.x, (int)doorPos_.y, (int)doorW, (int)doorH, Color{ 40, 20, 10, 255 });
-        } else {
-            // Open illuminated doorway
-            DrawRectangle((int)doorPos_.x, (int)doorPos_.y, (int)doorW, (int)doorH, Color{ 25, 15, 35, 220 });
-            DrawRectangleLines((int)doorPos_.x, (int)doorPos_.y, (int)doorW, (int)doorH, Color{ 220, 190, 50, 255 });
-        }
+        rightX = doorPos_.x;
+        hasRight = true;
+    } else if (boss) {
+        rightX = boss->GetPosition().x + 200.0f;
+        hasRight = true;
     }
+
+    if (hasLeft && hasRight) {
+        outCenter.x = (leftX + rightX) / 2.0f;
+    } else if (hasRight) {
+        outCenter.x = rightX - 250.0f;
+    } else if (boss) {
+        outCenter.x = boss->GetPosition().x - 150.0f;
+    } else {
+        return false;
+    }
+
+    if (hasDoor_ && doorPos_.y > 0.0f) {
+        outCenter.y = doorPos_.y - 50.0f;
+    } else if (boss) {
+        outCenter.y = boss->GetPosition().y - 30.0f;
+    } else {
+        outCenter.y = 200.0f;
+    }
+
+    return true;
+}
+
+void BossBattleController::DrawWorld(DragonBoss* boss) const {
+    // All door blocks are rendered cleanly and accurately from mapDoorBlocks_
 }
 
 void BossBattleController::DrawHUD(DragonBoss* boss, float screenW, float screenH) const {

@@ -23,13 +23,13 @@ void View::Init(float mapPixelW, float mapPixelH) {
     maxTargetX = 0.0f;
 }
 
-void View::Update(float targetX, float targetY) {
+void View::Update(float targetX, float targetY, float zoomMultiplier) {
     float screenW = (float)GetScreenWidth();
     float screenH = (float)GetScreenHeight();
 
     // Scale so exactly 'logicalHeight' pixels fit across the screen vertically
     if (logicalHeight > 0.0f) {
-        camera.zoom = screenH / logicalHeight;
+        camera.zoom = (screenH / logicalHeight) * zoomMultiplier;
     }
 
     camera.offset = { floorf(screenW / 2.0f), floorf(screenH / 2.0f) };
@@ -38,21 +38,12 @@ void View::Update(float targetX, float targetY) {
     camera.target.x = targetX;
     camera.target.y = targetY;
 
-    // Forward-only logic
-    if (camera.target.x < maxTargetX) {
-        camera.target.x = maxTargetX;
-    }
-
+    // Camera follows target smoothly in both directions (forward and backward)
     ClampToBounds();
 
     // Snap camera target to screen pixel grid for smoother scrolling.
-    // Old: rounded to world pixels (1 world-px = ~2.8 screen-px → jerky)
-    // New: rounds to screen pixels (moves 1 screen-px at a time → smooth)
     camera.target.x = roundf(camera.target.x * camera.zoom) / camera.zoom;
     camera.target.y = roundf(camera.target.y * camera.zoom) / camera.zoom;
-
-    // Update max target after clamping
-    maxTargetX = camera.target.x;
 }
 
 void View::ClampToBounds() {

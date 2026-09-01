@@ -23,7 +23,14 @@ private:
     Vector2 pendingShockwaveOrigin_{ 0.0f, 0.0f };
     float pendingShockwaveFloorY_ = 0.0f;
 
+    bool hasFlameStreamUpdate_ = false;
+    Vector2 flameStreamMouth_{ 0.0f, 0.0f };
+    float flameStreamDir_ = -1.0f;
+    float flameStreamGrowth_ = 0.0f;
+    bool flameStreamEnded_ = false;
+
     float groundY_ = 0.0f;
+    class BlockGrid* collisionGrid_ = nullptr;
 
     int HpBucket() const;
 
@@ -48,6 +55,10 @@ public:
     void RequestFlame(Vector2 origin, float direction);
     bool ConsumeFlameRequest(Vector2& outOrigin, float& outDir);
 
+    void UpdateFlameStream(Vector2 mouthPos, float dir, float growth);
+    void EndFlameStream();
+    bool GetFlameStreamUpdate(Vector2& outMouthPos, float& outDir, float& outGrowth, bool& outEnded);
+
     // Keep legacy name for backward compatibility
     void RequestFireball(Vector2 origin) { RequestFlame(origin, (facing_ == FacingDirection::Left) ? -1.0f : 1.0f); }
     bool ConsumeFireballRequest(Vector2& outOrigin) { float d = -1.0f; return ConsumeFlameRequest(outOrigin, d); }
@@ -58,6 +69,12 @@ public:
     void UpdateAI(const std::vector<Player*>& players, float dt);
     DragonBossBrain& GetBrain() { return brain_; }
 
+    void Update(float dt) override;
+    float GetFloorYUnderFeet() const;
+
+    void SetCollisionGrid(class BlockGrid* grid) { collisionGrid_ = grid; }
+    class BlockGrid* GetCollisionGrid() const { return collisionGrid_; }
+
     void SetGroundY(float y) { groundY_ = y; }
     float GetGroundY() const { return groundY_; }
 
@@ -66,11 +83,14 @@ public:
 
     AnimationState& GetAnimState() { return animState; }
 
+    Rectangle GetRect() const override;
+
     void PlayIdleAnim();
     void PlayWalkAnim();
     void PlayJumpAnim();
     void PlayFireAnim();
     void PlayScreamAnim();
+    void PlayIntroRoarAnim();
 
     virtual void OnEnrageTriggered();
 
