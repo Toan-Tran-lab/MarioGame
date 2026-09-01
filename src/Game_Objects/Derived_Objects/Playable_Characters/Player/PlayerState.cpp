@@ -41,6 +41,7 @@ void SuperState::Enter(Player& player) {
 
 void SuperState::OnHit(Player& player) {
     AudioManager::PlaySFX(AudioKey::POWER_DOWN);
+    player.StartHitInvincibility(2.0f);
     player.SetState(new TransformingState(new SmallState(), false));
 }
 
@@ -60,9 +61,10 @@ void FireState::Enter(Player& player) {
 }
 
 void FireState::OnHit(Player& player) {
-    // Classic Mario rule: Fire -> Small directly, skips Super.
+    // Classic Mario rule: Fire -> Small directly, with power-down animation and i-frames
     AudioManager::PlaySFX(AudioKey::POWER_DOWN);
-    player.SetState(new SmallState());
+    player.StartHitInvincibility(2.0f);
+    player.SetState(new TransformingState(new SmallState(), false));
 }
 
 void FireState::OnPowerup(Player& player, PowerupType type) {

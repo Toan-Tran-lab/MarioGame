@@ -409,6 +409,13 @@ void GameplayState::Update(float deltaTime) {
         AudioManager::StopBGM();
     }
 
+    // Monitor starman invincibility and audio
+    bool anyStarActive = (player_ && player_->IsInvincible() && !player_->IsDead()) ||
+                         (player2_ && player2_->IsInvincible() && !player2_->IsDead());
+    if (AudioManager::IsStarmanBGMPlaying() && !anyStarActive) {
+        AudioManager::StopStarmanBGM();
+    }
+
     // Move bridges first so their position is current when Player::Update() runs.
     for (auto& bridge : flyingBridges_) {
         float oldX = bridge->GetPosition().x;
@@ -615,27 +622,30 @@ void GameplayState::Update(float deltaTime) {
                     auto* lucky = dynamic_cast<Luckyblock*>(block);
                     LuckyContents contents = lucky ? lucky->GetLastContents() : LuckyContents::Coin;
 
+                    float blockX = (float)(col * tileMap.GetTileSize());
+                    float blockTopY = (float)(row * tileMap.GetTileSize());
+
                     if (contents == LuckyContents::Mushroom) {
                         if (!isSmall) {
                             // Upgrade to FireFlower if player is not small
                             auto f = std::make_unique<FireFlower>();
-                            f->SetPosition({ (float)(col * tileMap.GetTileSize()), hitRect.y - 16.0f * Global::GAME_SCALE });
-                            f->SetActive(true);
+                            f->SetPosition({ blockX, blockTopY });
+                            f->StartEmerging(blockTopY);
                             fireFlowers_.push_back(std::move(f));
                             AudioManager::PlaySFX(AudioKey::POWERUP_APPEARS);
                         } else {
                             auto m = std::make_unique<Mushroom>();
-                            m->SetPosition({ (float)(col * tileMap.GetTileSize()), hitRect.y - 16.0f * Global::GAME_SCALE });
+                            m->SetPosition({ blockX, blockTopY });
                             m->SetCollisionGrid(&tileMap.GetBlockGrid());
-                            m->SetActive(true);
+                            m->StartEmerging(blockTopY);
                             mushrooms_.push_back(std::move(m));
                             AudioManager::PlaySFX(AudioKey::POWERUP_APPEARS);
                         }
                     } else if (contents == LuckyContents::Starman) {
                         auto s = std::make_unique<Starman>();
-                        s->SetPosition({ (float)(col * tileMap.GetTileSize()), hitRect.y - 16.0f * Global::GAME_SCALE });
+                        s->SetPosition({ blockX, blockTopY });
                         s->SetCollisionGrid(&tileMap.GetBlockGrid());
-                        s->SetActive(true);
+                        s->StartEmerging(blockTopY);
                         starmen_.push_back(std::move(s));
                         AudioManager::PlaySFX(AudioKey::POWERUP_APPEARS);
                     } else {
@@ -1354,6 +1364,7 @@ void GameplayState::Draw() {
 }
 
 void GameplayState::Cleanup() {
+    AudioManager::StopStarmanBGM();
     goombas_.clear();
     koopas_.clear();
     buzzyBeetles_.clear();

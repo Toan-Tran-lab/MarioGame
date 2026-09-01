@@ -214,6 +214,6 @@ void PlayerInteraction::Visit(FireFlower& f) {
 
 void PlayerInteraction::Visit(Starman& s) {
     self.GrantStarman();
-    AudioManager::PlaySFX(AudioKey::STARMAN);
+    AudioManager::StartStarmanBGM();
     s.SetActive(false);
 }

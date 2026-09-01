@@ -105,6 +105,13 @@ public:
     static void UnloadMusic(const std::string& key);
 
     // -----------------------------------------------------------------------
+    // Starman / Invincibility Music Control
+    // -----------------------------------------------------------------------
+    static void StartStarmanBGM();
+    static void StopStarmanBGM();
+    static bool IsStarmanBGMPlaying();
+
+    // -----------------------------------------------------------------------
     // Queries
     // -----------------------------------------------------------------------
 
@@ -118,4 +125,5 @@ private:
     static float        bgmVolume;
     static float        masterSFXVolume;
     static bool         initialized;
+    static bool         starmanActive;
 };

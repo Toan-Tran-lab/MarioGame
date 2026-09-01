@@ -6,6 +6,7 @@
 #include "Global/Global.h"
 #include "TextureManager/TextureManager.h"
 #include <cmath>
+#include <algorithm>
 
 static const Animation starmanAnim("starman", 116, 114, 0, 1, {1.0f});
 
@@ -17,8 +18,32 @@ Starman::Starman() {
     SetActive(false);
 }
 
+void Starman::StartEmerging(float blockTopY) {
+    blockOriginY_ = blockTopY;
+    emergeTargetY_ = blockTopY - size_.y;
+    position_.y = blockTopY;
+    isEmerging_ = true;
+    physicsSynced_ = false;
+    physicsBody_.position = position_;
+    physicsBody_.velocity = { 0.0f, 0.0f };
+    SetActive(true);
+}
+
 void Starman::Update(float dt) {
     if (!IsActive()) return;
+
+    if (isEmerging_) {
+        position_.y -= kEmergeSpeed * dt;
+        physicsBody_.position = position_;
+        if (position_.y <= emergeTargetY_) {
+            position_.y = emergeTargetY_;
+            isEmerging_ = false;
+            physicsSynced_ = false;
+            physicsBody_.velocity = { physicsBody_.aiDirection * kSpeedX, kBounceVelocity };
+        }
+        animState.Update(dt);
+        return;
+    }
 
     if (!physicsSynced_) {
         SyncPhysicsBody();
@@ -58,7 +83,15 @@ void Starman::Draw() {
         TextureManager::Load("starman", "assets/textures/Starman/Starman.png");
     }
     Vector2 drawPos = { position_.x, position_.y };
-    animState.Draw(drawPos, facing_, size_);
+    if (isEmerging_) {
+        float visibleH = blockOriginY_ - position_.y;
+        float fraction = std::clamp(visibleH / size_.y, 0.0f, 1.0f);
+        if (fraction > 0.0f) {
+            animState.DrawCropped(drawPos, facing_, size_, fraction);
+        }
+    } else {
+        animState.Draw(drawPos, facing_, size_);
+    }
 }
 
 void Starman::InteractWith(Character& other) {

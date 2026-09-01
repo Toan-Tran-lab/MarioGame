@@ -24,6 +24,7 @@ private:
     bool wantsToShoot_ = false;
     float shootAnimTimer_ = 0.0f; // Brief timer to show shoot sprite
     float starTimer_ = 0.0f; // Starman invincibility timer
+    float hitInvincibleTimer_ = 0.0f; // Post-hit invincibility (i-frames)
     physics::PlayerKeyBindings keyBindings_; // per-player hardware key mapping
 
 public:
@@ -51,6 +52,8 @@ public:
     // Interaction/Mechanics
     void GrantStarman(float duration = 10.0f) { starTimer_ = duration; }
     bool IsInvincible() const { return starTimer_ > 0.0f; }
+    void StartHitInvincibility(float duration = 2.0f) { hitInvincibleTimer_ = duration; }
+    bool IsHitInvincible() const { return hitInvincibleTimer_ > 0.0f; }
     
     void SetAnimation(const Animation* newAnim);
 

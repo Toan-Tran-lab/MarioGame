@@ -44,4 +44,5 @@ public:
 
     void Update(float dt);
     void Draw(const Vector2& position, FacingDirection facing, const Vector2& scale, Color tint = WHITE);
+    void DrawCropped(const Vector2& position, FacingDirection facing, const Vector2& scale, float cropFractionY, Color tint = WHITE);
 };
