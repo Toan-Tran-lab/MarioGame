@@ -81,6 +81,9 @@ private:
 
     std::vector<Rectangle> mapDoorBlocks_;
     BossBattleController bossBattleCtrl_;
+    bool hasBossSpawn_ = false;
+    Vector2 bossSpawnPos_{ 0.0f, 0.0f };
+    void SpawnBoss();
 
     // --- 2-Player Co-op ---
     std::unique_ptr<Player> player2_;

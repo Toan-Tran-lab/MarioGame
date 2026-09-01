@@ -4,6 +4,7 @@
 #include "physics/PhysicsEngine.h" // For gravity
 #include "Game_Objects/Derived_Objects/Enemies/KoopaShell/KoopaShell.h"
 #include "Game_Objects/Derived_Objects/Enemies/BuzzyBeetle/BuzzyBeetle.h"
+#include "Game_Objects/Derived_Objects/Enemies/Boss/BossEnemy/Boss.h"
 
 static const Animation playerFireballAnim("player_fireball", 29, 48, 0, 4, {0.1f});
 static const Animation explosionAnim("fireball_explosion", 166, 141, 0, 4, {0.05f});
@@ -88,5 +89,11 @@ void PlayerFireball::OnHitEnemy(GroundEnemy& enemy) {
     }
     bool hitFromLeft = position_.x < enemy.GetPosition().x;
     enemy.TriggerUpsideDownDeath(hitFromLeft);
+    Explode();
+}
+
+void PlayerFireball::OnHitBoss(Boss& boss) {
+    if (boss.IsDead()) return;
+    boss.TakeDamage(1);
     Explode();
 }

@@ -288,11 +288,6 @@ void DragonBoss::DrawBoss() {
         DrawRectangle((int)position_.x, (int)position_.y, (int)size_.x, (int)size_.y, MAROON);
     }
 
-    // Render Hitbox for calibration (Semi-transparent Green + Red Outline)
-    Rectangle hitRec = GetRect();
-    DrawRectangleRec(hitRec, Color{ 0, 255, 0, 90 });
-    DrawRectangleLinesEx(hitRec, 2.0f, RED);
-
     if (auto* spawning = dynamic_cast<SpawnState*>(GetState())) {
         if (spawning->ShowWarningLine()) {
             DrawLine((int)(position_.x + size_.x / 2.0f), 0,
