@@ -1,185 +1,203 @@
 #include "DragonBossState.h"
 #include "DragonBoss.h"
 #include "Game_Objects/Derived_Objects/Playable_Characters/Player/Player.h"
+#include "AudioManager/AudioManager.h"
+#include "Global/Global.h"
 #include <cmath>
-#include <algorithm>
+#include <vector>
 
 namespace {
-// Center-to-center distance between the boss and the player, used by both
-// the proximity anti-cheese check and the AOE hit test.
-float DistanceToPlayer(const Boss& boss, const Player& player) {
-    Vector2 bossCenter = { boss.GetPosition().x + boss.GetSize().x / 2.0f,
-                            boss.GetPosition().y + boss.GetSize().y / 2.0f };
-    Vector2 playerCenter = { player.GetPosition().x + player.GetSize().x / 2.0f,
-                              player.GetPosition().y + player.GetSize().y / 2.0f };
-    float dx = playerCenter.x - bossCenter.x;
-    float dy = playerCenter.y - bossCenter.y;
-    return std::sqrt(dx * dx + dy * dy);
-}
+static Animation s_bossJumpAirAnim("boss_jump", 40, 40, 1, 1, {0.2f});
 }
 
-// --- IdleState ---
+// --- DragonIdleState ---
 
-void IdleState::Enter(Boss& boss) {
+void DragonIdleState::Enter(Boss& boss) {
     auto& dragon = static_cast<DragonBoss&>(boss);
-    attackTimer_ = kAttackInterval * (dragon.IsEnraged() ? DragonBoss::kEnrageMultiplier : 1.0f);
-    proximityTimer_ = 0.0f;
+    dragon.PlayIdleAnim();
+    duration_ = dragon.IsEnraged() ? 0.6f : 1.2f;
+    timer_ = 0.0f;
 }
 
-void IdleState::OnStomped(Boss& boss) {
-    if (attackTimer_ < kFlinchCooldown) {
-        attackTimer_ = kFlinchCooldown; // extend, never shorten
+void DragonIdleState::OnStomped(Boss& boss) {
+    if (timer_ < 0.8f) {
+        timer_ = 0.8f;
     }
 }
 
-void IdleState::UpdateState(Boss& boss, float dt) {
+void DragonIdleState::UpdateState(Boss& boss, float dt) {
     auto& dragon = static_cast<DragonBoss&>(boss);
-    Player* player = dragon.GetPlayer();
+    timer_ += dt;
 
-    if (player) {
-        if (DistanceToPlayer(boss, *player) <= kProximityRadius) {
-            proximityTimer_ += dt;
-            if (proximityTimer_ >= kProximityTrigger) {
-                boss.SetState(new ProximityAOEState());
-                return; // NOTE: SetState deletes 'this' — nothing may follow
-            }
-        } else {
-            proximityTimer_ = 0.0f;
+    if (timer_ >= duration_) {
+        std::vector<Player*> players;
+        if (dragon.GetPlayer()) {
+            players.push_back(dragon.GetPlayer());
+        }
+
+        DragonAction next = dragon.GetBrain().DecideNextAction(dragon, players);
+        switch (next) {
+            case DragonAction::Walk:
+                boss.SetState(new DragonWalkState());
+                return;
+            case DragonAction::Jump:
+                boss.SetState(new DragonJumpState());
+                return;
+            case DragonAction::Fire:
+                boss.SetState(new DragonFireState());
+                return;
+            case DragonAction::Scream:
+                boss.SetState(new DragonScreamState());
+                return;
+            case DragonAction::Idle:
+            default:
+                timer_ = 0.0f;
+                break;
         }
     }
-
-    attackTimer_ -= dt;
-    if (attackTimer_ <= 0.0f) {
-        DragonAttackType next = dragon.NextAttack();
-        boss.SetState(next == DragonAttackType::Flamethrower
-                           ? static_cast<BossState*>(new ChargingFlameState())
-                           : static_cast<BossState*>(new AimingStompState()));
-        return; // NOTE: SetState deletes 'this' — nothing may follow
-    }
 }
 
+// --- DragonWalkState ---
 
-// --- AimingStompState ---
-
-void AimingStompState::Enter(Boss& boss) {
+void DragonWalkState::Enter(Boss& boss) {
+    auto& dragon = static_cast<DragonBoss&>(boss);
+    dragon.PlayWalkAnim();
     timer_ = 0.0f;
-    auto& dragon = static_cast<DragonBoss&>(boss);
-    targetPos_ = dragon.GetPlayer() ? dragon.GetPlayer()->GetPosition() : boss.GetPosition();
+    duration_ = dragon.IsEnraged() ? 1.08f : 1.44f;
+    lastFrameOffset_ = -1;
+    steppedFrame2_ = false;
+    steppedFrame4_ = false;
 }
 
-void AimingStompState::UpdateState(Boss& boss, float dt) {
+void DragonWalkState::UpdateState(Boss& boss, float dt) {
     auto& dragon = static_cast<DragonBoss&>(boss);
-    if (dragon.GetPlayer()) targetPos_ = dragon.GetPlayer()->GetPosition();
-
     timer_ += dt;
-    float duration = kAimDuration * (dragon.IsEnraged() ? DragonBoss::kEnrageMultiplier : 1.0f);
-    if (timer_ >= duration) {
-        boss.SetState(new ArmSlamState(targetPos_)); // was: new StompJumpState(targetPos_)
+
+    int currentOffset = 0;
+    const Animation* anim = dragon.GetAnimState().GetAnimation();
+    if (anim && anim->frameCount > 0) {
+        currentOffset = dragon.GetAnimState().GetCurrentFrameIndex() - anim->startFrame;
+    }
+
+    if (currentOffset != lastFrameOffset_) {
+        // Frame 2 (index 1 in 0-based indexing)
+        if (currentOffset == 1 && !steppedFrame2_) {
+            float step = 6.0f * Global::GAME_SCALE;
+            float dir = (dragon.GetFacing() == FacingDirection::Left) ? -1.0f : 1.0f;
+            boss.SetPosition({ boss.GetPosition().x + dir * step, boss.GetPosition().y });
+            steppedFrame2_ = true;
+        }
+        // Frame 4 (index 3 in 0-based indexing)
+        else if (currentOffset == 3 && !steppedFrame4_) {
+            float step = 6.0f * Global::GAME_SCALE;
+            float dir = (dragon.GetFacing() == FacingDirection::Left) ? -1.0f : 1.0f;
+            boss.SetPosition({ boss.GetPosition().x + dir * step, boss.GetPosition().y });
+            steppedFrame4_ = true;
+        }
+        else if (currentOffset == 0) {
+            steppedFrame2_ = false;
+            steppedFrame4_ = false;
+        }
+        lastFrameOffset_ = currentOffset;
+    }
+
+    if (timer_ >= duration_) {
+        boss.SetState(new DragonIdleState());
         return;
     }
 }
 
-// --- ArmSlamState ---
-void ArmSlamState::Enter(Boss& boss) {
-    phase_ = Phase::Delay;
+// --- DragonJumpState ---
+
+void DragonJumpState::Enter(Boss& boss) {
+    auto& dragon = static_cast<DragonBoss&>(boss);
+    dragon.PlayJumpAnim(); // Frame 1: Crouch / Windup
+    phase_ = Phase::Windup;
+    windupTimer_ = 0.0f;
+    groundY_ = boss.GetPosition().y;
+    velocity_ = { 0.0f, 0.0f };
+}
+
+void DragonJumpState::UpdateState(Boss& boss, float dt) {
+    auto& dragon = static_cast<DragonBoss&>(boss);
+
+    if (phase_ == Phase::Windup) {
+        windupTimer_ += dt;
+        if (windupTimer_ >= kWindupDuration) {
+            phase_ = Phase::Airborne;
+            dragon.GetAnimState().SetAnimation(&s_bossJumpAirAnim); // Frame 2: Airborne
+
+            float dir = (dragon.GetFacing() == FacingDirection::Left) ? -1.0f : 1.0f;
+            velocity_ = { dir * 180.0f, -460.0f };
+        }
+    } else if (phase_ == Phase::Airborne) {
+        velocity_.y += 980.0f * dt;
+        boss.SetPosition({ boss.GetPosition().x + velocity_.x * dt, boss.GetPosition().y + velocity_.y * dt });
+
+        if (velocity_.y > 0.0f && boss.GetPosition().y >= groundY_) {
+            boss.SetPosition({ boss.GetPosition().x, groundY_ });
+            boss.SetState(new DragonIdleState());
+            return;
+        }
+    }
+}
+
+// --- DragonFireState ---
+
+void DragonFireState::Enter(Boss& boss) {
+    auto& dragon = static_cast<DragonBoss&>(boss);
+    dragon.PlayFireAnim();
     timer_ = 0.0f;
-    damageApplied_ = false;
+    flameFired_ = false;
 }
 
-void ArmSlamState::UpdateState(Boss& boss, float dt) {
+void DragonFireState::UpdateState(Boss& boss, float dt) {
     auto& dragon = static_cast<DragonBoss&>(boss);
     timer_ += dt;
 
-    switch (phase_) {
-        case Phase::Delay:
-            if (timer_ >= kDelayBeforeSlam) {
-                phase_ = Phase::Bursting;
-                timer_ = 0.0f;
-            }
-            break;
+    if (timer_ >= 0.36f && !flameFired_) {
+        flameFired_ = true;
+        float dir = (dragon.GetFacing() == FacingDirection::Left) ? -1.0f : 1.0f;
+        Vector2 flamePos = {
+            boss.GetPosition().x + (dir < 0.0f ? -10.0f : boss.GetSize().x),
+            boss.GetPosition().y + boss.GetSize().y * 0.35f
+        };
+        dragon.RequestFlame(flamePos, dir);
+        AudioManager::PlaySFX(AudioKey::FIREBALL);
+    }
 
-        case Phase::Bursting: {
-            if (!damageApplied_) {
-                Player* player = dragon.GetPlayer();
-                if (player) {
-                    Vector2 pCenter = { player->GetPosition().x + player->GetSize().x / 2.0f,
-                                         player->GetPosition().y + player->GetSize().y / 2.0f };
-                    float dx = pCenter.x - targetPos_.x;
-                    float dy = pCenter.y - targetPos_.y;
-                    if (std::sqrt(dx * dx + dy * dy) <= kBurstRadius) {
-                        player->TakeDamage();
-                    }
-                }
-                damageApplied_ = true; // fires once, hit or miss
-            }
-            if (timer_ >= kBurstDuration) {
-                boss.EnterIdleState(); // no back-dash — boss never left home
-                return;
-            }
-            break;
-        }
+    if (timer_ >= kStateDuration) {
+        boss.SetState(new DragonIdleState());
+        return;
     }
 }
 
-// --- ChargingFlameState ---
+// --- DragonScreamState ---
 
-void ChargingFlameState::UpdateState(Boss& boss, float dt) {
+void DragonScreamState::Enter(Boss& boss) {
     auto& dragon = static_cast<DragonBoss&>(boss);
-    timer_ += dt;
-    float duration = kChargeDuration * (dragon.IsEnraged() ? DragonBoss::kEnrageMultiplier : 1.0f);
-    if (timer_ >= duration) {
-        boss.SetState(new CastFlameState());
-        return; // NOTE: SetState deletes 'this' — nothing may follow
-    }
-}
-
-// --- CastFlameState ---
-
-void CastFlameState::Enter(Boss& boss) {
-    auto& dragon = static_cast<DragonBoss&>(boss);
-    Vector2 origin = { boss.GetPosition().x, boss.GetPosition().y + boss.GetSize().y / 2.0f };
-    dragon.RequestFireball(origin);
-    recoveryTimer_ = 0.0f;
-}
-
-void CastFlameState::UpdateState(Boss& boss, float dt) {
-    recoveryTimer_ += dt;
-    if (recoveryTimer_ >= kRecoveryDuration) {
-        boss.SetState(new IdleState());
-        return; // NOTE: SetState deletes 'this' — nothing may follow
-    }
-}
-
-// --- ProximityAOEState ---
-
-void ProximityAOEState::Enter(Boss& boss) {
-    phase_ = Phase::Charging;
+    dragon.PlayScreamAnim();
     timer_ = 0.0f;
-    damageApplied_ = false;
+    shockwaveTriggered_ = false;
+    AudioManager::PlaySFX(AudioKey::DRAGON_SCREAM);
 }
 
-void ProximityAOEState::UpdateState(Boss& boss, float dt) {
+void DragonScreamState::UpdateState(Boss& boss, float dt) {
     auto& dragon = static_cast<DragonBoss&>(boss);
     timer_ += dt;
 
-    if (phase_ == Phase::Charging) {
-        if (timer_ >= kChargeDuration) {
-            phase_ = Phase::Active;
-            timer_ = 0.0f;
-        }
-        return; // no damage yet — this is the telegraph window
+    // Trigger foot stomp shockwave near frame 4
+    if (timer_ >= 0.66f && !shockwaveTriggered_) {
+        shockwaveTriggered_ = true;
+        Vector2 footPos = {
+            boss.GetPosition().x + boss.GetSize().x / 2.0f,
+            boss.GetPosition().y + boss.GetSize().y
+        };
+        dragon.RequestShockwave(footPos, footPos.y);
     }
 
-    if (!damageApplied_) {
-        Player* player = dragon.GetPlayer();
-        if (player && DistanceToPlayer(boss, *player) <= kAOERadius) {
-            player->TakeDamage();
-        }
-        damageApplied_ = true; // fires once per activation, regardless of hit or miss
-    }
-
-    if (timer_ >= kAOEDuration) {
-        boss.SetState(new IdleState());
-        return; // NOTE: SetState deletes 'this' — nothing may follow
+    if (timer_ >= kStateDuration) {
+        boss.SetState(new DragonIdleState());
+        return;
     }
 }

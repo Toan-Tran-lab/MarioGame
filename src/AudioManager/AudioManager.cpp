@@ -37,6 +37,7 @@ void AudioManager::LoadAll() {
     LoadSound(AudioKey::POWERUP_APPEARS,"assets/audio/power-ups appear/powerup_appears.wav");
     LoadSound(AudioKey::DOWN_FLAG_POLE, "assets/audio/down the flag pole/down_the_flag_pole.wav");
     LoadSound(AudioKey::FIREBALL,       "assets/audio/Fireball/Fireball.mp3");
+    LoadSound(AudioKey::DRAGON_SCREAM, "assets/audio/dragonboss/scream/scream.wav");
 
     TraceLog(LOG_INFO, "AudioManager: All SFX loaded");
 
@@ -47,6 +48,7 @@ void AudioManager::LoadAll() {
     LoadMusic(AudioKey::BGM_LEVEL_2, "assets/audio/back ground music/LV2/lv2.mp3");
     LoadMusic(AudioKey::BGM_LEVEL_3, "assets/audio/back ground music/LV3/lv3.mp3");
     LoadMusic(AudioKey::STARMAN,     "assets/audio/Invincible Star/Invincible Star.mp3");
+    LoadMusic(AudioKey::BGM_DRAGON_BOSS, "assets/audio/dragonboss/background/background.mp3");
 
     TraceLog(LOG_INFO, "AudioManager: All BGM loaded");
 }

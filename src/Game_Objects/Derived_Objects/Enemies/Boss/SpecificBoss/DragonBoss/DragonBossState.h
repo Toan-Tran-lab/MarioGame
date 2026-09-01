@@ -1,82 +1,71 @@
 #pragma once
-#include <algorithm>
 #include "Game_Objects/Derived_Objects/Enemies/Boss/BossEnemy/BossState.h"
+#include "DragonBossBrain.h"
 
 class DragonBoss;
 
-class IdleState : public BossState {
+class DragonIdleState : public BossState {
 private:
-    float attackTimer_ = 0.0f;
-    float proximityTimer_ = 0.0f;
-    static constexpr float kAttackInterval = 4.0f;
-    static constexpr float kFlinchCooldown = 1.0f;
-    static constexpr float kProximityRadius = 80.0f;
-    static constexpr float kProximityTrigger = 3.0f;
+    float timer_ = 0.0f;
+    float duration_ = 1.0f;
+
 public:
     void Enter(Boss& boss) override;
     void UpdateState(Boss& boss, float dt) override;
     void OnStomped(Boss& boss) override;
 };
 
-class AimingStompState : public BossState {
+class DragonWalkState : public BossState {
 private:
+    float duration_ = 1.44f;
     float timer_ = 0.0f;
-    Vector2 targetPos_{};
-    static constexpr float kAimDuration = 1.5f;
+    int lastFrameOffset_ = -1;
+    bool steppedFrame2_ = false;
+    bool steppedFrame4_ = false;
+
 public:
     void Enter(Boss& boss) override;
     void UpdateState(Boss& boss, float dt) override;
-    const Vector2& GetTargetPos() const { return targetPos_; }
 };
 
-class ChargingFlameState : public BossState {
+class DragonJumpState : public BossState {
 private:
-    float timer_ = 0.0f;
-    static constexpr float kChargeDuration = 2.0f; // within your 1-3s spec
-public:
-    void UpdateState(Boss& boss, float dt) override;
-};
+    enum class Phase { Windup, Airborne };
+    Phase phase_ = Phase::Windup;
+    float windupTimer_ = 0.0f;
+    static constexpr float kWindupDuration = 0.35f;
 
-class ArmSlamState : public BossState { // replaces StompJumpState + BackDashState
-private:
-    enum class Phase { Delay, Bursting };
-    Phase phase_ = Phase::Delay;
-    float timer_ = 0.0f;
-    Vector2 targetPos_;
-    bool damageApplied_ = false;
-    static constexpr float kDelayBeforeSlam = 1.0f;  // anticipation before the arm hits
-    static constexpr float kBurstDuration = 0.5f;    // how long the fire/lava lingers
-    static constexpr float kBurstRadius = 40.0f;     // damage radius at the locked-on point
-public:
-    explicit ArmSlamState(const Vector2& target) : targetPos_(target) {}
-    bool IsBursting() const { return phase_ == Phase::Bursting; }
-    float GetBurstProgress() const { return std::min(timer_ / kBurstDuration, 1.0f); }
-    void Enter(Boss& boss) override;
-    void UpdateState(Boss& boss, float dt) override;
-    const Vector2& GetTargetPos() const { return targetPos_; } // for drawing the burst VFX
-};
+    Vector2 velocity_{ 0.0f, 0.0f };
+    float groundY_ = 0.0f;
 
-class CastFlameState : public BossState {
-private:
-    float recoveryTimer_ = 0.0f;
-    static constexpr float kRecoveryDuration = 0.4f;
-public:
-    void Enter(Boss& boss) override; // reserved: will spawn a Fireball once that class exists
-    void UpdateState(Boss& boss, float dt) override;
-};
-
-class ProximityAOEState : public BossState {
-private:
-    enum class Phase { Charging, Active };
-    Phase phase_ = Phase::Charging;
-    float timer_ = 0.0f;
-    bool damageApplied_ = false;
-    static constexpr float kChargeDuration = 1.0f; // telegraph before it actually fires
-    static constexpr float kAOEDuration = 0.3f;
-    static constexpr float kAOERadius = 100.0f;
 public:
     void Enter(Boss& boss) override;
     void UpdateState(Boss& boss, float dt) override;
-    bool IsCharging() const { return phase_ == Phase::Charging; }
-    float GetChargeProgress() const { return std::min(timer_ / kChargeDuration, 1.0f); } // for Draw()
 };
+
+class DragonFireState : public BossState {
+private:
+    float timer_ = 0.0f;
+    bool flameFired_ = false;
+    static constexpr float kStateDuration = 0.96f;
+
+public:
+    void Enter(Boss& boss) override;
+    void UpdateState(Boss& boss, float dt) override;
+};
+
+class DragonScreamState : public BossState {
+private:
+    float timer_ = 0.0f;
+    bool shockwaveTriggered_ = false;
+    static constexpr float kStateDuration = 0.88f;
+
+public:
+    void Enter(Boss& boss) override;
+    void UpdateState(Boss& boss, float dt) override;
+};
+
+// Aliases for legacy compatibility
+using IdleState = DragonIdleState;
+using ChargingFlameState = DragonFireState;
+using CastFlameState = DragonFireState;

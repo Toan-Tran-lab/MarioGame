@@ -11,7 +11,9 @@
 #include "Game_Objects/Derived_Objects/Enemies/BuzzyBeetle/BuzzyBeetle.h"
 #include "Game_Objects/Derived_Objects/Enemies/Piranha/Piranha.h"
 #include "Game_Objects/Derived_Objects/Enemies/Boss/SpecificBoss/DragonBoss/DragonBoss.h"
+#include "Game_Objects/Derived_Objects/Enemies/Boss/SpecificBoss/DragonBoss/ShockwaveManager.h"
 #include "Game_Objects/Derived_Objects/Projectiles/Fireball/Fireball.h"
+#include "Game_Objects/Derived_Objects/Projectiles/DragonFlame/DragonFlame.h"
 #include "Game_Objects/Derived_Objects/Enemies/Bullet/Bullet.h"
 #include "Game_Objects/Derived_Objects/Static_Objects/Princess/Princess.h"
 #include "Game_Objects/Derived_Objects/Static_Objects/Block/Block.h"
@@ -57,6 +59,8 @@ private:
     std::vector<std::unique_ptr<BuzzyBeetle>> buzzyBeetles_;
     std::vector<std::unique_ptr<Piranha>> piranhas_;
     std::unique_ptr<DragonBoss> dragonBoss_;
+    std::vector<std::unique_ptr<DragonFlame>> dragonFlames_;
+    ShockwaveManager shockwaveManager_;
     std::vector<std::unique_ptr<Fireball>> fireballs_;
     std::vector<std::unique_ptr<Bullet>> bullets_;
     std::vector<BulletTrigger> bulletTriggers_;
