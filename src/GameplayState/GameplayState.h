@@ -24,6 +24,7 @@
 #include "Game_Objects/Derived_Objects/Items/Mushroom/Mushroom.h"
 #include "Game_Objects/Derived_Objects/Static_Objects/FlyingBridge/FlyingBridge.h"
 
+#include "GameplayState/BossBattleController/BossBattleController.h"
 #include "SaveManager/SaveManager.h"
 #include <vector>
 #include <memory>
@@ -60,6 +61,8 @@ private:
 
     std::unique_ptr<Player> player_;
     int characterId_ = 0;
+
+    BossBattleController bossBattleCtrl_;
 
     // --- 2-Player Co-op ---
     std::unique_ptr<Player> player2_;

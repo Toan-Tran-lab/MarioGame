@@ -241,6 +241,8 @@ void GameplayState::Initialize() {
     flyingBridges_.clear();
     fires_.clear();
 
+    bossBattleCtrl_.Reset();
+
     if (isSandboxMode_) {
         // Spawn Goombas and Coins based on Sandbox coordinates
         for (int r = 0; r < tileMap.GetMapHeight(); ++r) {
@@ -356,6 +358,12 @@ void GameplayState::Initialize() {
                 auto fire = std::make_unique<Fire>();
                 fire->SetPosition(ent.position);
                 fires_.push_back(std::move(fire));
+            } else if (ent.id == "reDoor" || ent.id == "ReDoor" || ent.id == "redoor" || ent.id == "re_door") {
+                bossBattleCtrl_.SetReDoor(ent.position);
+            } else if (ent.id == "Door" || ent.id == "door" || ent.id == "BossDoor" || ent.id == "boss_door") {
+                bossBattleCtrl_.SetDoor(ent.position);
+            } else if (ent.id == "StartBattle" || ent.id == "startbattle" || ent.id == "Start_Battle" || ent.id == "start_battle") {
+                bossBattleCtrl_.SetStartBattle(ent.position.x);
             }
         }
         
@@ -462,10 +470,10 @@ void GameplayState::Update(float deltaTime) {
         if (isMultiplayer_) CheckAndCarryBullet(player2_.get());
     }
 
-    // Inject all bridge and bullet rects as dynamic solid platforms into the player's collision pass.
+    // Inject all bridge, bullet, and boss door rects as dynamic solid platforms
     {
         std::vector<Rectangle> platformRects;
-        platformRects.reserve(flyingBridges_.size() + bullets_.size());
+        platformRects.reserve(flyingBridges_.size() + bullets_.size() + 2);
         for (auto& bridge : flyingBridges_) {
             platformRects.push_back(bridge->GetRect());
         }
@@ -474,6 +482,10 @@ void GameplayState::Update(float deltaTime) {
                 platformRects.push_back(bullet->GetRect());
             }
         }
+
+        // Add reDoor and Door solid collision boxes based on Boss Battle State
+        bossBattleCtrl_.AppendDynamicBarriers(platformRects, dragonBoss_.get());
+
         player_->SetDynamicPlatforms(platformRects);
         if (isMultiplayer_ && player2_) {
             player2_->SetDynamicPlatforms(platformRects);
@@ -710,6 +722,9 @@ void GameplayState::Update(float deltaTime) {
     std::vector<Player*> activePlayers;
     if (player_ && !player_->IsDead()) activePlayers.push_back(player_.get());
     if (isMultiplayer_ && player2_ && !player2_->IsDead()) activePlayers.push_back(player2_.get());
+
+    // Update Boss Battle State Machine
+    bossBattleCtrl_.Update(deltaTime, activePlayers, dragonBoss_.get());
 
     // Entity interaction: players vs goombas/koopas/mushroom/boss
     for (Player* p : activePlayers) {
@@ -1230,6 +1245,9 @@ void GameplayState::Draw() {
         d.Draw();
     }
 
+    // Draw Boss Battle Doors (reDoor and Door via BossBattleController)
+    bossBattleCtrl_.DrawWorld(dragonBoss_.get());
+
     if (princess_) princess_->Draw();
     if (goalPipe_) goalPipe_->Draw();
     if (flagpole_) flagpole_->Draw();
@@ -1255,6 +1273,9 @@ void GameplayState::Draw() {
     int timeX = (int)(sw - MeasureText(timeLabel, fontSize) - sw * 0.05f);
     DrawText(timeLabel, timeX, (int)(sh * 0.03f), fontSize, WHITE);
     DrawText(TextFormat("%03i", (int)timeLeft), timeX + 15, (int)(sh * 0.03f + fontSize + 4), fontSize, WHITE);
+
+    // Boss HP Bar (if in battle)
+    bossBattleCtrl_.DrawHUD(dragonBoss_.get(), sw, sh);
 
     if (isGameOver) {
         DrawRectangle(0, 0, sw, sh, Color{0, 0, 0, 150});
@@ -1287,4 +1308,6 @@ void GameplayState::Cleanup() {
     mushrooms_.clear();
     fires_.clear();
     player2_.reset();
+
+    bossBattleCtrl_.Reset();
 }
