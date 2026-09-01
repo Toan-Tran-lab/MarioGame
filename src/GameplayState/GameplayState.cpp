@@ -167,18 +167,20 @@ void GameplayState::Initialize() {
     TextureManager::Load("mario_mini_sit", "assets/textures/Mario/sit/mario.png"); // using normal sit if mini sit isn't provided
 
     // Fire Mario
+    TextureManager::Load("fire_mario_pose", "assets/textures/Fire Mario/pose/fireMario.png");
     TextureManager::Load("fire_mario_walk", "assets/textures/Fire Mario/walk/fireMario.png");
     TextureManager::Load("fire_mario_jump", "assets/textures/Fire Mario/jump/fireMario.png");
     TextureManager::Load("fire_mario_slide", "assets/textures/Fire Mario/slide/fireMario.png");
     TextureManager::Load("fire_mario_sit", "assets/textures/Fire Mario/sit/fireMario.png");
+    TextureManager::Load("fire_mario_shoot", "assets/textures/Fire Mario/shoot/fireMario.png");
 
     // Luigi Normal
     TextureManager::Load("luigi_pose", "assets/textures/Luigi/pose/luigi.png");
     TextureManager::Load("luigi_walk", "assets/textures/Luigi/walk/luigi.png");
     TextureManager::Load("luigi_jump", "assets/textures/Luigi/jump/luigi.png");
     TextureManager::Load("luigi_slide", "assets/textures/Luigi/slide/luigi.png");
-    TextureManager::Load("luigi_sit", "assets/textures/Luigi/sit/luigi.png");
-
+    TextureManager::Load("luigi_die", "assets/textures/Luigi/die/luigi.png");
+    
     // Luigi Mini
     TextureManager::Load("luigi_mini_pose", "assets/textures/Luigi-mini/pose/luigi.png");
     TextureManager::Load("luigi_mini_walk", "assets/textures/Luigi-mini/walk/luigi.png");
@@ -188,10 +190,12 @@ void GameplayState::Initialize() {
     TextureManager::Load("luigi_mini_sit", "assets/textures/Luigi/sit/luigi.png"); // fallback
 
     // Fire Luigi
+    TextureManager::Load("fire_luigi_pose", "assets/textures/Fire Luigi/pose/fireLuigi.png");
     TextureManager::Load("fire_luigi_walk", "assets/textures/Fire Luigi/walk/fireLuigi.png");
     TextureManager::Load("fire_luigi_jump", "assets/textures/Fire Luigi/jump/fireLuigi.png");
     TextureManager::Load("fire_luigi_slide", "assets/textures/Fire Luigi/slide/fireLuigi.png");
     TextureManager::Load("fire_luigi_sit", "assets/textures/Fire Luigi/sit/fireLuigi.png");
+    TextureManager::Load("fire_luigi_shoot", "assets/textures/Fire Luigi/shoot/fireLuigi.png");
 
     // Items
     TextureManager::Load("mushroom", "assets/textures/mushroom/mushroom.png");
@@ -586,6 +590,13 @@ void GameplayState::Update(float deltaTime) {
     debrisList_.erase(std::remove_if(debrisList_.begin(), debrisList_.end(),
         [](const DebrisPiece& d) { return !d.active; }), debrisList_.end());
 
+    // Update score popups
+    for (auto& popup : scorePopups_) {
+        popup.timer += deltaTime;
+    }
+    scorePopups_.erase(std::remove_if(scorePopups_.begin(), scorePopups_.end(),
+        [](const ScorePopup& p) { return p.timer >= 1.0f; }), scorePopups_.end());
+
     auto HandleBlockHit = [&](Player* p) {
         if (!p || p->IsDead() || !p->CanHitBlock() || !p->GetPhysicsBody().hitCeiling) return;
         
@@ -689,6 +700,7 @@ void GameplayState::Update(float deltaTime) {
                     fb->SetActive(true);
                     playerFireballs_.push_back(std::move(fb));
                     AudioManager::PlaySFX(AudioKey::FIREBALL);
+                    p->PlayShootAnimation();
                 }
             }
         }
@@ -750,40 +762,78 @@ void GameplayState::Update(float deltaTime) {
     // Entity interaction: players vs goombas/koopas/mushroom/boss
     for (Player* p : activePlayers) {
         for (auto& g : goombas_) {
-            if (g->IsActive() && !g->IsDying() && p->Overlaps(*g)) {
+            if (g->IsActive() && !g->IsDying() && !g->IsUpsideDownDead() && p->Overlaps(*g)) {
                 bool wasDying = g->IsDying();
+                bool wasUpsideDown = g->IsUpsideDownDead();
                 p->InteractWith(*g);
-                if (!wasDying && g->IsDying()) score += 100;
+                if ((!wasDying && g->IsDying()) || (!wasUpsideDown && g->IsUpsideDownDead())) {
+                    score += 100;
+                    scorePopups_.push_back({g->GetPosition(), 0.0f, 100});
+                }
             }
         }
         for (auto& k : koopas_) {
-            if (k->IsActive() && p->Overlaps(*k)) {
+            if (k->IsActive() && !k->IsUpsideDownDead() && p->Overlaps(*k)) {
                 KoopaShellState prevState = k->GetState();
+                bool wasUpsideDown = k->IsUpsideDownDead();
                 p->InteractWith(*k);
                 if (prevState != KoopaShellState::Hiding && k->GetState() == KoopaShellState::Hiding) {
                     score += 100;
+                    scorePopups_.push_back({k->GetPosition(), 0.0f, 100});
+                } else if (!wasUpsideDown && k->IsUpsideDownDead()) {
+                    score += 100;
+                    scorePopups_.push_back({k->GetPosition(), 0.0f, 100});
+                }
+            }
+        }
+        for (auto& b : buzzyBeetles_) {
+            if (b->IsActive() && !b->IsDefeated() && !b->IsUpsideDownDead() && p->Overlaps(*b)) {
+                bool wasDefeated = b->IsDefeated();
+                bool wasUpsideDown = b->IsUpsideDownDead();
+                p->InteractWith(*b);
+                if ((!wasDefeated && b->IsDefeated()) || (!wasUpsideDown && b->IsUpsideDownDead())) {
+                    score += 100;
+                    scorePopups_.push_back({b->GetPosition(), 0.0f, 100});
                 }
             }
         }
         for (auto& m : mushrooms_) {
             if (m->IsActive() && p->Overlaps(*m)) {
+                bool wasActive = m->IsActive();
                 p->InteractWith(*m);
+                if (wasActive && !m->IsActive()) {
+                    score += 1000;
+                    scorePopups_.push_back({m->GetPosition(), 0.0f, 1000});
+                }
             }
         }
         for (auto& s : starmen_) {
             if (s->IsActive() && p->Overlaps(*s)) {
+                bool wasActive = s->IsActive();
                 p->InteractWith(*s);
+                if (wasActive && !s->IsActive()) {
+                    score += 1000;
+                    scorePopups_.push_back({s->GetPosition(), 0.0f, 1000});
+                }
             }
         }
         for (auto& f : fireFlowers_) {
             if (f->IsActive() && p->Overlaps(*f)) {
+                bool wasActive = f->IsActive();
                 p->InteractWith(*f);
+                if (wasActive && !f->IsActive()) {
+                    score += 1000;
+                    scorePopups_.push_back({f->GetPosition(), 0.0f, 1000});
+                }
             }
         }
         if (dragonBoss_ && dragonBoss_->IsActive() && !dragonBoss_->IsDead() && p->Overlaps(*dragonBoss_)) {
             bool wasDead = dragonBoss_->IsDead();
             p->InteractWith(*dragonBoss_);
-            if (!wasDead && dragonBoss_->IsDead()) score += 1000;
+            if (!wasDead && dragonBoss_->IsDead()) {
+                score += 1000;
+                scorePopups_.push_back({dragonBoss_->GetPosition(), 0.0f, 1000});
+            }
         }
     }
 
@@ -798,10 +848,20 @@ void GameplayState::Update(float deltaTime) {
         if (fb->IsActive() && !fb->IsExploded()) {
             for (auto* e : activeEnemies) {
                 if (CheckCollisionRecs(fb->GetRect(), e->GetRect())) {
-                    e->SetActive(false); // Instantly defeat enemy
-                    fb->Explode();
-                    score += 100;
-                    AudioManager::PlaySFX(AudioKey::HIT_ENEMY); // generic hit sound
+                    if (auto* k = dynamic_cast<KoopaShell*>(e)) {
+                        fb->OnHitShell(*k);
+                        score += 100;
+                        scorePopups_.push_back({k->GetPosition(), 0.0f, 100});
+                        AudioManager::PlaySFX(AudioKey::HIT_ENEMY);
+                    } else if (auto* b = dynamic_cast<BuzzyBeetle*>(e)) {
+                        fb->OnHitEnemy(*b);
+                        AudioManager::PlaySFX(AudioKey::HIT_ENEMY);
+                    } else {
+                        fb->OnHitEnemy(*e);
+                        score += 100;
+                        scorePopups_.push_back({e->GetPosition(), 0.0f, 100});
+                        AudioManager::PlaySFX(AudioKey::HIT_ENEMY);
+                    }
                     break;
                 }
             }
@@ -858,11 +918,15 @@ void GameplayState::Update(float deltaTime) {
     for (auto& k : koopas_) {
         if (k->IsActive() && k->GetState() == KoopaShellState::Sliding) {
             for (auto& g : goombas_) {
-                if (g->IsActive() && !g->IsDying() && k->Overlaps(*g)) {
-                bool wasDying = g->IsDying();
-                k->InteractWith(*g);
-                if (!wasDying && g->IsDying()) score += 100;
-            }
+                if (g->IsActive() && !g->IsDying() && !g->IsUpsideDownDead() && k->Overlaps(*g)) {
+                    bool wasDying = g->IsDying();
+                    bool wasUpsideDown = g->IsUpsideDownDead();
+                    k->InteractWith(*g);
+                    if ((!wasDying && g->IsDying()) || (!wasUpsideDown && g->IsUpsideDownDead())) {
+                        score += 100;
+                        scorePopups_.push_back({g->GetPosition(), 0.0f, 100});
+                    }
+                }
             }
         }
     }
@@ -883,10 +947,14 @@ void GameplayState::Update(float deltaTime) {
     for (auto& k : koopas_) {
         if (k->IsActive() && k->GetState() == KoopaShellState::Sliding) {
             for (auto& b : buzzyBeetles_) {
-                if (b->IsActive() && !b->IsDefeated() && k->Overlaps(*b)) {
+                if (b->IsActive() && !b->IsDefeated() && !b->IsUpsideDownDead() && k->Overlaps(*b)) {
                     bool wasDefeated = b->IsDefeated();
+                    bool wasUpsideDown = b->IsUpsideDownDead();
                     k->InteractWith(*b);
-                    if (!wasDefeated && b->IsDefeated()) score += 100;
+                    if ((!wasDefeated && b->IsDefeated()) || (!wasUpsideDown && b->IsUpsideDownDead())) {
+                        score += 100;
+                        scorePopups_.push_back({b->GetPosition(), 0.0f, 100});
+                    }
                 }
             }
         }
@@ -894,7 +962,10 @@ void GameplayState::Update(float deltaTime) {
             dragonBoss_ && dragonBoss_->IsActive() && k->Overlaps(*dragonBoss_)) {
             bool wasDead = dragonBoss_->IsDead();
             k->InteractWith(*dragonBoss_);
-            if (!wasDead && dragonBoss_->IsDead()) score += 1000;
+            if (!wasDead && dragonBoss_->IsDead()) {
+                score += 1000;
+                scorePopups_.push_back({dragonBoss_->GetPosition(), 0.0f, 1000});
+            }
         }
     }
 
@@ -907,7 +978,10 @@ void GameplayState::Update(float deltaTime) {
                 if (CheckCollisionRecs(p->GetPhysicsBody().GetRect(), cRect)) {
                     coin->SetActive(false);
                     AudioManager::PlaySFX(AudioKey::HIT_COIN);
-                    if (coin->AwardsScoreOnCollect()) score += 100;
+                    if (coin->AwardsScoreOnCollect()) {
+                        score += 200; // Original mario coin gives 200 score
+                        scorePopups_.push_back({coin->GetPosition(), 0.0f, 200});
+                    }
                     break;
                 }
             }
@@ -1224,6 +1298,18 @@ void GameplayState::Draw() {
 
     for (const auto& d : debrisList_) {
         d.Draw();
+    }
+
+    for (const auto& popup : scorePopups_) {
+        float alpha = 1.0f - (popup.timer / 1.0f);
+        if (alpha < 0.0f) alpha = 0.0f;
+        float offsetY = -60.0f * popup.timer;
+        int fontSize = 24;
+        const char* popupText = TextFormat("+%d", popup.score);
+        int textW = MeasureText(popupText, fontSize);
+        int px = (int)(popup.position.x - textW / 2.0f);
+        int py = (int)(popup.position.y + offsetY);
+        DrawText(popupText, px, py, fontSize, Fade(YELLOW, alpha));
     }
 
     if (princess_) princess_->Draw();

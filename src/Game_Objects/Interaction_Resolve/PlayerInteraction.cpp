@@ -24,7 +24,8 @@ constexpr float kBossKnockbackSpeed = 250.0f;
 
 void PlayerInteraction::Visit(Goomba& g) {
     if (self.IsInvincible()) {
-        g.SetActive(false);
+        bool hitFromLeft = self.GetPosition().x < g.GetPosition().x;
+        g.TriggerUpsideDownDeath(hitFromLeft);
         AudioManager::PlaySFX(AudioKey::HIT_ENEMY);
         return;
     }
@@ -56,7 +57,8 @@ void PlayerInteraction::Visit(Player& p) {
 
 void PlayerInteraction::Visit(KoopaShell& k) {
     if (self.IsInvincible()) {
-        k.SetActive(false);
+        bool hitFromLeft = self.GetPosition().x < k.GetPosition().x;
+        k.TriggerUpsideDownDeath(hitFromLeft);
         AudioManager::PlaySFX(AudioKey::HIT_ENEMY);
         return;
     }
@@ -150,7 +152,8 @@ void PlayerInteraction::Visit(Mushroom& m) {
 
 void PlayerInteraction::Visit(BuzzyBeetle& b) {
     if (self.IsInvincible()) {
-        b.SetActive(false);
+        bool hitFromLeft = self.GetPosition().x < b.GetPosition().x;
+        b.TriggerUpsideDownDeath(hitFromLeft);
         AudioManager::PlaySFX(AudioKey::HIT_ENEMY);
         return;
     }

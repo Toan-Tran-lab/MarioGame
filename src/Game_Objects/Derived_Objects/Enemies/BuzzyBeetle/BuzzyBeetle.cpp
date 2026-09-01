@@ -13,12 +13,18 @@ constexpr float kPopupFontSize = 24;
 // Placeholder texture keys — swap to real asset paths once art is ready.
 static const Animation buzzyWalkAnim("buzzy_walk", 16, 16, 0, 2, {kFrameDuration});
 static const Animation buzzyFlippedAnim("buzzy_flipped", 16, 16, 0, 1, {1.0f});
+static const Animation buzzyUpsideDownAnim("buzzy_upsidedown", 70, 70, 0, 1, {1.0f}); // 70x70
 
 BuzzyBeetle::BuzzyBeetle() {
     animState.SetAnimation(&buzzyWalkAnim);
 }
 
 BuzzyBeetle::~BuzzyBeetle() {}
+
+void BuzzyBeetle::TriggerUpsideDownDeath(bool hitFromLeft) {
+    GroundEnemy::TriggerUpsideDownDeath(hitFromLeft);
+    animState.SetAnimation(&buzzyUpsideDownAnim);
+}
 
 void BuzzyBeetle::Defeat() {
     if (state_ == BuzzyBeetleState::Dying) return; // already defeated, ignore
@@ -46,8 +52,8 @@ void BuzzyBeetle::Draw() {
     if (!TextureManager::Has("buzzy_walk")) {
         TextureManager::Load("buzzy_walk", "assets/textures/BuzzyBeetle/walk/enemies.png");
     }
-    if (!TextureManager::Has("buzzy_flipped")) {
-        TextureManager::Load("buzzy_flipped", "assets/textures/BuzzyBeetle/flipped/enemies.png");
+    if (!TextureManager::Has("buzzy_upsidedown")) {
+        TextureManager::Load("buzzy_upsidedown", "assets/textures/BuzzyBeetle/dead/enemies.png");
     }
 
     Vector2 drawPos = { position_.x, position_.y };
@@ -56,6 +62,7 @@ void BuzzyBeetle::Draw() {
     if (state_ == BuzzyBeetleState::Dying) {
         float popupOffsetY = -kPopupSpeed * dyingTimer_;
         float alpha = 1.0f - (dyingTimer_ / kDyingDuration);
+        if (alpha < 0.0f) alpha = 0.0f;
         int fontSize = kPopupFontSize;
         const char* popupText = "+100";
         int textW = MeasureText(popupText, fontSize);

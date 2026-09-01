@@ -216,9 +216,16 @@ void Player::Update(float dt) {
         wantsToShoot_ = true;
     }
 
+    // Tick down shoot animation timer
+    if (shootAnimTimer_ > 0.0f) shootAnimTimer_ -= dt;
+
     if (isSitting_) {
         if (animState.GetAnimation() != GetSitAnimation()) {
             SetAnimation(GetSitAnimation());
+        }
+    } else if (shootAnimTimer_ > 0.0f && IsGrounded() && GetShootAnimation()) {
+        if (animState.GetAnimation() != GetShootAnimation()) {
+            SetAnimation(GetShootAnimation());
         }
     } else if (!IsGrounded()) {
         if (animState.GetAnimation() != GetJumpAnimation()) {

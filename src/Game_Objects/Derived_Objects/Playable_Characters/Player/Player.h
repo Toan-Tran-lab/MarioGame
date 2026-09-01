@@ -22,6 +22,7 @@ private:
     float prevVelY_ = 0.0f;
     Color tint_ = WHITE;
     bool wantsToShoot_ = false;
+    float shootAnimTimer_ = 0.0f; // Brief timer to show shoot sprite
     float starTimer_ = 0.0f; // Starman invincibility timer
     physics::PlayerKeyBindings keyBindings_; // per-player hardware key mapping
 
@@ -76,6 +77,7 @@ public:
     
     bool WantsToShoot() const { return wantsToShoot_; }
     void ConsumeShootRequest() { wantsToShoot_ = false; }
+    void PlayShootAnimation() { if (GetShootAnimation()) shootAnimTimer_ = 0.2f; }
 
     // Animation Getters
     virtual const Animation* GetPoseAnimation() const = 0;
@@ -84,6 +86,7 @@ public:
     virtual const Animation* GetSlideAnimation() const = 0;
     virtual const Animation* GetSitAnimation() const = 0;
     virtual const Animation* GetDieAnimation() const = 0;
+    virtual const Animation* GetShootAnimation() const { return nullptr; } // Only Fire mode has this
 
     //Inherit from Character.h
     void InteractWith(Character& other) override;

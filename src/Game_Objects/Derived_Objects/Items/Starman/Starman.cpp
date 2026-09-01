@@ -7,7 +7,7 @@
 #include "TextureManager/TextureManager.h"
 #include <cmath>
 
-static const Animation starmanAnim("starman", 16, 16, 0, 4, {0.1f});
+static const Animation starmanAnim("starman", 116, 114, 0, 1, {1.0f});
 
 Starman::Starman() {
     animState.SetAnimation(&starmanAnim);

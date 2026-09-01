@@ -13,12 +13,18 @@ constexpr float kSpinDuration    = 0.10f;  // seconds per spin frame
 
 // --- Static animation definitions (Flyweight) ---
 static const Animation koopaWalkAnim("koopa_walk", 16, 24, 0, 2, {kFrameDuration});
+static const Animation koopaUpsideDownAnim("koopa_upsidedown", 70, 106, 0, 1, {1.0f}); // 70x106
 
 KoopaShell::KoopaShell() {
     animState.SetAnimation(&koopaWalkAnim);
 }
 
 KoopaShell::~KoopaShell() {}
+
+void KoopaShell::TriggerUpsideDownDeath(bool hitFromLeft) {
+    GroundEnemy::TriggerUpsideDownDeath(hitFromLeft);
+    animState.SetAnimation(&koopaUpsideDownAnim);
+}
 
 void KoopaShell::UpdateBehavior(float dt, physics::InputState& input) {
     if (state_ == KoopaShellState::Walking) {
@@ -96,10 +102,15 @@ void KoopaShell::Draw() {
     if (!TextureManager::Has("koopa_hide")) {
         TextureManager::Load("koopa_hide", "assets/textures/Koopa/hide/enemies.png");
     }
+    if (!TextureManager::Has("koopa_upsidedown")) {
+        TextureManager::Load("koopa_upsidedown", "assets/textures/Koopa/dead/enemies.png");
+    }
 
     Vector2 drawPos = { position_.x, position_.y };
 
-    if (state_ == KoopaShellState::Walking) {
+    if (upsideDownDead_) {
+        animState.Draw(drawPos, facing_, size_);
+    } else if (state_ == KoopaShellState::Walking) {
         animState.Draw(drawPos, facing_, size_);
     } else {
         // Hiding or Sliding uses the koopa_hide texture

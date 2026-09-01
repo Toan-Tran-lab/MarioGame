@@ -29,12 +29,19 @@
 #include <vector>
 #include <memory>
 
+struct ScorePopup {
+    Vector2 position;
+    float timer;
+    int score;
+};
+
 class GameplayState : public IGameState {
 private:
     TileMap tileMap;
     View view;
     Level currentLevel;
 
+    std::vector<ScorePopup> scorePopups_;
     std::vector<std::unique_ptr<Goomba>> goombas_;
     std::vector<std::unique_ptr<KoopaShell>> koopas_;
     std::vector<std::unique_ptr<BuzzyBeetle>> buzzyBeetles_;

@@ -19,6 +19,8 @@ public:
     BuzzyBeetle();
     ~BuzzyBeetle();
 
+    void TriggerUpsideDownDeath(bool hitFromLeft) override;
+
     // Called only by ShellInteraction::Visit(BuzzyBeetle&) on a sliding-shell hit.
     void Defeat();
     bool IsDefeated() const { return state_ == BuzzyBeetleState::Dying; }

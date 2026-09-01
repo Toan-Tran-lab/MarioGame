@@ -27,6 +27,8 @@ public:
     bool IsActive() const { return isActive_; }
     void SetActive(bool active) { isActive_ = active; }
 
+    virtual Rectangle GetRect() const { return { position_.x, position_.y, size_.x, size_.y }; }
+
 protected:
     // Determine the position of the object in the world
     Vector2 position_{ 0.0f, 0.0f };

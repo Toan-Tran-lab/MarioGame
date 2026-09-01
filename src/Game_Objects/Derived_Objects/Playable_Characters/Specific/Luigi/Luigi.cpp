@@ -17,11 +17,12 @@ static const Animation luigiMiniSitAnim("luigi_mini_sit", 16, 16, 0, 1, {1.0f});
 static const Animation luigiMiniDieAnim("luigi_mini_die", 16, 16, 0, 1, {1.0f});
 
 // Fire Luigi Animations (updated to match re-exported PNG sizes)
-static const Animation luigiFirePoseAnim("fire_luigi_walk", 84, 158, 0, 1, {1.0f});
-static const Animation luigiFireWalkAnim("fire_luigi_walk", 84, 158, 0, 3, {0.1f});
+static const Animation luigiFirePoseAnim("fire_luigi_pose", 90, 136, 0, 2, {3.0f, 0.8f}); // 180x136 / 2 = 90
+static const Animation luigiFireWalkAnim("fire_luigi_walk", 90, 132, 0, 3, {0.1f}); // 270x132 / 3 = 90
 static const Animation luigiFireJumpAnim("fire_luigi_jump", 78, 140, 0, 1, {1.0f});
 static const Animation luigiFireSlideAnim("fire_luigi_slide", 96, 168, 0, 1, {1.0f});
-static const Animation luigiFireSitAnim("fire_luigi_sit", 80, 154, 0, 1, {1.0f});
+static const Animation luigiFireSitAnim("fire_luigi_sit", 68, 106, 0, 1, {1.0f});
+static const Animation luigiFireShootAnim("fire_luigi_shoot", 82, 140, 0, 1, {1.0f}); // 82x140
 
 const Animation* Luigi::GetPoseAnimation() const {
     if (CanShootFireball()) return &luigiFirePoseAnim;
@@ -50,4 +51,9 @@ const Animation* Luigi::GetSitAnimation() const {
 
 const Animation* Luigi::GetDieAnimation() const {
     return IsSmall() ? &luigiMiniDieAnim : &luigiDieAnim;
+}
+
+const Animation* Luigi::GetShootAnimation() const {
+    if (CanShootFireball()) return &luigiFireShootAnim;
+    return nullptr;
 }
