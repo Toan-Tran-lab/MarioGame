@@ -20,11 +20,13 @@ namespace AudioKey {
     inline constexpr const char* DOWN_FLAG_POLE    = "down_flag_pole";
     inline constexpr const char* FIREBALL          = "fireball";
     inline constexpr const char* STARMAN           = "starman";
+    inline constexpr const char* DRAGON_SCREAM     = "dragon_scream";
 
     // BGM — one per level
     inline constexpr const char* BGM_LEVEL_1       = "bgm_level_1";  // Grassland
     inline constexpr const char* BGM_LEVEL_2       = "bgm_level_2";  // Underground
     inline constexpr const char* BGM_LEVEL_3       = "bgm_level_3";  // Castle
+    inline constexpr const char* BGM_DRAGON_BOSS   = "bgm_dragon_boss";
 }
 
 // Manages all game audio: sound effects (Sound) and background music (Music).

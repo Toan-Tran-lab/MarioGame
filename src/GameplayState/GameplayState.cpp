@@ -248,6 +248,8 @@ void GameplayState::Initialize() {
     bullets_.clear();
     bulletTriggers_.clear();
     dragonBoss_.reset();
+    dragonFlames_.clear();
+    shockwaveManager_.Clear();
     fireballs_.clear();
     coins_.clear();
     princess_.reset();
@@ -344,8 +346,8 @@ void GameplayState::Initialize() {
                 tileMap.GetBlockGrid().SetBlock(col, row, std::move(block));
             } else if (ent.id == "DragonBoss") {
                 dragonBoss_ = std::make_unique<DragonBoss>();
-                dragonBoss_->SetSize({ 256.0f * Global::GAME_SCALE, 256.0f * Global::GAME_SCALE }); // placeholder — tune once art exists
                 dragonBoss_->SetPosition(ent.position);
+                dragonBoss_->SetGroundY(ent.position.y);
                 dragonBoss_->SetPlayerRef(player_.get());
                 dragonBoss_->BeginSpawn();
             } else if (ent.id == "Princess") {
@@ -615,8 +617,14 @@ void GameplayState::Update(float deltaTime) {
         }
     }
 
+    // Gather active players for boss and entity updates
+    std::vector<Player*> currentActivePlayers;
+    if (player_ && !player_->IsDead()) currentActivePlayers.push_back(player_.get());
+    if (isMultiplayer_ && player2_ && !player2_->IsDead()) currentActivePlayers.push_back(player2_.get());
+
     if (dragonBoss_ && dragonBoss_->IsActive()) {
         dragonBoss_->SetPlayerRef(GetTargetPlayer(dragonBoss_->GetPosition()));
+        dragonBoss_->UpdateAI(currentActivePlayers, deltaTime);
         dragonBoss_->Update(deltaTime);
 
         if (dragonBoss_->ConsumeItemScatterRequest()) {
@@ -650,11 +658,40 @@ void GameplayState::Update(float deltaTime) {
             }
         }
 
+        Vector2 flameOrigin;
+        float flameDir = -1.0f;
+        if (dragonBoss_->ConsumeFlameRequest(flameOrigin, flameDir)) {
+            dragonFlames_.push_back(std::make_unique<DragonFlame>(flameOrigin, flameDir));
+        }
+
+        Vector2 swOrigin;
+        float swFloorY = 0.0f;
+        if (dragonBoss_->ConsumeShockwaveRequest(swOrigin, swFloorY)) {
+            shockwaveManager_.Trigger(swOrigin, swFloorY, 800.0f, 440.0f);
+        }
+
         Vector2 fbOrigin;
         if (dragonBoss_->ConsumeFireballRequest(fbOrigin)) {
             fireballs_.push_back(std::make_unique<Fireball>(fbOrigin, -1.0f));
         }
     }
+
+    // Update shockwave ripple across blocks and players
+    shockwaveManager_.Update(deltaTime, tileMap.GetBlockGrid(), currentActivePlayers);
+
+    // Update dragon flames
+    for (auto& flame : dragonFlames_) {
+        if (!flame->IsActive()) continue;
+        flame->Update(deltaTime);
+        for (Player* p : currentActivePlayers) {
+            if (p && !p->IsDead() && flame->CanHurtPlayer(*p) && flame->Overlaps(*p)) {
+                flame->Explode();
+                p->TakeDamage();
+            }
+        }
+    }
+    dragonFlames_.erase(std::remove_if(dragonFlames_.begin(), dragonFlames_.end(),
+        [](const std::unique_ptr<DragonFlame>& f) { return !f->IsActive(); }), dragonFlames_.end());
 
     
 
@@ -1381,6 +1418,10 @@ void GameplayState::Draw() {
     if (dragonBoss_ && dragonBoss_->IsActive()) {
         dragonBoss_->Draw();
     }
+    shockwaveManager_.Draw();
+    for (auto& flame : dragonFlames_) {
+        if (flame->IsActive()) flame->Draw();
+    }
     for (auto& fb : fireballs_) {
         if (fb->IsActive()) fb->Draw();
     }
@@ -1488,6 +1529,8 @@ void GameplayState::Cleanup() {
     bullets_.clear();
     bulletTriggers_.clear();
     dragonBoss_.reset();
+    dragonFlames_.clear();
+    shockwaveManager_.Clear();
     fireballs_.clear();
     coins_.clear();
     princess_.reset();

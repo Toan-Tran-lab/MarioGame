@@ -1,6 +1,7 @@
 #include "BossBattleController.h"
 #include "Game_Objects/Derived_Objects/Playable_Characters/Player/Player.h"
 #include "Game_Objects/Derived_Objects/Enemies/Boss/SpecificBoss/DragonBoss/DragonBoss.h"
+#include "AudioManager/AudioManager.h"
 #include "Global/Global.h"
 #include <algorithm>
 #include <cmath>
@@ -60,6 +61,7 @@ void BossBattleController::Update(float dt, const std::vector<Player*>& activePl
             if (trigger) {
                 phase_ = BossBattlePhase::Intro;
                 phaseTimer_ = kIntroDuration;
+                AudioManager::PlayBGM(AudioKey::BGM_DRAGON_BOSS);
             }
             break;
         }
