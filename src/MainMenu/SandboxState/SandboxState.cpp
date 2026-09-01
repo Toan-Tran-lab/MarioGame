@@ -221,7 +221,7 @@ void SandboxState::Update(float deltaTime) {
                 }
                 if (k->IsActive() && k->GetState() == KoopaShellState::Sliding) {
                     for (auto& b : playtestBuzzyBeetles_) {
-                        if (b->IsActive() && !b->IsDefeated() && k->Overlaps(*b)) {
+                        if (b->IsActive() && k->Overlaps(*b)) {
                             k->InteractWith(*b);
                         }
                     }
@@ -238,7 +238,7 @@ void SandboxState::Update(float deltaTime) {
         for (auto& b : playtestBuzzyBeetles_) {
             if (b->IsActive()) {
                 b->Update(deltaTime);
-                if (!testPlayer_->IsDead() && !b->IsDefeated() && testPlayer_->Overlaps(*b)) {
+                if (!testPlayer_->IsDead() && testPlayer_->Overlaps(*b)) {
                     testPlayer_->InteractWith(*b);
                 }
             }

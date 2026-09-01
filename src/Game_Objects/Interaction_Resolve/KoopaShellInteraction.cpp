@@ -2,6 +2,8 @@
 #include "Game_Objects/Derived_Objects/Enemies/Goomba/Goomba.h"
 #include "Game_Objects/Derived_Objects/Enemies/KoopaShell/KoopaShell.h"
 #include "Game_Objects/Derived_Objects/Enemies/BuzzyBeetle/BuzzyBeetle.h"
+#include "Game_Objects/Derived_Objects/Enemies/Piranha/Piranha.h"
+#include "Game_Objects/Derived_Objects/Enemies/Bullet/Bullet.h"
 #include "Game_Objects/Derived_Objects/Enemies/Boss/BossEnemy/Boss.h"
 #include "Game_Objects/Derived_Objects/Playable_Characters/Player/Player.h"
 #include "Game_Objects/Derived_Objects/Items/Mushroom/Mushroom.h"
@@ -52,13 +54,24 @@ void ShellInteraction::Visit(Starman& s) {
 }
 
 void ShellInteraction::Visit(BuzzyBeetle& b) {
-    if (self.GetState() == KoopaShellState::Sliding && !b.IsDefeated()) {
-        b.Defeat();
-    }
+    // BuzzyBeetle is invincible — shell bounces off, no effect.
+    (void)b;
 }
 
 void ShellInteraction::Visit(Boss& b) {
     if (self.GetState() != KoopaShellState::Sliding || b.IsDead()) return;
     b.TakeDamage(b.GetShellDamage());
     self.SetActive(false);
+}
+
+void ShellInteraction::Visit(Piranha& p) {
+    if (self.GetState() == KoopaShellState::Sliding && p.IsExposedOrMoving()) {
+        p.SetActive(false);
+    }
+}
+
+void ShellInteraction::Visit(Bullet& b) {
+    if (self.GetState() == KoopaShellState::Sliding && b.IsActive()) {
+        b.SetActive(false);
+    }
 }

@@ -2,18 +2,39 @@
 #include "Game_Objects/Derived_Objects/Enemies/Ground_Enemy/GroundEnemy.h"
 #include "Animations/Animation.h"
 
-enum class BuzzyBeetleState { Alive, Dying };
+enum class BuzzyBeetleState {
+    CeilingPatrol,  // Walking upside-down on the ceiling
+    Dropping,       // Free-falling after detecting player below
+    Hiding,         // Briefly tucked into shell after landing
+    GroundPatrol    // Walking on the ground like a normal enemy
+};
 
 class BuzzyBeetle : public GroundEnemy {
 private:
-    BuzzyBeetleState state_ = BuzzyBeetleState::Alive;
-    float dyingTimer_ = 0.0f;
-    static constexpr float kDyingDuration = 0.6f; // slightly longer than Goomba's, to sell the flip
+    BuzzyBeetleState state_ = BuzzyBeetleState::CeilingPatrol;
 
-    // True once defeated by a shell. Drives the "on its back" draw state.
-    // Flip condition: ONLY a sliding-shell hit sets this — player stomps
-    // never do, since the beetle is immune to the player entirely.
-    bool flipped_ = false;
+    // Remember where we spawned so we can patrol the ceiling at that Y level.
+    Vector2 spawnPosition_ = {0.0f, 0.0f};
+    bool spawnRecorded_ = false;
+
+    // Hiding state
+    float hideTimer_ = 0.0f;
+    static constexpr float kHideTransitionDuration = 0.2f; // brief tuck-in visual
+
+    // Detection: drop when player is within this many pixels on X axis
+    static constexpr float kDropDetectionX = 16.0f * 3.0f; // 1 tile * GAME_SCALE
+
+    // Ceiling patrol speed (px/sec)
+    static constexpr float kCeilingSpeed = 60.0f;
+
+    // How many ceiling tiles ahead to check before reversing
+    void CeilingPatrolLogic(float dt);
+    void DroppingLogic(float dt);
+    void HidingLogic(float dt);
+
+protected:
+    void UpdateBehavior(float dt, physics::InputState& input) override;
+    void UpdateFacingAndAnim(float dt) override;
 
 public:
     BuzzyBeetle();
@@ -21,13 +42,11 @@ public:
 
     void TriggerUpsideDownDeath(bool hitFromLeft) override;
 
-    // Called only by ShellInteraction::Visit(BuzzyBeetle&) on a sliding-shell hit.
-    void Defeat();
-    bool IsDefeated() const { return state_ == BuzzyBeetleState::Dying; }
-    bool IsFlipped() const { return flipped_; }
+    BuzzyBeetleState GetBuzzyState() const { return state_; }
 
-    // Reserved for later: spikes/lava will call something like TakeHazardDamage()
-    // once the hazard system exists. Not implemented yet — noted, not forgotten.
+    // BuzzyBeetle is invincible — these are no-ops or bounce-only.
+    // Kept for interface compatibility.
+    bool IsInvincible() const { return true; }
 
     void AcceptInteract(CharacterVisitor& other) override;
     void Update(float dt) override;

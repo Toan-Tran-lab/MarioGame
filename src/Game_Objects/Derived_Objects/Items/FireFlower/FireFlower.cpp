@@ -21,7 +21,7 @@ void FireFlower::StartEmerging(float blockTopY) {
     SetActive(true);
 }
 
-void FireFlower::Update(float dt) {
+void FireFlower::Update(float dt) { 
     if (!IsActive()) return;
     if (isEmerging_) {
         position_.y -= kEmergeSpeed * dt;

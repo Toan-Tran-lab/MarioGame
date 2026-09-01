@@ -15,4 +15,6 @@ public:
     void Visit(Starman& s) override;
     void Visit(BuzzyBeetle& b) override;
     void Visit(Boss& b) override;
+    void Visit(Piranha& p) override;
+    void Visit(Bullet& b) override;
 };
