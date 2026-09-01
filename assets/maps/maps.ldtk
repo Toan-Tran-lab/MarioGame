@@ -5374,38 +5374,6 @@
 							"__worldY": 672
 						},
 						{
-							"__identifier": "BuzzyBeetle",
-							"__grid": [51,3],
-							"__pivot": [0,0],
-							"__tags": [],
-							"__tile": null,
-							"__smartColor": "#8B9BB4",
-							"iid": "384b4e70-96d0-11f1-bb83-dd90b409bd7d",
-							"width": 16,
-							"height": 16,
-							"defUid": 41,
-							"px": [816,48],
-							"fieldInstances": [],
-							"__worldX": 816,
-							"__worldY": 560
-						},
-						{
-							"__identifier": "BuzzyBeetle",
-							"__grid": [82,3],
-							"__pivot": [0,0],
-							"__tags": [],
-							"__tile": null,
-							"__smartColor": "#8B9BB4",
-							"iid": "3efdc8b0-96d0-11f1-bb83-65d8ddcf0bec",
-							"width": 16,
-							"height": 16,
-							"defUid": 41,
-							"px": [1312,48],
-							"fieldInstances": [],
-							"__worldX": 1312,
-							"__worldY": 560
-						},
-						{
 							"__identifier": "BulletLeft",
 							"__grid": [66,11],
 							"__pivot": [0,0],
