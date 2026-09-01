@@ -195,6 +195,7 @@ void GameplayState::Initialize() {
     TextureManager::Load("koopa_hide",     "assets/textures/Koopa/hide/enemies.png");
     TextureManager::Load("buzzy_walk",    "assets/textures/BuzzyBeetle/walk/enemies.png");
     TextureManager::Load("buzzy_hide",    "assets/textures/BuzzyBeetle/hide/enemies.png");
+    TextureManager::Load("piranha",       "assets/textures/Piranha/enemies.png");
     TextureManager::Load("coin", "assets/textures/coin/coin.png");
     TextureManager::Load("mushroom", "assets/textures/Items/items.png");
     TextureManager::Load("luckyblock", "assets/textures/Luckyblock/luckyblock.png");
@@ -226,6 +227,7 @@ void GameplayState::Initialize() {
     goombas_.clear();
     koopas_.clear();
     buzzyBeetles_.clear();
+    piranhas_.clear();
     dragonBoss_.reset();
     fireballs_.clear();
     coins_.clear();
@@ -299,6 +301,12 @@ void GameplayState::Initialize() {
                 b->SetPlayerBody(&player_->GetPhysicsBody());
                 b->SetCollisionGrid(&tileMap.GetBlockGrid());
                 buzzyBeetles_.push_back(std::move(b));
+            } else if (ent.id == "Piranha" || ent.id == "PiranhaPlant") {
+                auto p = std::make_unique<Piranha>();
+                Vector2 spawnPos = { ent.position.x + (float)tileMap.GetTileSize() / 2.0f, ent.position.y + 25 - tileMap.GetTileSize()};
+                p->SetPosition(spawnPos);
+                p->SetPlayerBody(&player_->GetPhysicsBody());
+                piranhas_.push_back(std::move(p));
             } else if (ent.id == "Coin") {
                 auto c_coin = std::make_unique<Coin>();
                 c_coin->SetPosition(ent.position);
@@ -518,6 +526,15 @@ void GameplayState::Update(float deltaTime) {
         }
     }
 
+    // Update Piranha Plants
+    for (auto& p : piranhas_) {
+        if (p->IsActive()) {
+            Player* target = GetTargetPlayer(p->GetPosition());
+            p->SetPlayerBody(target ? &target->GetPhysicsBody() : nullptr);
+            p->Update(deltaTime);
+        }
+    }
+
     if (dragonBoss_ && dragonBoss_->IsActive()) {
         dragonBoss_->SetPlayerRef(GetTargetPlayer(dragonBoss_->GetPosition()));
         dragonBoss_->Update(deltaTime);
@@ -675,6 +692,11 @@ void GameplayState::Update(float deltaTime) {
                 p->InteractWith(*b);
             }
         }
+        for (auto& pir : piranhas_) {
+            if (pir->IsActive() && p->Overlaps(*pir)) {
+                p->InteractWith(*pir);
+            }
+        }
         for (auto& m : mushrooms_) {
             if (m->IsActive() && p->Overlaps(*m)) {
                 p->InteractWith(*m);
@@ -770,6 +792,11 @@ void GameplayState::Update(float deltaTime) {
             for (auto& b : buzzyBeetles_) {
                 if (b->IsActive() && k->Overlaps(*b)) {
                     k->InteractWith(*b); // BuzzyBeetle is invincible — shell bounces off
+                }
+            }
+            for (auto& pir : piranhas_) {
+                if (pir->IsActive() && pir->IsExposedOrMoving() && k->Overlaps(*pir)) {
+                    k->InteractWith(*pir);
                 }
             }
         }
@@ -1070,6 +1097,11 @@ void GameplayState::Draw() {
             b->Draw();
         }
     }
+    for (auto& p : piranhas_) {
+        if (p->IsActive()) {
+            p->Draw();
+        }
+    }
     if (dragonBoss_ && dragonBoss_->IsActive()) {
         dragonBoss_->Draw();
     }
@@ -1139,6 +1171,7 @@ void GameplayState::Cleanup() {
     goombas_.clear();
     koopas_.clear();
     buzzyBeetles_.clear();
+    piranhas_.clear();
     dragonBoss_.reset();
     fireballs_.clear();
     coins_.clear();

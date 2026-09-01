@@ -6,6 +6,7 @@ class BuzzyBeetle;
 class Player;
 class Mushroom;
 class Boss;
+class Piranha;
 
 class CharacterVisitor {
 public:
@@ -16,4 +17,5 @@ public:
     virtual void Visit(Mushroom& m) = 0;
     virtual void Visit(BuzzyBeetle& b) = 0;
     virtual void Visit(Boss& b) = 0;
+    virtual void Visit(Piranha& p) = 0;
 };

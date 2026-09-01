@@ -9,6 +9,7 @@
 #include "Game_Objects/Derived_Objects/Enemies/Goomba/Goomba.h"
 #include "Game_Objects/Derived_Objects/Enemies/KoopaShell/KoopaShell.h"
 #include "Game_Objects/Derived_Objects/Enemies/BuzzyBeetle/BuzzyBeetle.h"
+#include "Game_Objects/Derived_Objects/Enemies/Piranha/Piranha.h"
 #include "Game_Objects/Derived_Objects/Enemies/Boss/SpecificBoss/DragonBoss/DragonBoss.h"
 #include "Game_Objects/Derived_Objects/Projectiles/Fireball/Fireball.h"
 #include "Game_Objects/Derived_Objects/Static_Objects/Princess/Princess.h"
@@ -35,6 +36,7 @@ private:
     std::vector<std::unique_ptr<Goomba>> goombas_;
     std::vector<std::unique_ptr<KoopaShell>> koopas_;
     std::vector<std::unique_ptr<BuzzyBeetle>> buzzyBeetles_;
+    std::vector<std::unique_ptr<Piranha>> piranhas_;
     std::unique_ptr<DragonBoss> dragonBoss_;
     std::vector<std::unique_ptr<Fireball>> fireballs_;
     std::vector<std::unique_ptr<Coin>> coins_;

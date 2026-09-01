@@ -15,4 +15,5 @@ public:
     void Visit(Mushroom& m) override;
     void Visit(BuzzyBeetle& b) override;
     void Visit(Boss& b) override;
+    void Visit(Piranha& p) override;
 };

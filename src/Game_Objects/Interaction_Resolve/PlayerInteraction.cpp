@@ -2,6 +2,7 @@
 #include "Game_Objects/Derived_Objects/Enemies/Goomba/Goomba.h"
 #include "Game_Objects/Derived_Objects/Enemies/KoopaShell/KoopaShell.h"
 #include "Game_Objects/Derived_Objects/Enemies/BuzzyBeetle/BuzzyBeetle.h"
+#include "Game_Objects/Derived_Objects/Enemies/Piranha/Piranha.h"
 #include "Game_Objects/Derived_Objects/Enemies/Boss/BossEnemy/Boss.h"
 #include "Game_Objects/Derived_Objects/Enemies/Boss/BossEnemy/BossState.h"
 #include "Game_Objects/Derived_Objects/Playable_Characters/Player/Player.h"
@@ -149,6 +150,12 @@ void PlayerInteraction::Visit(BuzzyBeetle& b) {
         // Side/bottom contact: regular enemy logic, player takes damage.
         self.TakeDamage();
     }
+}
+
+void PlayerInteraction::Visit(Piranha& p) {
+    if (!p.IsExposedOrMoving()) return;
+    // Touching a Piranha plant always damages the player (cannot be stomped)
+    self.TakeDamage();
 }
 
 void PlayerInteraction::Visit(Boss& b) {
