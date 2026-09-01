@@ -35,6 +35,7 @@ void AudioManager::LoadAll() {
     LoadSound(AudioKey::POWER_UP,       "assets/audio/power up/powerup.wav");
     LoadSound(AudioKey::POWERUP_APPEARS,"assets/audio/power-ups appear/powerup_appears.wav");
     LoadSound(AudioKey::DOWN_FLAG_POLE, "assets/audio/down the flag pole/down_the_flag_pole.wav");
+    LoadSound(AudioKey::LEVEL_COMPLETE, "assets/audio/level complete/level_complete.wav");
 
     TraceLog(LOG_INFO, "AudioManager: All SFX loaded");
 

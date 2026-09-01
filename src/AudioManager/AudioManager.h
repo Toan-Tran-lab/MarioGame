@@ -18,6 +18,7 @@ namespace AudioKey {
     inline constexpr const char* POWER_UP          = "power_up";
     inline constexpr const char* POWERUP_APPEARS   = "powerup_appears";
     inline constexpr const char* DOWN_FLAG_POLE    = "down_flag_pole";
+    inline constexpr const char* LEVEL_COMPLETE    = "level_complete";
 
     // BGM — one per level
     inline constexpr const char* BGM_LEVEL_1       = "bgm_level_1";  // Grassland
