@@ -10,7 +10,7 @@ namespace {
 static Animation s_bossIdleAnim("boss_idle", 46, 40, 0, 1, {0.2f});
 static Animation s_bossWalkAnim("boss_walk", 56, 40, 0, 4, {0.28f, 0.28f, 0.28f, 0.28f});
 static Animation s_bossJumpWindupAnim("boss_jump", 40, 40, 0, 1, {0.35f});
-static Animation s_bossJumpAirAnim("boss_jump", 40, 40, 1, 1, {0.2f});
+static Animation s_bossJumpAirAnim("boss_jump", 42, 40, 1, 1, {0.2f});
 static Animation s_bossFireAnim("boss_doFire", 55, 42, 0, 7, {0.18f, 0.18f, 0.18f, 0.18f, 0.45f, 0.18f, 0.80f});
 static Animation s_bossScreamAnim("boss_scream", 50, 42, 0, 4, {0.38f, 0.38f, 0.42f, 0.42f});
 static Animation s_bossIntroRoarAnim("boss_scream", 50, 42, 0, 2, {0.30f, 0.30f});
